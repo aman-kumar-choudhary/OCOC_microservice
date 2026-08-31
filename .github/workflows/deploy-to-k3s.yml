@@ -1,0 +1,109 @@
+name: Render and Bundle Manifests
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (e.g. latest, v1.0.0, sha-abc1234)'
+        required: true
+        default: 'latest'
+      enable_gpu:
+        description: 'Enable GPU resource requests (nvidia.com/gpu: 1)'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (e.g. latest, v1.0.0, sha-abc1234)'
+        required: true
+        type: string
+        default: 'latest'
+      enable_gpu:
+        description: 'Enable GPU resource requests (nvidia.com/gpu: 1)'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: innovions-antlix/freco
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Render manifests ────────────────────────────────────────────────────
+      - name: Render manifests
+        env:
+          IMAGE_TAG:  ${{ inputs.image_tag }}
+          REGISTRY:   ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          ENABLE_GPU: ${{ inputs.enable_gpu }}
+        run: |
+          mkdir -p rendered
+
+          # Copy static manifests and secrets
+          cp deploy/namespace.yml rendered/namespace.yml
+          cp deploy/configmap.yml rendered/configmap.yml
+          cp deploy/service.yml rendered/service.yml
+          cp deploy/ghcr-pull-secret.yml rendered/ghcr-pull-secret.yml
+
+          # Set GPU resource variables based on enable_gpu flag
+          if [ "${ENABLE_GPU:-true}" != "false" ]; then
+            export GPU_RESOURCE_REQUEST='nvidia.com/gpu: "1"'
+            export GPU_RESOURCE_LIMIT='nvidia.com/gpu: "1"'
+          else
+            export GPU_RESOURCE_REQUEST=''
+            export GPU_RESOURCE_LIMIT=''
+          fi
+
+          # Substitute registry/image tag/gpu variables in deployment.yml
+          envsubst '${REGISTRY} ${IMAGE_NAME} ${IMAGE_TAG} ${GPU_RESOURCE_REQUEST} ${GPU_RESOURCE_LIMIT}' \
+            < deploy/deployment.yml > rendered/deployment.yml
+
+          # Clean up empty lines from omitted GPU resources
+          sed -i '/^[[:space:]]*$/d' rendered/deployment.yml
+
+          echo "Manifests rendered for image=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} (GPU=${ENABLE_GPU:-true})"
+
+      # ── Write manifests to job summary ──────────────────────────────────────
+      - name: Write manifests to job summary
+        run: |
+          {
+            echo "# k3s Manifests — \`${{ inputs.image_tag }}\`"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Image** | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}\` |"
+            echo "| **Namespace** | \`freco\` |"
+            echo ""
+            echo "## 🚀 Deployment Instructions"
+            echo "1. Download the **k8s-manifests** artifact zip file at the bottom of this run."
+            echo "2. Unzip it and edit the **\`ghcr-pull-secret.yml\`** file to set your GitHub Username and Personal Access Token (PAT)."
+            echo "3. Apply all manifests to the cluster:"
+            echo "   \`\`\`bash"
+            echo "   kubectl apply -f rendered/"
+            echo "   \`\`\`"
+            echo ""
+
+            for f in rendered/namespace.yml rendered/ghcr-pull-secret.yml rendered/configmap.yml rendered/service.yml rendered/deployment.yml; do
+              echo "---"
+              echo "## \`$(basename $f)\`"
+              echo '```yaml'
+              cat "$f"
+              echo '```'
+              echo ""
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Upload artifact ─────────────────────────────────────────────────────
+      - name: Upload rendered manifests as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-manifests-${{ inputs.image_tag }}
+          path: rendered/
+          retention-days: 30

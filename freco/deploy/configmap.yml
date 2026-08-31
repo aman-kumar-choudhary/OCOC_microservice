@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freco-config
+  namespace: freco
+data:
+  INFERENCE_DEVICE: "auto"
+  DETECTION_CTX_ID: "0"
+  COSINE_SIMILARITY_THRESHOLD: "0.55"
+  FACE_VISIBILITY_THRESHOLD: "0.80"
+  LIVENESS_THRESHOLD: "0.85"

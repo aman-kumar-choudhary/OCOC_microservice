@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freco
+  namespace: freco
+  labels:
+    app: freco
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: freco
+  template:
+    metadata:
+      labels:
+        app: freco
+    spec:
+      imagePullSecrets:
+      - name: ghcr-pull-secret
+      containers:
+      - name: freco
+        image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: freco-config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+            ${GPU_RESOURCE_REQUEST}
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+            ${GPU_RESOURCE_LIMIT}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 20

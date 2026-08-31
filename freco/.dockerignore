@@ -1,0 +1,10 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.DS_Store
+models/
+test_images/
+tests/

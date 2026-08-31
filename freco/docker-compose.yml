@@ -1,0 +1,21 @@
+services:
+  freco:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: freco:latest
+    container_name: freco
+    ports:
+      - "8000:8000"
+    environment:
+      - INFERENCE_DEVICE=auto
+      - DETECTION_CTX_ID=0
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
