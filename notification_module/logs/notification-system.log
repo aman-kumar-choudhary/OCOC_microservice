@@ -1,0 +1,76 @@
+2026/08/31 17:34:25.178645 logging.go:23: file logging enabled path=logs/notification-system.log
+2026/08/31 17:34:25.178749 main.go:331: WhatsApp configuration provider=meta api_version=v25.0 message_type=template template=hello_world template_includes_message=false phone_number_id_configured=true phone_number_id_numeric=true token_configured=true token_source=WHATSAPP_CLOUD_API_TOKEN
+2026/08/31 17:34:25.285140 main.go:348: PostgreSQL persistence enabled
+2026/08/31 17:34:25.631771 rabbitmq.go:102: RabbitMQ connected exchange=notification.exchange email_queue=email.queue whatsapp_queue=whatsapp.queue
+2026/08/31 17:34:33.419144 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:34:33.419277 service.go:492: Notification queued delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp
+2026/08/31 17:34:33.420791 service.go:312: Notification created notification_id=NTF-001 sender_id=admin_001 recipients=1 deliveries=1 successful=0 failed=0
+2026/08/31 17:34:33.450934 service.go:554: RabbitMQ message consumed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=1
+2026/08/31 17:34:33.955616 service.go:654: Notification send failed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=1 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"Aw1M-OQK6iHBwUYVobkl0WE"}}
+2026/08/31 17:34:38.961930 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:34:38.962084 service.go:673: Notification retry delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp next_attempt=2
+2026/08/31 17:34:38.963993 service.go:554: RabbitMQ message consumed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=2
+2026/08/31 17:34:39.284663 service.go:654: Notification send failed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=2 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"AM7rzWkWjaZh73642hPyljJ"}}
+2026/08/31 17:34:49.287855 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:34:49.288055 service.go:673: Notification retry delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp next_attempt=3
+2026/08/31 17:34:49.291893 service.go:554: RabbitMQ message consumed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=3
+2026/08/31 17:34:50.049579 rabbitmq.go:177: Notification moved to DLQ delivery_id=DEL-001 channel=whatsapp
+2026/08/31 17:34:50.049664 service.go:681: Notification failed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempts=3 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"A7tA5taliCMoyL8zdvaSsTa"}}
+2026/08/31 17:37:14.541446 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:14.541697 service.go:492: Notification queued delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp
+2026/08/31 17:37:14.542188 service.go:312: Notification created notification_id=NTF-002 sender_id=user_0001 recipients=1 deliveries=1 successful=0 failed=0
+2026/08/31 17:37:14.623082 service.go:554: RabbitMQ message consumed delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp attempt=1
+2026/08/31 17:37:15.593595 service.go:654: Notification send failed delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp attempt=1 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"A5bBualsnol0tIX7ls6m0-B"}}
+2026/08/31 17:37:20.595513 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:20.595707 service.go:673: Notification retry delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp next_attempt=2
+2026/08/31 17:37:20.597911 service.go:554: RabbitMQ message consumed delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp attempt=2
+2026/08/31 17:37:20.893477 service.go:654: Notification send failed delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp attempt=2 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"Aa3-5ILlLQK6DrLr3yeySmG"}}
+2026/08/31 17:37:24.573389 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:24.573480 service.go:492: Notification queued delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp
+2026/08/31 17:37:24.574074 service.go:312: Notification created notification_id=NTF-003 sender_id=user_0001 recipients=1 deliveries=1 successful=0 failed=0
+2026/08/31 17:37:24.574375 service.go:554: RabbitMQ message consumed delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp attempt=1
+2026/08/31 17:37:24.875940 service.go:654: Notification send failed delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp attempt=1 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"AlbTyX3ScWLDn0vtf-Lwcrs"}}
+2026/08/31 17:37:29.881525 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:29.881593 service.go:673: Notification retry delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp next_attempt=2
+2026/08/31 17:37:29.882804 service.go:554: RabbitMQ message consumed delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp attempt=2
+2026/08/31 17:37:30.174194 service.go:654: Notification send failed delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp attempt=2 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"AOr2QClz3uPmu7v9K7rBmIJ"}}
+2026/08/31 17:37:30.896740 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:30.896904 service.go:673: Notification retry delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp next_attempt=3
+2026/08/31 17:37:30.897935 service.go:554: RabbitMQ message consumed delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp attempt=3
+2026/08/31 17:37:31.215430 rabbitmq.go:177: Notification moved to DLQ delivery_id=DEL-002 channel=whatsapp
+2026/08/31 17:37:31.215582 service.go:681: Notification failed delivery_id=DEL-002 notification_id=NTF-002 channel=whatsapp attempts=3 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"Ap1LKQSwiad5Kh8WGYoul-H"}}
+2026/08/31 17:37:40.179725 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:40.179902 service.go:673: Notification retry delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp next_attempt=3
+2026/08/31 17:37:40.182178 service.go:554: RabbitMQ message consumed delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp attempt=3
+2026/08/31 17:37:40.526206 rabbitmq.go:177: Notification moved to DLQ delivery_id=DEL-003 channel=whatsapp
+2026/08/31 17:37:40.526274 service.go:681: Notification failed delivery_id=DEL-003 notification_id=NTF-003 channel=whatsapp attempts=3 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"AZEsN5nI3KxlE0A1FzHB9Ft"}}
+2026/08/31 17:37:52.455314 logging.go:23: file logging enabled path=logs/notification-system.log
+2026/08/31 17:37:52.456714 main.go:331: WhatsApp configuration provider=meta api_version=v25.0 message_type=template template=hello_world template_includes_message=false phone_number_id_configured=true phone_number_id_numeric=true token_configured=true token_source=WHATSAPP_CLOUD_API_TOKEN
+2026/08/31 17:37:52.485077 main.go:348: PostgreSQL persistence enabled
+2026/08/31 17:37:52.544889 rabbitmq.go:102: RabbitMQ connected exchange=notification.exchange email_queue=email.queue whatsapp_queue=whatsapp.queue
+2026/08/31 17:37:56.410934 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:37:56.411249 service.go:492: Notification queued delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp
+2026/08/31 17:37:56.412191 service.go:312: Notification created notification_id=NTF-001 sender_id=user_0001 recipients=1 deliveries=1 successful=0 failed=0
+2026/08/31 17:37:56.413548 service.go:554: RabbitMQ message consumed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=1
+2026/08/31 17:37:56.865471 service.go:654: Notification send failed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=1 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"A0AUyDdfQEAAH2QVkZNcJoK"}}
+2026/08/31 17:38:01.870804 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:38:01.870973 service.go:673: Notification retry delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp next_attempt=2
+2026/08/31 17:38:01.873192 service.go:554: RabbitMQ message consumed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=2
+2026/08/31 17:38:02.158268 service.go:654: Notification send failed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=2 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"AmlR74kV6Mmf58wC7ZhODXx"}}
+2026/08/31 17:38:12.163665 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp routing_key=notification.whatsapp
+2026/08/31 17:38:12.163843 service.go:673: Notification retry delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp next_attempt=3
+2026/08/31 17:38:12.165556 service.go:554: RabbitMQ message consumed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempt=3
+2026/08/31 17:38:12.476237 rabbitmq.go:177: Notification moved to DLQ delivery_id=DEL-001 channel=whatsapp
+2026/08/31 17:38:12.476287 service.go:681: Notification failed delivery_id=DEL-001 notification_id=NTF-001 channel=whatsapp attempts=3 error=Meta WhatsApp Cloud API authentication failed (status 401): check WHATSAPP_CLOUD_API_TOKEN is a current Meta access token for phone_number_id 1251651904702106, then restart the server. Response: {"error":{"message":"Authentication Error","code":190,"type":"OAuthException","fbtrace_id":"AiriFmzfyNQcCDNv2yL5dhJ"}}
+2026/08/31 17:38:59.116371 service.go:409: Skipping WhatsApp mirror delivery user_id=user_001 reason=missing_or_invalid_phone
+2026/08/31 17:38:59.118687 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-002 notification_id=NTF-002 channel=email routing_key=notification.email
+2026/08/31 17:38:59.118761 service.go:492: Notification queued delivery_id=DEL-002 notification_id=NTF-002 channel=email
+2026/08/31 17:38:59.119463 service.go:312: Notification created notification_id=NTF-002 sender_id=admin_001 recipients=1 deliveries=1 successful=0 failed=0
+2026/08/31 17:38:59.121200 service.go:554: RabbitMQ message consumed delivery_id=DEL-002 notification_id=NTF-002 channel=email attempt=1
+2026/08/31 17:39:03.961893 service.go:693: Notification sent delivery_id=DEL-002 notification_id=NTF-002 channel=email attempt=1
+2026/08/31 17:39:13.124726 service.go:409: Skipping WhatsApp mirror delivery user_id=user_001 reason=missing_or_invalid_phone
+2026/08/31 17:39:13.131897 rabbitmq.go:203: RabbitMQ message published delivery_id=DEL-003 notification_id=NTF-003 channel=email routing_key=notification.email
+2026/08/31 17:39:13.131989 service.go:492: Notification queued delivery_id=DEL-003 notification_id=NTF-003 channel=email
+2026/08/31 17:39:13.132685 service.go:312: Notification created notification_id=NTF-003 sender_id=admin_001 recipients=1 deliveries=1 successful=0 failed=0
+2026/08/31 17:39:13.133044 service.go:554: RabbitMQ message consumed delivery_id=DEL-003 notification_id=NTF-003 channel=email attempt=1
+2026/08/31 17:39:17.666820 service.go:693: Notification sent delivery_id=DEL-003 notification_id=NTF-003 channel=email attempt=1
