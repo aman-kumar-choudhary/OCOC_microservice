@@ -13,7 +13,11 @@ from app.ml.model_manager import ModelManager
 from app.ml.face_detector import MultipleFacesDetectedError, NoFaceDetectedError
 from app.ml.pipeline import FacePipeline, LivenessRejected
 from app.ml.runtime import get_inference_runtime
-from app.schemas import EmbeddingExtractionResponse, MatchResponse, StoredEmbeddings
+from app.schemas import (
+    EmbeddingExtractionResponse, FaceEmbeddingResult, MatchResponse,
+    MultiEmbeddingExtractionResponse, MultiMatchFaceResponse, MultiMatchResponse,
+    StoredEmbeddings,
+)
 from app.utils.image_utils import InvalidImageError, decode_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -145,6 +149,31 @@ async def get_image_embeddings(request: Request, image: UploadFile = File(...)):
     )
 
 
+@app.post("/get_images", response_model=MultiEmbeddingExtractionResponse)
+@app.post("/api/v1/auth/get_images", response_model=MultiEmbeddingExtractionResponse)
+async def get_all_image_embeddings(request: Request, image: UploadFile = File(...)):
+    """Detect and embed every face in a group photo; no data is stored."""
+    started = time.perf_counter()
+    image_bgr = await read_image(image)
+    try:
+        faces, timings, models = await run_in_threadpool(
+            request.app.state.pipeline.extract_embeddings_for_all_faces, image_bgr
+        )
+    except NoFaceDetectedError as exc:
+        raise face_error(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return MultiEmbeddingExtractionResponse(
+        faces_detected=len(faces),
+        faces=[FaceEmbeddingResult(
+            bbox=face.bbox.astype(float).tolist(), detection_score=face.detection_score,
+            embeddings={name: vector.astype(float).tolist() for name, vector in face.embeddings.items()},
+        ) for face in faces],
+        models={name: models[name] for name in ("detection", "recognition")},
+        latency_ms=round((time.perf_counter() - started) * 1000, 2), step_latencies_ms=timings,
+    )
+
+
 @app.post("/match", response_model=MatchResponse)
 @app.post("/api/v1/auth/match", response_model=MatchResponse)
 async def match(
@@ -196,69 +225,31 @@ async def match(
     )
 
 
-
-
-@router.get("/{student_id}/image")
-async def student_image(student_id: str):
-    from fastapi.responses import FileResponse
-    from pathlib import Path
-    directory = Path(__import__("app.config", fromlist=["settings"]).settings.STUDENT_IMAGE_DIR)
-    candidates = sorted(path for path in directory.glob(f"{student_id}_*.jpg") if not path.name.endswith("_gray.jpg"))
-    if not candidates:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Student image not found")
-    return FileResponse(candidates[0], media_type="image/jpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"})
-
-
-@router.get("/{student_id}", response_model=StudentDetailResponse)
-async def get_student(student_id: str, db: AsyncSession = Depends(get_db_session)):
-    student = (await db.execute(select(Student).where(Student.student_id == student_id))).scalar_one_or_none()
-    if student is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Student not found")
-    return StudentDetailResponse(student_id=student.student_id, name=student.name, roll_number=student.roll_number, email=student.email)
-
-
-@router.put("/{student_id}/face", response_model=StudentFaceUpdateResponse)
-async def update_student_face(student_id: str, payload: StudentFaceUpdateRequest, request: Request, db: AsyncSession = Depends(get_db_session)):
+@app.post("/match/all", response_model=MultiMatchResponse)
+@app.post("/api/v1/auth/match/all", response_model=MultiMatchResponse)
+async def match_all(
+    request: Request, image: UploadFile = File(...), candidate_embeddings: str = Form(...),
+):
+    """Recognize every face in a group photo against caller-owned embeddings."""
     started = time.perf_counter()
-    student = (await db.execute(select(Student).where(Student.student_id == student_id))).scalar_one_or_none()
-    if student is None: raise HTTPException(status.HTTP_404_NOT_FOUND, "Student not found")
-    raw_images = payload.face_images or ({"center": payload.image_base64} if payload.image_base64 else None)
-    if not raw_images: raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Supply image_base64 or face_images")
-    required_poses = {"center", "right", "left", "chin_up", "head_down"}
-    if set(raw_images) != required_poses:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Face replacement requires five new poses: center, right, left, chin_up, head_down")
+    image_bgr = await read_image(image)
+    candidates = parse_candidate_embeddings(candidate_embeddings)
     try:
-        images = {pose: decode_base64_image(raw) for pose, raw in raw_images.items()}
-    except InvalidImageError as exc: raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
-    try:
-        # A replacement is a full five-pose enrollment, not an authentication
-        # attempt.  The authentication visibility/liveness gate is frontal-only
-        # and rejects legitimate left/right/chin poses by design. Keep update
-        # validation identical to initial registration so these captures can be
-        # safely replaced as one set.
-        processed = {pose: await run_in_threadpool(request.app.state.pipeline.process_for_registration, image) for pose, image in images.items()}
-    except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
+        faces, timings, models = await run_in_threadpool(
+            request.app.state.pipeline.match_all_against_embeddings, image_bgr, candidates
+        )
+    except NoFaceDetectedError as exc:
+        raise face_error(exc) from exc
+    except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-    model = next(iter(processed.values())).models["recognition"]
-    store = get_vector_store(model)
-    old_embeddings = store.embeddings_for_student(student_id)
-    replacement = ImageReplacement(student_id, images)
-    try:
-        replacement.prepare()
-        embeddings = {f"{pose}_{variant}": vector for pose, result in processed.items() for variant, vector in result.embeddings.items()}
-        store.replace_embeddings(student_id, embeddings)
-        student.embedding_quality_score = sum(result.quality_score for result in processed.values()) / len(processed)
-        replacement.commit()
-        await db.commit()
-        replacement.finalize()
-    except Exception as exc:
-        await db.rollback()
-        replacement.rollback()
-        if old_embeddings: store.replace_embeddings(student_id, old_embeddings)
-        else: store.remove(student_id)
-        logger.exception("student_face_update_failed", extra={"event": "student_face_update_failed", "student_id": student_id})
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Could not update student face; previous enrollment was restored") from exc
-    similarity = max((score for vector in embeddings.values() for sid, score in store.search(vector, 1) if sid == student_id), default=None)
-    return StudentFaceUpdateResponse(success=True, student_id=student_id, embedding_updated=True, image_updated=True,
-        similarity_check=round(similarity, 4) if similarity is not None else None, latency_ms=round((time.perf_counter()-started)*1000, 2))
-
+    return MultiMatchResponse(
+        faces_detected=len(faces), candidate_count=candidate_count(candidates),
+        faces=[MultiMatchFaceResponse(
+            bbox=face.bbox.astype(float).tolist(), detection_score=face.detection_score,
+            matched=face.matched, similarity_score=round(face.similarity_score, 4),
+            best_match_variant=face.best_match_variant, best_match_index=face.best_match_index,
+            liveness_score=face.liveness_score, reason=face.reason,
+        ) for face in faces],
+        models=models, latency_ms=round((time.perf_counter() - started) * 1000, 2),
+        step_latencies_ms=timings,
+    )
