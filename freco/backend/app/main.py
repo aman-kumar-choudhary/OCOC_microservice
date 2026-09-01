@@ -149,8 +149,8 @@ async def get_image_embeddings(request: Request, image: UploadFile = File(...)):
     )
 
 
-@app.post("/get_images", response_model=MultiEmbeddingExtractionResponse)
-@app.post("/api/v1/auth/get_images", response_model=MultiEmbeddingExtractionResponse)
+@app.post("/get_mass_images", response_model=MultiEmbeddingExtractionResponse)
+@app.post("/api/v1/auth/get_mass_images", response_model=MultiEmbeddingExtractionResponse)
 async def get_all_image_embeddings(request: Request, image: UploadFile = File(...)):
     """Detect and embed every face in a group photo; no data is stored."""
     started = time.perf_counter()
@@ -225,8 +225,8 @@ async def match(
     )
 
 
-@app.post("/match/all", response_model=MultiMatchResponse)
-@app.post("/api/v1/auth/match/all", response_model=MultiMatchResponse)
+@app.post("/mass_match/all", response_model=MultiMatchResponse)
+@app.post("/api/v1/auth/mass_match/all", response_model=MultiMatchResponse)
 async def match_all(
     request: Request, image: UploadFile = File(...), candidate_embeddings: str = Form(...),
 ):

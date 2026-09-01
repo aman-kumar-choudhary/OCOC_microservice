@@ -115,8 +115,6 @@ class FacePipeline:
         timings["detection"] = measurement.latency_ms or 0.0
         if not faces:
             raise NoFaceDetectedError("No face detected in frame")
-        if len(faces) > settings.MAX_MULTI_FACES:
-            raise ValueError(f"Too many faces in image; maximum is {settings.MAX_MULTI_FACES}")
 
         started = time.perf_counter()
         results = [self._embed_detected_face(image_bgr, face, models) for face in faces]
@@ -135,8 +133,6 @@ class FacePipeline:
         timings["detection"] = measurement.latency_ms or 0.0
         if not faces:
             raise NoFaceDetectedError("No face detected in frame")
-        if len(faces) > settings.MAX_MULTI_FACES:
-            raise ValueError(f"Too many faces in image; maximum is {settings.MAX_MULTI_FACES}")
 
         results: list[FaceMatch] = []
         liveness_ms = 0.0

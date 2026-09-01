@@ -55,13 +55,15 @@ curl -X POST http://localhost:8000/match/all \
   -F 'candidate_embeddings={"grayscale":[[...512 numbers...]]}'
 ```
 
-The group endpoints allow up to 300 detected faces per image by default (`MAX_MULTI_FACES`). `/api/v1/auth/get_images` and `/api/v1/auth/match/all` are aliases.
+The group endpoints process every detected face in the uploaded image; there is no application-level detected-face-count limit. `/api/v1/auth/get_images` and `/api/v1/auth/match/all` are aliases.
 
 ## Setup
 
 1. Install dependencies: `pip install -r requirements.txt`
 2. Add the liveness models at `models/liveness/MiniFASNetV2.onnx` and `models/liveness/MiniFASNetV1SE.onnx`.
 3. Add the InsightFace `antelopev2` pack at `models/antelopev2/`.
-4. Start the service: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+4. Start the service from the `backend` directory: `uvicorn main:app --reload`
+
+   `uvicorn app.main:app --reload` is equivalent and remains the command used by Docker.
 
 No PostgreSQL or pgvector setup is required.

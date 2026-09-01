@@ -134,11 +134,27 @@ async def mark_rfid_attendance(session_id: UUID, rfid_uid: str = Form(...), db: 
     return await _record_once(db, session_id, person, "rfid", None)
 
 
-async def _best_person(db: AsyncSession, embeddings: dict[str, np.ndarray]) -> tuple[Person | None, float | None]:
+async def _best_person(
+    db: AsyncSession,
+    embeddings: dict[str, np.ndarray],
+    *,
+    only_person_ids: set[UUID] | None = None,
+    exclude_person_ids: set[UUID] | None = None,
+) -> tuple[Person | None, float | None]:
+    """Find the best active person, optionally within or outside a known set."""
     best: tuple[Person, float] | None = None
     for variant, vector in embeddings.items():
         distance = FaceEmbedding.embedding.cosine_distance(vector.astype(float).tolist()).label("distance")
-        row = (await db.execute(select(Person, distance).join(FaceEmbedding).where(Person.active.is_(True), FaceEmbedding.variant == variant).order_by(distance).limit(1))).first()
+        query = select(Person, distance).join(FaceEmbedding).where(
+            Person.active.is_(True), FaceEmbedding.variant == variant
+        )
+        if only_person_ids is not None:
+            if not only_person_ids:
+                return None, None
+            query = query.where(Person.id.in_(only_person_ids))
+        if exclude_person_ids:
+            query = query.where(Person.id.not_in(exclude_person_ids))
+        row = (await db.execute(query.order_by(distance).limit(1))).first()
         if row:
             person, value = row
             score = 1.0 - float(value)
@@ -154,14 +170,32 @@ async def mark_mass_attendance(session_id: UUID, request: Request, image: Upload
     started = time.perf_counter()
     image_bgr = await _read_upload(image)
     detections, timings, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings_for_all_faces, image_bgr)
-    if len(detections) > settings.MAX_MASS_FACES: raise HTTPException(422, "Too many faces in one frame")
+
+    # A person may appear more than once in a photo or in consecutive camera
+    # frames.  Check the people already marked in this session first, then do
+    # not include them in the authentication search for new faces.
+    recorded_person_ids = set((await db.execute(
+        select(AttendanceRecord.person_id).where(AttendanceRecord.session_id == session_id)
+    )).scalars())
     results: list[MassFaceResult] = []
     for bbox, det_score, embeddings in detections:
-        person, score = await _best_person(db, embeddings)
+        already_recorded, recorded_score = await _best_person(
+            db, embeddings, only_person_ids=recorded_person_ids
+        )
+        if already_recorded is not None:
+            results.append(MassFaceResult(
+                bbox=bbox.astype(float).tolist(), detection_score=det_score,
+                external_id=already_recorded.external_id, name=already_recorded.name,
+                similarity_score=recorded_score, status="already_recorded",
+            ))
+            continue
+
+        person, score = await _best_person(db, embeddings, exclude_person_ids=recorded_person_ids)
         if person is None:
             results.append(MassFaceResult(bbox=bbox.astype(float).tolist(), detection_score=det_score, similarity_score=score, status="unknown"))
             continue
         recorded = await _record_once(db, session_id, person, "mass", score)
+        recorded_person_ids.add(person.id)
         results.append(MassFaceResult(bbox=bbox.astype(float).tolist(), detection_score=det_score, external_id=person.external_id, name=person.name, similarity_score=score, status=recorded.status))
     return MassAttendanceResponse(session_id=session_id, faces_detected=len(detections), results=results,
                                   latency_ms=round((time.perf_counter()-started)*1000, 2), step_latencies_ms=timings)
