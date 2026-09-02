@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: ococ_users
       POSTGRES_USER: ococ
-      POSTGRES_PASSWORD: ococ_secret
+      POSTGRES_PASSWORD: root
     ports:
       - "5433:5432"
     volumes:
@@ -61,7 +61,7 @@ services:
       - "8080:8080"
     environment:
       SERVER_ADDR: "0.0.0.0:8080"
-      DATABASE_URL: "postgres://ococ:ococ_secret@postgres:5432/ococ_users?sslmode=disable"
+      DATABASE_URL: "postgres://ococ:root@postgres:5432/ococ_users?sslmode=disable"
       REDIS_URL: "redis://redis:6379/0"
       KEYCLOAK_URL: "http://keycloak:8180"
       KEYCLOAK_REALM: "ococ"

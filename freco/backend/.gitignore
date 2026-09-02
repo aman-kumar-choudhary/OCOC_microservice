@@ -9,12 +9,12 @@ __pycache__/
 Thumbs.db
 
 # Virtual Environments
-venv/
-env/
-.venv/
+!venv/
+!env/
+!.venv/
 
 # Local configuration
-.env
+!.env
 
 # Project specific directories
 models/

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,13 @@ import (
 	"os"
 	"strings"
 	"time"
+)
+
+// These errors allow HTTP handlers to distinguish an invalid password from an
+// account that must finish an interactive Keycloak action first.
+var (
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	ErrAccountSetupRequired = errors.New("account setup required")
 )
 
 // Client is the Keycloak Admin REST API client.
@@ -63,6 +71,11 @@ type TokenResponse struct {
 	ExpiresIn        int    `json:"expires_in"`
 	RefreshExpiresIn int    `json:"refresh_expires_in"`
 	TokenType        string `json:"token_type"`
+}
+
+type tokenErrorResponse struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
 }
 
 // adminToken obtains an admin access token via Resource Owner Password Credentials.
@@ -122,11 +135,17 @@ func (c *Client) UserLogin(ctx context.Context, username, password string) (*Tok
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("invalid credentials")
-	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		var tokenErr tokenErrorResponse
+		if json.Unmarshal(body, &tokenErr) == nil {
+			if strings.EqualFold(tokenErr.ErrorDescription, "Account is not fully set up") {
+				return nil, fmt.Errorf("%w: %s", ErrAccountSetupRequired, tokenErr.ErrorDescription)
+			}
+		}
+		if resp.StatusCode == http.StatusUnauthorized {
+			return nil, ErrInvalidCredentials
+		}
 		return nil, fmt.Errorf("keycloak login %d: %s", resp.StatusCode, body)
 	}
 

@@ -2,7 +2,10 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+
+	"github.com/ococ/user-management/internal/infrastructure/keycloak"
 )
 
 // Handler exposes auth endpoints.
@@ -24,8 +27,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.svc.Login(r.Context(), req)
 	if err != nil {
-		if err.Error() == "invalid credentials" {
+		if errors.Is(err, keycloak.ErrInvalidCredentials) {
 			writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid username or password")
+			return
+		}
+		if errors.Is(err, keycloak.ErrAccountSetupRequired) {
+			writeError(w, http.StatusForbidden, "ACCOUNT_SETUP_REQUIRED", "complete the required Keycloak account action before signing in")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "LOGIN_FAILED", "login failed")

@@ -26,12 +26,12 @@ type RFIDRevoker interface {
 
 // Service handles user business logic.
 type Service struct {
-	repo   Repository
-	kc     *keycloak.Client
-	redis  *redis.Client
-	audit  AuditLogger
-	rfid   RFIDRevoker
-	db     *sql.DB
+	repo  Repository
+	kc    *keycloak.Client
+	redis *redis.Client
+	audit AuditLogger
+	rfid  RFIDRevoker
+	db    *sql.DB
 }
 
 // NewService creates a user service.
@@ -93,7 +93,10 @@ func (s *Service) Create(ctx context.Context, actorID string, req CreateUserRequ
 		LastName:  lastName,
 		Enabled:   true,
 		Credentials: []keycloak.KCCredential{{
-			Type: "password", Value: req.Password, Temporary: true,
+			// Login uses the OAuth password grant, which cannot complete Keycloak's
+			// UPDATE_PASSWORD required action. A temporary password would therefore
+			// make every newly provisioned account unable to log in.
+			Type: "password", Value: req.Password, Temporary: false,
 		}},
 		Attributes: map[string][]string{
 			"user_type": {string(req.UserType)},
@@ -250,19 +253,19 @@ func (s *Service) GetKeycloakIDByEmail(ctx context.Context, email string) (strin
 
 // BulkImportResult summarises a CSV import operation.
 type BulkImportResult struct {
-	TotalRows   int           `json:"total_rows"`
-	ValidRows   int           `json:"valid_rows"`
-	InvalidRows int           `json:"invalid_rows"`
-	CreatedRows int           `json:"created_rows"`
-	FailedRows  int           `json:"failed_rows"`
-	Errors      []RowError    `json:"errors"`
+	TotalRows   int        `json:"total_rows"`
+	ValidRows   int        `json:"valid_rows"`
+	InvalidRows int        `json:"invalid_rows"`
+	CreatedRows int        `json:"created_rows"`
+	FailedRows  int        `json:"failed_rows"`
+	Errors      []RowError `json:"errors"`
 }
 
 // RowError describes a validation error on a specific CSV row.
 type RowError struct {
-	Row    int    `json:"row"`
-	Field  string `json:"field"`
-	Error  string `json:"error"`
+	Row   int    `json:"row"`
+	Field string `json:"field"`
+	Error string `json:"error"`
 }
 
 // CSVImport validates and imports users from CSV bytes.
