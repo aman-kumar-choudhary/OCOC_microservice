@@ -102,11 +102,11 @@ function resetForm() {
     <!-- Progress Steps -->
     <div class="flex items-center justify-between mb-8 relative before:absolute before:inset-0 before:top-1/2 before:-translate-y-1/2 before:h-0.5 before:bg-[var(--border-light)] before:-z-10 z-0">
       <div :class="['flex flex-col items-center gap-2 bg-[var(--bg-main)] px-4', step >= 1 ? 'text-primary' : 'text-muted']">
-        <div :class="['w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm', step >= 1 ? 'bg-primary text-white' : 'bg-[var(--border-light)] text-[var(--text-main)]']">1</div>
+        <div :class="['w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm', step >= 1 ? 'bg-primary text-navy' : 'bg-[var(--border-light)] text-[var(--text-main)]']">1</div>
         <span class="text-sm font-medium">User Details</span>
       </div>
       <div :class="['flex flex-col items-center gap-2 bg-[var(--bg-main)] px-4', step >= 2 ? 'text-primary' : 'text-muted']">
-        <div :class="['w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm', step >= 2 ? 'bg-primary text-white' : 'bg-[var(--border-light)] text-[var(--text-main)]']">2</div>
+        <div :class="['w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm', step >= 2 ? 'bg-primary text-navy' : 'bg-[var(--border-light)] text-[var(--text-main)]']">2</div>
         <span class="text-sm font-medium">RFID Enrollment</span>
       </div>
       <div :class="['flex flex-col items-center gap-2 bg-[var(--bg-main)] px-4', step >= 3 ? 'text-primary' : 'text-muted']">

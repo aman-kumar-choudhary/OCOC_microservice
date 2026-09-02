@@ -67,7 +67,7 @@ onMounted(() => {
     <!-- Filters -->
     <div class="glass-panel p-4 mb-6 flex flex-col md:flex-row justify-between gap-4">
       <div class="flex gap-2">
-        <button @click="filters.status = ''; handleSearch()" :class="['btn btn-sm rounded-full', filters.status === '' ? 'bg-primary text-white' : 'btn-outline']">All</button>
+        <button @click="filters.status = ''; handleSearch()" :class="['btn btn-sm rounded-full', filters.status === '' ? 'bg-primary text-navy' : 'btn-outline']">All</button>
         <button @click="filters.status = 'active'; handleSearch()" :class="['btn btn-sm rounded-full', filters.status === 'active' ? 'bg-[var(--status-active)] text-white border-transparent' : 'btn-outline']">Active</button>
         <button @click="filters.status = 'revoked'; handleSearch()" :class="['btn btn-sm rounded-full', filters.status === 'revoked' ? 'bg-[var(--status-error)] text-white border-transparent' : 'btn-outline']">Revoked</button>
         <button @click="filters.status = 'lost'; handleSearch()" :class="['btn btn-sm rounded-full', filters.status === 'lost' ? 'bg-orange-500 text-white border-transparent' : 'btn-outline']">Lost</button>
