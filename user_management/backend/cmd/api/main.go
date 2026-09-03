@@ -23,6 +23,7 @@ import (
 	kclient "github.com/ococ/user-management/internal/infrastructure/keycloak"
 	rclient "github.com/ococ/user-management/internal/infrastructure/redis"
 	"github.com/ococ/user-management/internal/onboarding"
+	"github.com/ococ/user-management/internal/registration"
 	"github.com/ococ/user-management/internal/rfid"
 	"github.com/ococ/user-management/internal/role"
 	"github.com/ococ/user-management/internal/user"
@@ -94,6 +95,10 @@ func main() {
 	onboardingHandler := onboarding.NewHandler(onboardingSvc)
 	dashHandler := dashboard.NewHandler(dashSvc)
 
+	// Registration (public self-registration + admin listing)
+	regSvc := registration.NewService(db.DB)
+	regHandler := registration.NewHandler(regSvc)
+
 	// ── Router ─────────────────────────────────────────────────────────────
 	r := chi.NewRouter()
 
@@ -118,6 +123,9 @@ func main() {
 		r.Post("/verify-otp", authHandler.VerifyOTP)
 		r.Post("/reset-password", authHandler.ResetPassword)
 	})
+
+	// Public registration endpoint
+	r.Post("/api/v1/register", regHandler.Register)
 
 	// ── Protected routes (JWT required) ────────────────────────────────────
 	issuerURL := kc.GetIssuer()
@@ -187,6 +195,10 @@ func main() {
 		// Dashboard
 		r.Get("/api/v1/dashboard/overview", dashHandler.Overview)
 		r.Get("/api/v1/dashboard/analytics", dashHandler.Analytics)
+
+		// Registrations (admin view of registered users)
+		r.Get("/api/v1/registrations", regHandler.ListRegistrations)
+		r.Get("/api/v1/registrations/stats", regHandler.RegistrationStats)
 
 		// Audit
 		r.Route("/api/v1/audit", func(r chi.Router) {

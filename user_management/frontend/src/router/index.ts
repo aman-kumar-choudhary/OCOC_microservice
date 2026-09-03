@@ -21,6 +21,12 @@ const router = createRouter({
       meta: { layout: 'AuthLayout', public: true }
     },
     {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/Register.vue'),
+      meta: { layout: 'AuthLayout', public: true }
+    },
+    {
       path: '/dashboard',
       name: 'Dashboard',
       component: () => import('@/views/Dashboard.vue'),
