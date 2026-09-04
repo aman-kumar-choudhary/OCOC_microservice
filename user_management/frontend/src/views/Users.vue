@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import userService from '@/services/userService'
 import type { User } from '@/types'
 import {
   Search, Download, MoreVertical, Loader2, CreditCard, Camera,
-  ChevronLeft, ChevronRight, X, Filter
+  ChevronLeft, ChevronRight, X, Filter, Upload
 } from 'lucide-vue-next'
 
 const users = ref<User[]>([])
@@ -20,6 +20,90 @@ const filters = ref({
   search: '',
   user_type: '',
   status: ''
+})
+
+const fileInput = ref<HTMLInputElement | null>(null)
+const importModalOpen = ref(false)
+const importFile = ref<File | null>(null)
+const csvHeaders = ref<string[]>([])
+const csvRows = ref<any[]>([])
+const isImporting = ref(false)
+
+function triggerImport() {
+  fileInput.value?.click()
+}
+
+function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  importFile.value = file
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const text = e.target?.result as string
+    const lines = text.split('\n')
+    
+    if (lines.length > 0) {
+      const headers = lines[0].split(',').map(h => h.trim())
+      csvHeaders.value = headers
+      
+      const records = []
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue
+        const values = lines[i].split(',')
+        const obj: Record<string, string> = {}
+        headers.forEach((h, index) => {
+          obj[h] = (values[index] || '').trim().replace(/(^"|"$)/g, '')
+        })
+        records.push(obj)
+      }
+      csvRows.value = records
+    } else {
+      csvHeaders.value = []
+      csvRows.value = []
+    }
+    
+    importModalOpen.value = true
+  }
+  reader.readAsText(file)
+  target.value = ''
+}
+
+async function confirmImport() {
+  if (!importFile.value) return
+  isImporting.value = true
+  try {
+    const result = await userService.importCsv(importFile.value)
+    if (result.invalid_rows > 0 || result.failed_rows > 0) {
+      alert(`Import completed with errors:\nCreated: ${result.created_rows}\nInvalid: ${result.invalid_rows}\nFailed: ${result.failed_rows}\n\nErrors:\n${result.errors?.map((e: any) => `Row ${e.row}: ${e.error}`).join('\n') || 'Unknown errors'}`)
+    } else {
+      alert(`Successfully imported ${result.created_rows} users.`)
+    }
+    importModalOpen.value = false
+    fetchUsers()
+  } catch (e: any) {
+    console.error('Import failed', e)
+    const msg = e.response?.data?.error?.message || 'Please ensure the backend is available and formatted correctly.'
+    alert(`Failed to import CSV.\n${msg}`)
+  } finally {
+    isImporting.value = false
+  }
+}
+
+const visiblePages = computed(() => {
+  const current = page.value
+  const total = totalPages.value
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, '...', total]
+  }
+  if (current >= total - 3) {
+    return [1, '...', total - 4, total - 3, total - 2, total - 1, total]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total]
 })
 
 // Debounced search
@@ -141,6 +225,15 @@ onMounted(() => {
         </p>
       </div>
       <div class="flex gap-2">
+        <input type="file" accept=".csv" class="hidden" ref="fileInput" @change="handleFileUpload" />
+        <button
+          class="btn btn-outline bg-white/50 backdrop-blur-sm border-[var(--border-light)] text-muted hover:text-navy hover:border-primary transition-all shadow-sm"
+          @click="triggerImport"
+          title="Import users from CSV"
+        >
+          <Upload :size="16" />
+          Import CSV
+        </button>
         <button
           class="btn btn-primary"
           @click="exportToCSV"
@@ -233,6 +326,7 @@ onMounted(() => {
             <th>User</th>
             <th>Role</th>
             <th>Identifier / Dept</th>
+            <th>Contact</th>
             <th>Status</th>
             <th class="text-center">
               <span class="flex items-center justify-center gap-1">
@@ -250,7 +344,7 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-if="users.length === 0 && !isLoading">
-            <td colspan="8" class="text-center py-16 text-muted">
+            <td colspan="9" class="text-center py-16 text-muted">
               <div class="flex flex-col items-center gap-3">
                 <Search :size="32" class="opacity-30" />
                 <p class="text-sm font-semibold">No users found matching your filters.</p>
@@ -285,6 +379,16 @@ onMounted(() => {
               <div class="flex flex-col">
                 <span class="text-sm font-mono font-medium">{{ getIdentifier(user) }}</span>
                 <span class="text-xs text-muted">{{ getDeptDisplay(user) }}</span>
+              </div>
+            </td>
+
+            <!-- Contact -->
+            <td>
+              <div class="flex flex-col">
+                <span class="text-sm font-medium">{{ user.phone || '—' }}</span>
+                <span class="text-xs text-muted" v-if="user.profile?.guardian_contact || user.profile?.emergency_contact">
+                  Alt: {{ user.profile?.guardian_contact || user.profile?.emergency_contact }}
+                </span>
               </div>
             </td>
 
@@ -373,17 +477,19 @@ onMounted(() => {
 
           <!-- Page numbers -->
           <button
-            v-for="p in Math.min(totalPages, 7)"
-            :key="p"
-            @click="page = p; fetchUsers()"
+            v-for="(p, index) in visiblePages"
+            :key="index"
+            @click="typeof p === 'number' ? (page = p, fetchUsers()) : null"
             :class="[
               'h-8 min-w-[2rem] px-2 rounded-lg border text-xs font-bold transition',
               p === page
                 ? 'bg-navy text-primary border-navy'
-                : 'border-[var(--border-light)] text-muted hover:border-primary hover:text-navy'
+                : typeof p === 'number'
+                  ? 'border-[var(--border-light)] text-muted hover:border-primary hover:text-navy'
+                  : 'border-transparent text-muted cursor-default'
             ]"
+            :disabled="typeof p !== 'number'"
           >{{ p }}</button>
-          <span v-if="totalPages > 7" class="text-muted px-1">…</span>
 
           <button
             class="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted transition hover:border-primary hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed"
@@ -392,6 +498,61 @@ onMounted(() => {
             id="next-page-btn"
           >
             <ChevronRight :size="16" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Preview Modal -->
+    <div v-if="importModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-navy/40 backdrop-blur-sm" @click="importModalOpen = false"></div>
+      <div class="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col relative z-10 animate-fade-in overflow-hidden">
+        
+        <div class="p-6 border-b border-[var(--border-light)] flex justify-between items-center bg-white/50 backdrop-blur-md">
+          <div>
+            <h2 class="text-xl font-bold text-navy">Import Users Preview</h2>
+            <p class="text-sm text-muted mt-1">Review the raw CSV data before importing into the user directory.</p>
+          </div>
+          <button @click="importModalOpen = false" class="p-2 hover:bg-red-50 text-muted hover:text-red-500 rounded-lg transition-colors">
+            <X :size="20" />
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1 bg-gray-50/30 space-y-8">
+          <div v-if="csvRows.length > 0" class="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-[var(--border-light)] bg-gray-50/50 flex items-center justify-between">
+              <h3 class="text-md font-bold text-navy">Raw CSV Data Preview</h3>
+              <span class="badge bg-white border">{{ csvRows.length }} records</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left whitespace-nowrap">
+                <thead class="bg-white text-gray-500 font-semibold border-b border-[var(--border-light)]">
+                  <tr>
+                    <th v-for="header in csvHeaders" :key="header" class="px-5 py-3">{{ header }}</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[var(--border-light)]">
+                  <tr v-for="(row, idx) in csvRows.slice(0, 50)" :key="idx" class="hover:bg-gray-50 transition-colors">
+                    <td v-for="header in csvHeaders" :key="header" class="px-5 py-3">{{ row[header] }}</td>
+                  </tr>
+                  <tr v-if="csvRows.length > 50">
+                    <td :colspan="csvHeaders.length" class="px-5 py-4 text-center text-sm font-medium text-muted bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer">
+                      + {{ csvRows.length - 50 }} more records...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 border-t border-[var(--border-light)] flex justify-end gap-3 bg-white">
+          <button class="btn btn-outline" @click="importModalOpen = false" :disabled="isImporting">Cancel</button>
+          <button class="btn btn-primary shadow-md shadow-primary/20" @click="confirmImport" :disabled="isImporting">
+            <Loader2 v-if="isImporting" class="animate-spin" :size="16" />
+            <Upload v-else :size="16" />
+            Confirm & Import Data
           </button>
         </div>
       </div>

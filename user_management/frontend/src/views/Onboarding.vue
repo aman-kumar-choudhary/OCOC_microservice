@@ -5,11 +5,19 @@ import rfidService from '@/services/rfidService'
 import {
   GraduationCap, Briefcase, Wrench, UserRound, CreditCard,
   CheckCircle, Loader2, ArrowRight, ArrowLeft, ChevronDown,
-  Building2, Phone, Mail, Hash, Home, Users, BookOpen, Award
+  Building2, Phone, Mail, Hash, Home, Users, BookOpen, Award, Camera
 } from 'lucide-vue-next'
 
+// ─── Camera state ──────────────────────────────────────────────────
+const videoRef = ref<HTMLVideoElement | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const isCameraOpen = ref(false)
+const capturedImages = ref<string[]>([])
+const captureCount = ref(0)
+const maxCaptures = 5
+
 // ─── Step management ───────────────────────────────────────────────
-const step = ref<1 | 2 | 3 | 4>(1)
+const step = ref<1 | 2 | 3 | 4 | 5>(1)
 
 // ─── Persona Selection ─────────────────────────────────────────────
 const persona = ref('')
@@ -152,6 +160,7 @@ const userForm = ref({
   password: 'Welcome@123!',
   profile: {
     full_name: '',
+    photo_reference: '',
     // Student
     roll_number: '',
     school: '',
@@ -209,6 +218,7 @@ async function handleCreateUser() {
     const p = userForm.value.profile
     const profilePayload: Record<string, any> = {
       full_name: p.full_name,
+      photo_reference: p.photo_reference,
     }
 
     if (persona.value === 'student') {
@@ -251,7 +261,7 @@ async function handleCreateUser() {
     }
     const result = await userService.onboard(persona.value, payload)
     createdUserId.value = result.user.id
-    step.value = 3
+    step.value = 4
   } catch (e: any) {
     error.value = e.response?.data?.error?.message || 'Failed to create user'
   } finally {
@@ -279,7 +289,7 @@ async function handleEnrollRFID() {
   try {
     await userService.enrollRFID(createdUserId.value, rfidUid.value)
     await userService.issueCard(createdUserId.value)
-    step.value = 4
+    step.value = 5
     successMsg.value = `${userForm.value.profile.full_name || 'User'} successfully onboarded with RFID Card ${rfidUid.value}`
   } catch (e: any) {
     error.value = e.response?.data?.error?.message || 'Failed to enroll RFID'
@@ -289,7 +299,7 @@ async function handleEnrollRFID() {
 }
 
 function skipRFID() {
-  step.value = 4
+  step.value = 5
   successMsg.value = `${userForm.value.profile.full_name || 'User'} successfully onboarded. RFID card can be assigned later.`
 }
 
@@ -299,15 +309,61 @@ function resetForm() {
   rfidUid.value = ''
   error.value = ''
   createdUserId.value = ''
+  capturedImages.value = []
+  captureCount.value = 0
   userForm.value = {
     email: '', phone: '', password: 'Welcome@123!',
     profile: {
-      full_name: '', roll_number: '', school: '', department: '', course: '',
+      full_name: '', photo_reference: '', roll_number: '', school: '', department: '', course: '',
       semester: '', hostel: false, guardian_contact: '', employee_id: '',
       designation: '', worker_role: '', gov_id_type: '', gov_id_number: '',
       visit_purpose: '', host_contact: '',
     }
   }
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+    if (videoRef.value) {
+      videoRef.value.srcObject = stream
+      isCameraOpen.value = true
+    }
+  } catch (err: any) {
+    error.value = "Unable to access camera: " + (err.message || 'Unknown error')
+  }
+}
+
+function stopCamera() {
+  if (videoRef.value && videoRef.value.srcObject) {
+    const stream = videoRef.value.srcObject as MediaStream
+    stream.getTracks().forEach(track => track.stop())
+    videoRef.value.srcObject = null
+    isCameraOpen.value = false
+  }
+}
+
+function captureImage() {
+  if (videoRef.value && canvasRef.value && captureCount.value < maxCaptures) {
+    const context = canvasRef.value.getContext('2d')
+    canvasRef.value.width = videoRef.value.videoWidth
+    canvasRef.value.height = videoRef.value.videoHeight
+    context?.drawImage(videoRef.value, 0, 0, canvasRef.value.width, canvasRef.value.height)
+    
+    const dataUrl = canvasRef.value.toDataURL('image/jpeg', 0.8)
+    capturedImages.value.push(dataUrl)
+    captureCount.value++
+    
+    // Set the first captured image as the main profile photo reference
+    if (captureCount.value === 1) {
+      userForm.value.profile.photo_reference = dataUrl
+    }
+  }
+}
+
+function proceedToDetails() {
+  stopCamera()
+  step.value = 3
 }
 
 const selectedCard = computed(() => personaCards.find((c) => c.id === persona.value))
@@ -326,9 +382,10 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       <div class="flex items-center gap-0">
         <template v-for="(s, i) in [
           { n: 1, label: 'Select Type' },
-          { n: 2, label: 'User Details' },
-          { n: 3, label: 'RFID Card' },
-          { n: 4, label: 'Complete' }
+          { n: 2, label: 'Face Capture' },
+          { n: 3, label: 'User Details' },
+          { n: 4, label: 'RFID Card' },
+          { n: 5, label: 'Complete' }
         ]" :key="s.n">
           <div class="flex flex-col items-center flex-1">
             <div
@@ -351,7 +408,7 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
               ]"
             >{{ s.label }}</span>
           </div>
-          <div v-if="i < 3" :class="['h-0.5 flex-1 mb-5 transition-all duration-500', step > s.n ? 'bg-emerald-400' : 'bg-[var(--border-light)]']" />
+          <div v-if="i < 4" :class="['h-0.5 flex-1 mb-5 transition-all duration-500', step > s.n ? 'bg-emerald-400' : 'bg-[var(--border-light)]']" />
         </template>
       </div>
     </div>
@@ -423,12 +480,68 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       </div>
     </div>
 
-    <!-- ─── STEP 2: User Details Form ─── -->
+    <!-- ─── STEP 2: Face Capture ─── -->
     <div v-else-if="step === 2" class="animate-fade-in">
+      <div class="app-panel p-6 sm:p-8 text-center">
+        <div class="flex items-center gap-3 mb-6 pb-5 border-b border-[var(--border-light)] text-left">
+          <button @click="step = 1" class="btn btn-outline py-1.5 px-3 text-xs">
+            <ArrowLeft :size="14" /> Back
+          </button>
+          <div
+            v-if="selectedCard"
+            :class="['flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold text-white bg-gradient-to-r', selectedCard.gradient]"
+          >
+            <component :is="selectedCard.icon" :size="15" />
+            {{ selectedCard.label }} Face Registration
+          </div>
+        </div>
+
+        <h2 class="text-2xl font-bold mb-2 text-navy">Face Registration</h2>
+        <p class="text-muted mb-8 max-w-md mx-auto">Please look directly at the camera to capture {{ maxCaptures }} clear photos for your campus identity.</p>
+        
+        <div class="mx-auto w-48 h-48 sm:w-64 sm:h-64 bg-gray-100 rounded-full border-4 border-dashed border-[var(--border-light)] flex flex-col items-center justify-center mb-6 overflow-hidden relative shadow-inner">
+          <video v-show="isCameraOpen" ref="videoRef" autoplay playsinline class="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]"></video>
+          <img v-if="userForm.profile.photo_reference && !isCameraOpen" :src="userForm.profile.photo_reference" class="absolute inset-0 w-full h-full object-cover p-2" />
+          <Camera v-if="!isCameraOpen && !userForm.profile.photo_reference" :size="48" class="text-muted/50 mb-3" />
+          <span v-if="!isCameraOpen && !userForm.profile.photo_reference" class="text-sm font-medium text-muted">Camera Offline</span>
+        </div>
+
+        <div class="mb-6 flex justify-center gap-2">
+          <div v-for="i in maxCaptures" :key="i" :class="['w-10 h-10 rounded bg-gray-200 overflow-hidden border-2', captureCount >= i ? 'border-primary' : 'border-transparent']">
+            <img v-if="captureCount >= i" :src="capturedImages[i-1]" class="w-full h-full object-cover" />
+            <div v-else class="w-full h-full flex items-center justify-center text-xs text-muted">{{ i }}</div>
+          </div>
+        </div>
+        
+        <canvas ref="canvasRef" class="hidden"></canvas>
+
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+          <button v-if="!isCameraOpen && captureCount < maxCaptures" @click="startCamera" class="btn btn-outline border-[var(--border-light)] hover:border-primary">
+            <Camera :size="18" />
+            Start Camera
+          </button>
+          <button v-if="isCameraOpen && captureCount < maxCaptures" @click="captureImage" class="btn btn-primary px-8">
+            <Camera :size="18" />
+            Capture Photo ({{ captureCount }}/{{ maxCaptures }})
+          </button>
+          
+          <button 
+            @click="proceedToDetails" 
+            class="btn btn-primary px-8" 
+            v-if="captureCount >= maxCaptures"
+          >
+            Continue to Details <ArrowRight :size="18" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── STEP 3: User Details Form ─── -->
+    <div v-else-if="step === 3" class="animate-fade-in">
       <div class="app-panel p-6 sm:p-8">
         <!-- Selected persona badge -->
         <div class="flex items-center gap-3 mb-6 pb-5 border-b border-[var(--border-light)]">
-          <button @click="step = 1" class="btn btn-outline py-1.5 px-3 text-xs">
+          <button @click="step = 2" class="btn btn-outline py-1.5 px-3 text-xs">
             <ArrowLeft :size="14" /> Back
           </button>
           <div
@@ -565,26 +678,22 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
                 </div>
               </div>
 
-              <!-- Hostel Toggle -->
+              <!-- Hostel Dropdown -->
               <div class="form-group !mb-0">
                 <label class="form-label">Hostel Resident</label>
-                <div class="flex gap-3 mt-1">
-                  <button
-                    type="button"
-                    :class="['flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all', userForm.profile.hostel ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'border-[var(--border-light)] text-muted hover:border-emerald-300']"
-                    @click="userForm.profile.hostel = true"
-                    id="hostel-yes-btn"
-                  >
-                    <Home :size="15" class="inline mr-1" /> Yes, hostel resident
-                  </button>
-                  <button
-                    type="button"
-                    :class="['flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all', !userForm.profile.hostel ? 'bg-[var(--border-light)] border-[var(--border-light)] text-[var(--text-main)]' : 'border-[var(--border-light)] text-muted hover:border-gray-300']"
-                    @click="userForm.profile.hostel = false"
-                    id="hostel-no-btn"
-                  >
-                    No
-                  </button>
+                <div class="relative mt-1">
+                  <Home :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+                  <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+                  <select v-model="userForm.profile.hostel" class="form-input form-select pl-9 pr-9 appearance-none" id="student-hostel-select">
+                    <option :value="false">No (Day Scholar)</option>
+                    <option value="Nivedita">Nivedita</option>
+                    <option value="Sanghmitra">Sanghmitra</option>
+                    <option value="Arvind">Arvind</option>
+                    <option value="Panini">Panini</option>
+                    <option value="International">International</option>
+                    <option value="Gautum">Gautum</option>
+                    <option value="Markaandey">Markaandey</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -694,8 +803,8 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       </div>
     </div>
 
-    <!-- ─── STEP 3: RFID Enrollment ─── -->
-    <div v-else-if="step === 3" class="glass-panel p-6 sm:p-12 animate-fade-in text-center">
+    <!-- ─── STEP 4: RFID Enrollment ─── -->
+    <div v-else-if="step === 4" class="glass-panel p-6 sm:p-12 animate-fade-in text-center">
       <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 relative">
         <CreditCard :size="32" />
         <span v-if="isScanning" class="absolute inset-0 rounded-full border-4 border-blue-400 border-t-transparent animate-spin" />
@@ -730,7 +839,7 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       </div>
     </div>
 
-    <!-- ─── STEP 4: Success ─── -->
+    <!-- ─── STEP 5: Success ─── -->
     <div v-else class="glass-panel p-12 animate-fade-in text-center">
       <div class="w-24 h-24 bg-[var(--status-active-bg)] text-[var(--status-active)] rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-emerald-100">
         <CheckCircle :size="48" />

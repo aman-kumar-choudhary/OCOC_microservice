@@ -45,7 +45,8 @@ export default {
   },
 
   async importCsv(file: File): Promise<any> {
-    const { data } = await api.post('/users/import', file, {
+    const text = await file.text()
+    const { data } = await api.post('/users/import', text, {
       headers: { 'Content-Type': 'text/csv' }
     })
     return data.data
