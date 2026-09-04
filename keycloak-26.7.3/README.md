@@ -8,6 +8,7 @@ To get help configuring Keycloak via the CLI, run:
 on Linux/Unix:
 
     $ bin/kc.sh
+    $ bin/kc.sh start-dev --http-port=8180
 
 on Windows:
 

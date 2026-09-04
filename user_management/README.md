@@ -73,3 +73,12 @@ Contributions are welcome — open issues or PRs with small, focused changes.
 ## License
 
 Add your license here (e.g., MIT). If you want, I can add a `LICENSE` file.
+
+
+
+## How to run this project
+
+-  keyclock command :  bin/kc.sh start-dev --http-port=8180
+-  user management frontend command : npm install && npm run dev
+-  user management backend command : go run ./cmd/api/main.go
+-  facerecognition command : uvicorn app.main:app

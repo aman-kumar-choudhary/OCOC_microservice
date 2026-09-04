@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Lock, Mail, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-vue-next'
+import { Lock, Mail, Loader2, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -39,25 +39,21 @@ async function handleLogin() {
 
 <template>
   <div class="login-view" :class="{ 'is-ready': formReady }">
-    <!-- OCOC header badge -->
+    <!-- Brand -->
     <div class="login-brand">
-      <!-- <div class="login-brand-icon">
-        <ShieldCheck :size="24" />
-      </div> -->
-      <!-- <div class="login-brand-text">
+      <div class="login-brand-icon">
+        <ShieldCheck :size="22" />
+      </div>
+      <div class="login-brand-text">
         <span class="login-brand-name">OCOC</span>
-      </div> -->
-    </div>
-
-    <div class="auth-tabs">
-      <router-link to="/login" class="auth-tab active">Sign In</router-link>
-      <router-link to="/register" class="auth-tab">Sign Up</router-link>
+        <span class="login-brand-sub">Identity Platform</span>
+      </div>
     </div>
 
     <!-- Welcome text -->
     <div class="login-welcome">
       <h2 id="login-heading" class="login-title">Welcome Back</h2>
-      <p class="login-subtitle">Sign in to your account</p>
+      <p class="login-subtitle">Sign in to access the campus operations dashboard</p>
     </div>
 
     <!-- Error banner -->
@@ -83,7 +79,7 @@ async function handleLogin() {
             type="text"
             required
             class="field-input"
-            placeholder="username"
+            placeholder="username or email"
             autocomplete="username"
             :disabled="isLoading"
           />
@@ -137,16 +133,15 @@ async function handleLogin() {
       </button>
     </form>
 
-    <!-- Footer trust badge -->
-    <!-- <div class="login-trust">
+    <!-- Trust badge -->
+    <div class="login-trust">
       <ShieldCheck :size="14" class="login-trust-icon" />
-      <span>OCOC Identity Protected</span>
-    </div> -->
+      <span>OCOC Identity Protected · Administrators only</span>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* ─── Login View ─── */
 .login-view {
   display: flex;
   flex-direction: column;
@@ -165,13 +160,13 @@ async function handleLogin() {
 .login-brand {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  margin-bottom: 0.7rem;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .login-brand-icon {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 0.75rem;
   background: linear-gradient(135deg, #f5bd19 0%, #d99e00 100%);
   display: flex;
@@ -179,57 +174,47 @@ async function handleLogin() {
   justify-content: center;
   color: #0a2342;
   box-shadow: 0 4px 14px rgba(245, 189, 25, 0.3);
+  flex-shrink: 0;
+}
+
+.login-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-brand-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-family: 'Manrope', sans-serif;
+  color: #0a2342;
+  line-height: 1;
+}
+
+.login-brand-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* Welcome */
 .login-welcome {
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .login-title {
   font-size: 1.65rem;
   font-weight: 800;
-  color: #0c4b0f;
+  color: var(--text-main);
   margin: 0 0 0.35rem;
-  align-items: center;
-  justify-content: center;
 }
 
 .login-subtitle {
-  font-size: 1.2rem;
-  color: black;
-  margin-top: 5px;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Tabs */
-.auth-tabs {
-  display: flex;
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid var(--border-light);
-}
-
-.auth-tab {
-  flex: 1;
-  text-align: center;
-  padding: 0.75rem;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: all 0.2s ease;
-}
-
-.auth-tab:hover {
-  color: #b87800;
-}
-
-.auth-tab.active {
-  color: #d99e00;
-  border-bottom-color: #d99e00;
+  margin: 0;
 }
 
 /* Error */
@@ -269,7 +254,6 @@ async function handleLogin() {
   gap: 1.1rem;
 }
 
-/* Field groups */
 .field-group {
   display: flex;
   flex-direction: column;
@@ -420,8 +404,7 @@ async function handleLogin() {
   margin-top: 1.75rem;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   opacity: 0.7;
 }

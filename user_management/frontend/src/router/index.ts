@@ -20,12 +20,7 @@ const router = createRouter({
       component: () => import('@/views/ForgotPassword.vue'),
       meta: { layout: 'AuthLayout', public: true }
     },
-    {
-      path: '/register',
-      name: 'Register',
-      component: () => import('@/views/Register.vue'),
-      meta: { layout: 'AuthLayout', public: true }
-    },
+
     {
       path: '/dashboard',
       name: 'Dashboard',
@@ -55,6 +50,12 @@ const router = createRouter({
       name: 'Audit',
       component: () => import('@/views/Audit.vue'),
       meta: { requiresAuth: true, permission: 'audit:read' }
+    },
+    {
+      path: '/analytics',
+      name: 'Analytics',
+      component: () => import('@/views/Analytics.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

@@ -15,10 +15,16 @@ export interface Profile {
   full_name: string
   roll_number?: string
   employee_id?: string
+  department?: string
   department_id?: string
+  school?: string
+  course?: string
+  semester?: string
+  hostel?: boolean
+  guardian_contact?: string
+  designation?: string
   hostel_id?: string
   emergency_contact?: string
-  guardian_contact?: string
   photo_reference?: string
   gov_id_type?: string
   gov_id_number?: string

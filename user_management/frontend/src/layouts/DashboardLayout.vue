@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useDark, useToggle } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth'
 import {
-  Activity, CreditCard, LayoutDashboard, LogOut, Menu, Moon,
+  Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu, Moon,
   ShieldCheck, Sun, UserPlus, Users, X,
 } from 'lucide-vue-next'
 
@@ -19,6 +19,7 @@ const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'User directory', path: '/users', icon: Users, permission: 'user:read' },
   { name: 'Onboard person', path: '/onboarding', icon: UserPlus, permission: 'user:create' },
+  { name: 'Analytics', path: '/analytics', icon: BarChart3 },
   { name: 'RFID cards', path: '/rfid', icon: CreditCard, permission: 'rfid:read' },
   { name: 'Audit log', path: '/audit', icon: Activity, permission: 'audit:read' },
 ]
