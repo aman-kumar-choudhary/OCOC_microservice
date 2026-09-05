@@ -1,9 +1,6 @@
-keycloak.json
-# Keycloak
-keycloak/
-keycloak-*/
-keyclock/
-keyclock-*/
+
+keycloak-26.7.3
+
 
 # Environment files
 env/
