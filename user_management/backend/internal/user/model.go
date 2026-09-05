@@ -47,6 +47,12 @@ type Profile struct {
 	RollNumber        string     `json:"roll_number,omitempty"`
 	EmployeeID        string     `json:"employee_id,omitempty"`
 	DepartmentID      *uuid.UUID `json:"department_id,omitempty"`
+	Department        string     `json:"department,omitempty"`
+	School            string     `json:"school,omitempty"`
+	Course            string     `json:"course,omitempty"`
+	Semester          string     `json:"semester,omitempty"`
+	Designation       string     `json:"designation,omitempty"`
+	HostelFlag        bool       `json:"hostel_flag,omitempty"`
 	HostelID          *uuid.UUID `json:"hostel_id,omitempty"`
 	EmergencyContact  string     `json:"emergency_contact,omitempty"`
 	GuardianContact   string     `json:"guardian_contact,omitempty"`
@@ -76,6 +82,12 @@ type ProfileRequest struct {
 	RollNumber        string     `json:"roll_number,omitempty"`
 	EmployeeID        string     `json:"employee_id,omitempty"`
 	DepartmentID      *uuid.UUID `json:"department_id,omitempty"`
+	Department        string     `json:"department,omitempty"`
+	School            string     `json:"school,omitempty"`
+	Course            string     `json:"course,omitempty"`
+	Semester          string     `json:"semester,omitempty"`
+	Designation       string     `json:"designation,omitempty"`
+	HostelFlag        bool       `json:"hostel_flag,omitempty"`
 	HostelID          *uuid.UUID `json:"hostel_id,omitempty"`
 	EmergencyContact  string     `json:"emergency_contact,omitempty"`
 	GuardianContact   string     `json:"guardian_contact,omitempty"`

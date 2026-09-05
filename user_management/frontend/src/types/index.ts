@@ -102,3 +102,26 @@ export interface PaginatedResponse<T> {
     total_pages: number
   }
 }
+
+export interface FaceAuthLog {
+  id: string
+  person_external_id: string
+  person_name?: string
+  result: 'success' | 'failed' | 'liveness_failed' | 'unknown'
+  similarity_score?: number
+  liveness_score?: number
+  reason?: string
+  auth_type: 'single' | 'mass'
+  ip_address?: string
+  created_at: string
+}
+
+export interface FacePoseCapture {
+  poseKey: string
+  label: string
+  description: string
+  image: File | null
+  previewUrl: string | null
+  captured: boolean
+}
+

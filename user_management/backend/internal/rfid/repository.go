@@ -52,13 +52,13 @@ func (r *PostgresRepository) Create(ctx context.Context, tx *sql.Tx, card *Card)
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Card, error) {
 	return r.scanCard(r.db.QueryRowContext(ctx, `
-		SELECT id, uid, status, issued_at, revoked_at, COALESCE(revoked_reason,''), created_at, updated_at
+		SELECT id, uid, status, issued_at, revoked_at, COALESCE(revoked_reason,''), created_at, updated_at, NULL AS user_id, NULL AS email
 		FROM rfid_cards WHERE id=$1`, id))
 }
 
 func (r *PostgresRepository) GetByUID(ctx context.Context, uid string) (*Card, error) {
 	return r.scanCard(r.db.QueryRowContext(ctx, `
-		SELECT id, uid, status, issued_at, revoked_at, COALESCE(revoked_reason,''), created_at, updated_at
+		SELECT id, uid, status, issued_at, revoked_at, COALESCE(revoked_reason,''), created_at, updated_at, NULL AS user_id, NULL AS email
 		FROM rfid_cards WHERE uid=$1`, uid))
 }
 
@@ -104,8 +104,12 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) (*ListResul
 
 	args = append(args, f.Limit, offset)
 	q := fmt.Sprintf(`
-		SELECT rc.id, rc.uid, rc.status, rc.issued_at, rc.revoked_at, COALESCE(rc.revoked_reason,''), rc.created_at, rc.updated_at
-		FROM rfid_cards rc %s ORDER BY rc.created_at DESC LIMIT $%d OFFSET $%d`,
+		SELECT rc.id, rc.uid, rc.status, rc.issued_at, rc.revoked_at, COALESCE(rc.revoked_reason,''), rc.created_at, rc.updated_at,
+		       urc.user_id, u.email
+		FROM rfid_cards rc 
+		LEFT JOIN user_rfid_cards urc ON urc.rfid_card_id = rc.id AND urc.unassigned_at IS NULL
+		LEFT JOIN users u ON u.id = urc.user_id
+		%s ORDER BY rc.created_at DESC LIMIT $%d OFFSET $%d`,
 		where, len(args)-1, len(args))
 
 	rows, err := r.db.QueryContext(ctx, q, args...)
@@ -146,9 +150,11 @@ func (r *PostgresRepository) Unassign(ctx context.Context, tx *sql.Tx, userID, c
 
 func (r *PostgresRepository) GetActiveCardForUser(ctx context.Context, userID uuid.UUID) (*Card, error) {
 	return r.scanCard(r.db.QueryRowContext(ctx, `
-		SELECT rc.id, rc.uid, rc.status, rc.issued_at, rc.revoked_at, COALESCE(rc.revoked_reason,''), rc.created_at, rc.updated_at
+		SELECT rc.id, rc.uid, rc.status, rc.issued_at, rc.revoked_at, COALESCE(rc.revoked_reason,''), rc.created_at, rc.updated_at,
+		       urc.user_id, u.email
 		FROM rfid_cards rc
 		JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
+		JOIN users u ON u.id=urc.user_id
 		WHERE urc.user_id=$1 AND urc.is_primary=true AND urc.unassigned_at IS NULL
 		LIMIT 1`, userID))
 }
@@ -200,11 +206,20 @@ func (r *PostgresRepository) scanCardRow(row rowScanner) (*Card, error) {
 	c := &Card{}
 	var issuedAt, revokedAt sql.NullTime
 	var status string
-	if err := row.Scan(&c.ID, &c.UID, &status, &issuedAt, &revokedAt, &c.RevokedReason, &c.CreatedAt, &c.UpdatedAt); err != nil {
+	var userIDPtr *uuid.UUID
+	var userEmail sql.NullString
+	if err := row.Scan(&c.ID, &c.UID, &status, &issuedAt, &revokedAt, &c.RevokedReason, &c.CreatedAt, &c.UpdatedAt, &userIDPtr, &userEmail); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
+	}
+	c.Status = CardStatus(status)
+	if userIDPtr != nil {
+		c.UserID = userIDPtr
+	}
+	if userEmail.Valid {
+		c.UserEmail = userEmail.String
 	}
 	c.Status = CardStatus(status)
 	if issuedAt.Valid {

@@ -56,6 +56,18 @@ const router = createRouter({
       name: 'Analytics',
       component: () => import('@/views/Analytics.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/face-recognition',
+      name: 'Face Lab',
+      component: () => import('@/views/FaceRecognition.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/face-auth-log',
+      name: 'Auth Monitor',
+      component: () => import('@/views/FaceAuthLog.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

@@ -206,6 +206,12 @@ func main() {
 			r.Get("/", auditHandler.List)
 			r.Get("/{id}", auditHandler.GetByID)
 		})
+
+		// Admin Utilities
+		r.Route("/api/admin", func(r chi.Router) {
+			r.Use(auth.RequirePermission("user:manage"))
+			r.Post("/semester/advance", userHandler.AdvanceSemester)
+		})
 	})
 
 	// ── Start server ───────────────────────────────────────────────────────

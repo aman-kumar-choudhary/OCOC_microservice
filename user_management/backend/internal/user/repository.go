@@ -58,13 +58,17 @@ func (r *PostgresRepository) Create(ctx context.Context, tx *sql.Tx, u *User) er
 func (r *PostgresRepository) CreateProfile(ctx context.Context, tx *sql.Tx, p *Profile) error {
 	q := `INSERT INTO user_profiles (
 			user_id, full_name, roll_number, employee_id, department_id, hostel_id,
+			department, school, course, semester, designation, hostel_flag,
 			emergency_contact, guardian_contact, photo_reference,
 			gov_id_type, gov_id_number, visit_purpose, host_contact,
 			visit_start, visit_duration_days, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 		ON CONFLICT (user_id) DO UPDATE SET
 			full_name=EXCLUDED.full_name, roll_number=EXCLUDED.roll_number,
 			employee_id=EXCLUDED.employee_id, department_id=EXCLUDED.department_id,
+			department=EXCLUDED.department, school=EXCLUDED.school,
+			course=EXCLUDED.course, semester=EXCLUDED.semester,
+			designation=EXCLUDED.designation, hostel_flag=EXCLUDED.hostel_flag,
 			hostel_id=EXCLUDED.hostel_id, emergency_contact=EXCLUDED.emergency_contact,
 			guardian_contact=EXCLUDED.guardian_contact, photo_reference=EXCLUDED.photo_reference,
 			gov_id_type=EXCLUDED.gov_id_type, gov_id_number=EXCLUDED.gov_id_number,
@@ -75,6 +79,8 @@ func (r *PostgresRepository) CreateProfile(ctx context.Context, tx *sql.Tx, p *P
 	_, err := exec(ctx, q,
 		p.UserID, p.FullName, nullStr(p.RollNumber), nullStr(p.EmployeeID),
 		nullUUID(p.DepartmentID), nullUUID(p.HostelID),
+		nullStr(p.Department), nullStr(p.School), nullStr(p.Course),
+		nullStr(p.Semester), nullStr(p.Designation), p.HostelFlag,
 		nullStr(p.EmergencyContact), nullStr(p.GuardianContact), nullStr(p.PhotoReference),
 		nullStr(p.GovIDType), nullStr(p.GovIDNumber), nullStr(p.VisitPurpose), nullStr(p.HostContact),
 		nullTime(p.VisitStart), nullInt(p.VisitDurationDays), p.UpdatedAt)
@@ -258,17 +264,21 @@ func (r *PostgresRepository) loadProfile(ctx context.Context, userID uuid.UUID) 
 	p := &Profile{UserID: userID}
 	var roll, emp, emerg, guard, photo sql.NullString
 	var deptID, hostelID sql.NullString
+	var dept, school, course, semester, designation sql.NullString
+	var hostelFlag sql.NullBool
 	var govType, govNum, purpose, host sql.NullString
 	var visitStart sql.NullTime
 	var visitDuration sql.NullInt32
 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT full_name, roll_number, employee_id, department_id, hostel_id,
+			department, school, course, semester, designation, hostel_flag,
 			emergency_contact, guardian_contact, photo_reference,
 			gov_id_type, gov_id_number, visit_purpose, host_contact,
 			visit_start, visit_duration_days, updated_at
 		FROM user_profiles WHERE user_id=$1`, userID).
 		Scan(&p.FullName, &roll, &emp, &deptID, &hostelID,
+			&dept, &school, &course, &semester, &designation, &hostelFlag,
 			&emerg, &guard, &photo,
 			&govType, &govNum, &purpose, &host,
 			&visitStart, &visitDuration, &p.UpdatedAt)
@@ -277,6 +287,12 @@ func (r *PostgresRepository) loadProfile(ctx context.Context, userID uuid.UUID) 
 	}
 	p.RollNumber = roll.String
 	p.EmployeeID = emp.String
+	p.Department = dept.String
+	p.School = school.String
+	p.Course = course.String
+	p.Semester = semester.String
+	p.Designation = designation.String
+	p.HostelFlag = hostelFlag.Bool
 	p.EmergencyContact = emerg.String
 	p.GuardianContact = guard.String
 	p.PhotoReference = photo.String

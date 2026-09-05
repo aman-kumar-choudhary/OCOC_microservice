@@ -1,9 +1,9 @@
 # Environment variables
-!.env
-!.env.*
+.env
+.env.*
 
 # Keep the example environment file
-!.env.example
+.env.example
 keycloak.json
 # Keycloak
-keycloak-26.7.3/
+../keycloak-26.7.3/

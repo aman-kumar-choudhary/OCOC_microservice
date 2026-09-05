@@ -411,6 +411,12 @@ func profileFromRequest(userID uuid.UUID, pr ProfileRequest, now time.Time) *Pro
 		RollNumber:        pr.RollNumber,
 		EmployeeID:        pr.EmployeeID,
 		DepartmentID:      pr.DepartmentID,
+		Department:        pr.Department,
+		School:            pr.School,
+		Course:            pr.Course,
+		Semester:          pr.Semester,
+		Designation:       pr.Designation,
+		HostelFlag:        pr.HostelFlag,
 		HostelID:          pr.HostelID,
 		EmergencyContact:  pr.EmergencyContact,
 		GuardianContact:   pr.GuardianContact,
@@ -438,6 +444,22 @@ func applyProfileRequest(p *Profile, pr ProfileRequest, now time.Time) {
 	if pr.DepartmentID != nil {
 		p.DepartmentID = pr.DepartmentID
 	}
+	if pr.Department != "" {
+		p.Department = pr.Department
+	}
+	if pr.School != "" {
+		p.School = pr.School
+	}
+	if pr.Course != "" {
+		p.Course = pr.Course
+	}
+	if pr.Semester != "" {
+		p.Semester = pr.Semester
+	}
+	if pr.Designation != "" {
+		p.Designation = pr.Designation
+	}
+	p.HostelFlag = pr.HostelFlag
 	if pr.HostelID != nil {
 		p.HostelID = pr.HostelID
 	}

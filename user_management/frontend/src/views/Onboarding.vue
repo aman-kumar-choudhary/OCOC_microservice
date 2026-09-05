@@ -2,11 +2,13 @@
 import { ref, computed } from 'vue'
 import userService from '@/services/userService'
 import rfidService from '@/services/rfidService'
+import { registerPerson } from '@/services/frecoService'
 import {
   GraduationCap, Briefcase, Wrench, UserRound, CreditCard,
-  CheckCircle, Loader2, ArrowRight, ArrowLeft, ChevronDown,
-  Building2, Phone, Mail, Hash, Home, Users, BookOpen, Award, Camera
+  CheckCircle, Loader2, ArrowRight, ArrowLeft, Camera, ScanFace, Award
 } from 'lucide-vue-next'
+import UserProfileForm from '@/components/UserProfileForm.vue'
+import { useFaceStream } from '@/composables/useFaceStream'
 
 // ─── Camera state ──────────────────────────────────────────────────
 const videoRef = ref<HTMLVideoElement | null>(null)
@@ -16,8 +18,83 @@ const capturedImages = ref<string[]>([])
 const captureCount = ref(0)
 const maxCaptures = 5
 
+// ─── Face pose capture state ───────────────────────────────────────
+const POSES = [
+  { key: 'center',    label: 'Center',    description: 'Look straight at the camera', emoji: '👤' },
+  { key: 'left',      label: 'Turn Left', description: 'Slowly turn your head left',  emoji: '⬅️' },
+  { key: 'right',     label: 'Turn Right',description: 'Slowly turn your head right', emoji: '➡️' },
+  { key: 'chin_up',   label: 'Chin Up',   description: 'Tilt your chin slightly up',  emoji: '⬆️' },
+  { key: 'chin_down', label: 'Chin Down', description: 'Tilt your chin slightly down', emoji: '⬇️' },
+]
+const poseCaptures = ref<Record<string, { file: File | null; url: string | null; captured: boolean }>>(
+  Object.fromEntries(POSES.map(p => [p.key, { file: null, url: null, captured: false }]))
+)
+const currentPoseIdx = ref(0)
+const faceRegLoading = ref(false)
+const faceRegError = ref('')
+const faceRegSuccess = ref(false)
+
+const { isStreaming, error: streamError, startStream, stopStream, captureImage } = useFaceStream(videoRef)
+
+const capturedPosesCount = computed(() => POSES.filter(p => poseCaptures.value[p.key]?.captured).length)
+const allPosesCaptured = computed(() => capturedPosesCount.value === POSES.length)
+const currentPose = computed(() => POSES[currentPoseIdx.value])
+
+function captureCurrentPose() {
+  const file = captureImage(canvasRef.value)
+  if (!file) return
+  
+  const key = currentPose.value.key
+  poseCaptures.value[key].file = file
+  poseCaptures.value[key].url = URL.createObjectURL(file)
+  poseCaptures.value[key].captured = true
+  
+  if (currentPoseIdx.value < POSES.length - 1) {
+    setTimeout(() => { currentPoseIdx.value++ }, 600)
+  } else {
+    stopStream()
+  }
+}
+
+async function handleFaceRegister() {
+  if (!allPosesCaptured.value) { faceRegError.value = 'Please capture all 5 poses first'; return }
+  faceRegLoading.value = true
+  faceRegError.value = ''
+  try {
+    const images = POSES.map(p => poseCaptures.value[p.key].file!)
+    const poses = POSES.map(p => p.key)
+    const p = userForm.value.profile
+    await registerPerson({
+      externalId: createdUserId.value,
+      name: p.full_name || userForm.value.email,
+      personType: persona.value,
+      email: userForm.value.email,
+      images,
+      poses,
+    })
+    faceRegSuccess.value = true
+    setTimeout(() => { step.value = 4 }, 1200)
+  } catch (e: any) {
+    faceRegError.value = e.response?.data?.detail || e.message || 'Face registration failed'
+  } finally { faceRegLoading.value = false }
+}
+
+function skipFaceReg() {
+  step.value = 4
+}
+
 // ─── Step management ───────────────────────────────────────────────
 const step = ref<1 | 2 | 3 | 4 | 5>(1)
+
+import { watch } from 'vue'
+watch(step, async (newStep) => {
+  if (newStep === 3 && !allPosesCaptured.value) {
+    // slight delay to allow videoRef to be mounted in DOM
+    setTimeout(() => startStream(), 100)
+  } else {
+    stopStream()
+  }
+})
 
 // ─── Persona Selection ─────────────────────────────────────────────
 const persona = ref('')
@@ -69,90 +146,6 @@ const personaCards = [
   },
 ]
 
-// ─── DSVV Academic Hierarchy ───────────────────────────────────────
-const schoolDepartments: Record<string, string[]> = {
-  'School of Technology, Communication and Management': [
-    'Department of Computer Sciences',
-    'Department of Tourism Management',
-    'Department of Journalism & Mass Communication',
-    'Department of Animation and Visual Effects',
-  ],
-  'School of Biological Sciences and Sustainability': [
-    'Department of Rural Studies and Sustainability',
-  ],
-  'School of Indology': [
-    'Department of Sanskrit and Vedic Studies',
-    'Department of Hindi',
-    'Department of Indian Classical Music',
-    'Department of History and Indian Culture',
-  ],
-  'School of Humanities, Social Sciences and Foundation Courses': [
-    'Department of English',
-    'Department of Education',
-    'Department of Psychology',
-    'Department of Life Management',
-    'Department of Scientific Spirituality',
-    'Department of Oriental Studies, Religious Studies & Philosophy',
-    'Department of Yogic Sciences and Human Consciousness',
-  ],
-}
-
-const departmentCourses: Record<string, string[]> = {
-  'Department of Computer Sciences': [
-    'B.Sc. Information Technology (Honors)',
-    'Bachelor of Computer Application (Honors)',
-    'Master of Computer Application (Data Science)',
-  ],
-  'Department of Tourism Management': [
-    'B.B.A Tourism & Travel Management (Honors)',
-    'M.B.A. Tourism & Travel Management',
-  ],
-  'Department of Journalism & Mass Communication': [
-    'B.A. Journalism and Mass Communication (Honors)',
-    'M. A. Journalism and Mass Communication',
-    'M. A. Spiritual Journalism',
-  ],
-  'Department of Animation and Visual Effects': [
-    'B.Voc. (Bachelor of Vocation) in 3D Animation and VFX (Honors)',
-  ],
-  'Department of Rural Studies and Sustainability': ['Bachelor of Rural Studies (Honors)'],
-  'Department of English': ['B.A. English (Honors)'],
-  'Department of Education': ['B.Ed. (Bachelor of Education)'],
-  'Department of Psychology': [
-    'B.A. Psychology (Honors)',
-    'M.A. Counselling Psychology',
-    'M.Sc. Counselling Psychology',
-  ],
-  'Department of Life Management': ['Life Management - Compulsory Program for PG and UG'],
-  'Department of Scientific Spirituality': [
-    'M.Sc. Herbal Medicine and Natural Product Chemistry',
-    'M.Sc. Molecular Physiology and Traditional Health Sciences',
-    'M.Sc. Indigenous Approaches for Child Development & Generational Dynamics',
-    'M.Sc. Indian Knowledge Systems',
-    'M.A. Indian Knowledge Systems',
-  ],
-  'Department of Oriental Studies, Religious Studies & Philosophy': ['M.A. Hindu Studies', 'M.A. Philosophy'],
-  'Department of Yogic Sciences and Human Consciousness': [
-    'B.Sc. Yogic Science (Honors)',
-    'M.Sc. Yoga Therapy',
-    'M.A. Human Consciousness & Yogic Science',
-    'M.Sc. Human Consciousness & Yogic Science',
-    'P. G. Diploma Human Consciousness, Yoga & Alternative Therapy',
-    'Certificate In Yoga And Alternative Therapy',
-  ],
-  'Department of Sanskrit and Vedic Studies': ['B.A. Sanskrit (Honors)', 'M.A. Sanskrit'],
-  'Department of Hindi': ['B.A. Hindi (Honors)', 'M.A. Hindi'],
-  'Department of Indian Classical Music': [
-    'B.A. Music (Vocal) (Honors)',
-    'M.A. Music (Vocal)',
-    'B.A. Music Instrumental Mridang/Tabla (Honors)',
-    'M.A. Music (Tabla, Pakhaawaj)',
-  ],
-  'Department of History and Indian Culture': ['B.A. History (Honors)', 'M. A. History and Indian Culture'],
-}
-
-const semesters = Array.from({ length: 8 }, (_, i) => ({ value: String(i + 1), label: `Semester ${i + 1}` }))
-
 // ─── Form State ────────────────────────────────────────────────────
 const userForm = ref({
   email: '',
@@ -181,26 +174,6 @@ const userForm = ref({
     host_contact: '',
   }
 })
-
-// Cascading dropdown state
-const availableDepartments = computed(() => {
-  if (!userForm.value.profile.school) return []
-  return schoolDepartments[userForm.value.profile.school] || []
-})
-
-const availableCourses = computed(() => {
-  if (!userForm.value.profile.department) return []
-  return departmentCourses[userForm.value.profile.department] || []
-})
-
-function onSchoolChange() {
-  userForm.value.profile.department = ''
-  userForm.value.profile.course = ''
-}
-
-function onDeptChange() {
-  userForm.value.profile.course = ''
-}
 
 // ─── RFID state ────────────────────────────────────────────────────
 const rfidUid = ref('')
@@ -261,7 +234,7 @@ async function handleCreateUser() {
     }
     const result = await userService.onboard(persona.value, payload)
     createdUserId.value = result.user.id
-    step.value = 4
+    step.value = 3  // go to face capture step
   } catch (e: any) {
     error.value = e.response?.data?.error?.message || 'Failed to create user'
   } finally {
@@ -320,50 +293,6 @@ function resetForm() {
       visit_purpose: '', host_contact: '',
     }
   }
-}
-
-async function startCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-    if (videoRef.value) {
-      videoRef.value.srcObject = stream
-      isCameraOpen.value = true
-    }
-  } catch (err: any) {
-    error.value = "Unable to access camera: " + (err.message || 'Unknown error')
-  }
-}
-
-function stopCamera() {
-  if (videoRef.value && videoRef.value.srcObject) {
-    const stream = videoRef.value.srcObject as MediaStream
-    stream.getTracks().forEach(track => track.stop())
-    videoRef.value.srcObject = null
-    isCameraOpen.value = false
-  }
-}
-
-function captureImage() {
-  if (videoRef.value && canvasRef.value && captureCount.value < maxCaptures) {
-    const context = canvasRef.value.getContext('2d')
-    canvasRef.value.width = videoRef.value.videoWidth
-    canvasRef.value.height = videoRef.value.videoHeight
-    context?.drawImage(videoRef.value, 0, 0, canvasRef.value.width, canvasRef.value.height)
-    
-    const dataUrl = canvasRef.value.toDataURL('image/jpeg', 0.8)
-    capturedImages.value.push(dataUrl)
-    captureCount.value++
-    
-    // Set the first captured image as the main profile photo reference
-    if (captureCount.value === 1) {
-      userForm.value.profile.photo_reference = dataUrl
-    }
-  }
-}
-
-function proceedToDetails() {
-  stopCamera()
-  step.value = 3
 }
 
 const selectedCard = computed(() => personaCards.find((c) => c.id === persona.value))
@@ -480,68 +409,110 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       </div>
     </div>
 
-    <!-- ─── STEP 2: Face Capture ─── -->
-    <div v-else-if="step === 2" class="animate-fade-in">
-      <div class="app-panel p-6 sm:p-8 text-center">
-        <div class="flex items-center gap-3 mb-6 pb-5 border-b border-[var(--border-light)] text-left">
-          <button @click="step = 1" class="btn btn-outline py-1.5 px-3 text-xs">
-            <ArrowLeft :size="14" /> Back
-          </button>
-          <div
-            v-if="selectedCard"
-            :class="['flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold text-white bg-gradient-to-r', selectedCard.gradient]"
+    <!-- ─── STEP 2: skipped (now part of step 1 flow) — placeholder ─── -->
+
+    <!-- ─── STEP 3: Face Registration (5-pose Freco) ─── -->
+    <div v-else-if="step === 3" class="animate-fade-in">
+      <div class="glass-panel p-6 sm:p-8">
+        <div class="flex items-center gap-3 mb-6 pb-5 border-b border-[var(--border-light)]">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 text-navy flex items-center justify-center">
+            <ScanFace :size="22" />
+          </div>
+          <div>
+            <h2 class="text-xl font-extrabold">Face Registration</h2>
+            <p class="text-sm text-muted">Capture 5 poses for ArcFace embedding generation</p>
+          </div>
+        </div>
+
+        <!-- Success flash -->
+        <div v-if="faceRegSuccess" class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-center mb-5 flex items-center justify-center gap-2">
+          <CheckCircle :size="20" /> Face registered successfully! Continuing…
+        </div>
+
+        <!-- Pose strip -->
+        <div class="flex gap-3 justify-center flex-wrap mb-8">
+          <div v-for="(pose, idx) in POSES" :key="pose.key"
+            @click="currentPoseIdx = idx"
+            :class="['cursor-pointer flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all w-28',
+              idx === currentPoseIdx ? 'border-primary bg-primary/5 scale-105' :
+              poseCaptures[pose.key]?.captured ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-[var(--border-light)] hover:border-primary/40']">
+            <div :class="['w-14 h-14 rounded-xl overflow-hidden border-2 flex items-center justify-center text-2xl',
+              poseCaptures[pose.key]?.captured ? 'border-emerald-500' : 'border-[var(--border-light)] bg-[var(--bg-input)]']">
+              <img v-if="poseCaptures[pose.key]?.url" :src="poseCaptures[pose.key].url || undefined" class="w-full h-full object-cover" />
+              <span v-else>{{ pose.emoji }}</span>
+            </div>
+            <span class="text-xs font-bold">{{ pose.label }}</span>
+            <CheckCircle v-if="poseCaptures[pose.key]?.captured" class="text-emerald-400" :size="14" />
+          </div>
+        </div>
+
+        <!-- Current pose instruction -->
+        <div v-if="!allPosesCaptured" class="text-center mb-6">
+          <div class="text-4xl mb-2">{{ currentPose.emoji }}</div>
+          <h3 class="text-lg font-extrabold mb-1">{{ currentPose.label }}</h3>
+          <p class="text-muted text-sm mb-4">{{ currentPose.description }}</p>
+          
+          <div class="max-w-md mx-auto mb-4 relative rounded-2xl overflow-hidden bg-black/5 border border-[var(--border-light)] aspect-video">
+            <video ref="videoRef" class="w-full h-full object-cover scale-x-[-1]" playsinline muted></video>
+            <canvas ref="canvasRef" class="hidden"></canvas>
+            
+            <div v-if="!isStreaming" class="absolute inset-0 flex items-center justify-center text-muted">
+              <Loader2 v-if="!streamError" class="animate-spin" :size="24" />
+              <span v-else class="text-red-400 text-sm p-4 text-center">{{ streamError }}</span>
+            </div>
+          </div>
+
+          <button
+            @click="captureCurrentPose"
+            :disabled="!isStreaming"
+            class="btn btn-primary px-8 py-3 w-full max-w-xs mx-auto"
           >
-            <component :is="selectedCard.icon" :size="15" />
-            {{ selectedCard.label }} Face Registration
-          </div>
-        </div>
-
-        <h2 class="text-2xl font-bold mb-2 text-navy">Face Registration</h2>
-        <p class="text-muted mb-8 max-w-md mx-auto">Please look directly at the camera to capture {{ maxCaptures }} clear photos for your campus identity.</p>
-        
-        <div class="mx-auto w-48 h-48 sm:w-64 sm:h-64 bg-gray-100 rounded-full border-4 border-dashed border-[var(--border-light)] flex flex-col items-center justify-center mb-6 overflow-hidden relative shadow-inner">
-          <video v-show="isCameraOpen" ref="videoRef" autoplay playsinline class="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]"></video>
-          <img v-if="userForm.profile.photo_reference && !isCameraOpen" :src="userForm.profile.photo_reference" class="absolute inset-0 w-full h-full object-cover p-2" />
-          <Camera v-if="!isCameraOpen && !userForm.profile.photo_reference" :size="48" class="text-muted/50 mb-3" />
-          <span v-if="!isCameraOpen && !userForm.profile.photo_reference" class="text-sm font-medium text-muted">Camera Offline</span>
-        </div>
-
-        <div class="mb-6 flex justify-center gap-2">
-          <div v-for="i in maxCaptures" :key="i" :class="['w-10 h-10 rounded bg-gray-200 overflow-hidden border-2', captureCount >= i ? 'border-primary' : 'border-transparent']">
-            <img v-if="captureCount >= i" :src="capturedImages[i-1]" class="w-full h-full object-cover" />
-            <div v-else class="w-full h-full flex items-center justify-center text-xs text-muted">{{ i }}</div>
-          </div>
-        </div>
-        
-        <canvas ref="canvasRef" class="hidden"></canvas>
-
-        <div class="flex flex-col sm:flex-row justify-center gap-4">
-          <button v-if="!isCameraOpen && captureCount < maxCaptures" @click="startCamera" class="btn btn-outline border-[var(--border-light)] hover:border-primary">
             <Camera :size="18" />
-            Start Camera
-          </button>
-          <button v-if="isCameraOpen && captureCount < maxCaptures" @click="captureImage" class="btn btn-primary px-8">
-            <Camera :size="18" />
-            Capture Photo ({{ captureCount }}/{{ maxCaptures }})
+            Capture {{ currentPose.label }} Pose
           </button>
           
-          <button 
-            @click="proceedToDetails" 
-            class="btn btn-primary px-8" 
-            v-if="captureCount >= maxCaptures"
-          >
-            Continue to Details <ArrowRight :size="18" />
+          <div class="mt-3 text-xs text-muted">{{ capturedPosesCount }} / {{ POSES.length }} poses captured</div>
+        </div>
+
+        <!-- All captured -->
+        <div v-else class="text-center mb-6">
+          <CheckCircle class="text-emerald-400 mx-auto mb-2" :size="40" />
+          <p class="text-emerald-400 font-bold text-lg">All 5 poses captured!</p>
+          <p class="text-muted text-sm">Ready to register with Freco</p>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="h-2 rounded-full bg-[var(--border-light)] overflow-hidden mb-6">
+          <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" :style="`width:${(capturedPosesCount / POSES.length) * 100}%`" />
+        </div>
+
+        <!-- Error -->
+        <div v-if="faceRegError" class="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold mb-4">
+          {{ faceRegError }}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-between gap-3">
+          <button @click="skipFaceReg" class="btn btn-outline text-muted">
+            Skip Face Registration
+          </button>
+          <button @click="handleFaceRegister" :disabled="faceRegLoading || !allPosesCaptured || faceRegSuccess"
+            class="btn btn-primary px-8" id="register-face-btn">
+            <Loader2 v-if="faceRegLoading" class="animate-spin" :size="16" />
+            <ScanFace v-else :size="16" />
+            Register Face
           </button>
         </div>
       </div>
     </div>
 
-    <!-- ─── STEP 3: User Details Form ─── -->
-    <div v-else-if="step === 3" class="animate-fade-in">
+
+    <!-- ─── STEP 2: User Details ─── -->
+    <div v-else-if="step === 2" class="animate-fade-in">
       <div class="app-panel p-6 sm:p-8">
         <!-- Selected persona badge -->
         <div class="flex items-center gap-3 mb-6 pb-5 border-b border-[var(--border-light)]">
-          <button @click="step = 2" class="btn btn-outline py-1.5 px-3 text-xs">
+          <button @click="step = 1" class="btn btn-outline py-1.5 px-3 text-xs">
             <ArrowLeft :size="14" /> Back
           </button>
           <div
@@ -554,249 +525,13 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
         </div>
 
         <form @submit.prevent="handleCreateUser">
-          <!-- ── Common fields ── -->
-          <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2">
-            <Users :size="14" /> Personal Information
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div class="form-group !mb-0">
-              <label class="form-label">Full Name *</label>
-              <div class="relative">
-                <UserRound :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                <input v-model="userForm.profile.full_name" type="text" required class="form-input pl-9" placeholder="e.g. Arjun Sharma" />
-              </div>
-            </div>
-            <div class="form-group !mb-0">
-              <label class="form-label">Email Address *</label>
-              <div class="relative">
-                <Mail :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                <input v-model="userForm.email" type="email" required class="form-input pl-9" placeholder="arjun@dsvv.ac.in" />
-              </div>
-            </div>
-            <div class="form-group !mb-0 md:col-span-2">
-              <label class="form-label">Phone Number</label>
-              <div class="relative">
-                <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                <input v-model="userForm.phone" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Student Fields ── -->
-          <template v-if="persona === 'student'">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-              <Hash :size="14" /> Student Identity
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div class="form-group !mb-0">
-                <label class="form-label">Roll Number *</label>
-                <div class="relative">
-                  <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.roll_number" type="text" required class="form-input pl-9" placeholder="CS24001" />
-                </div>
-              </div>
-              <div class="form-group !mb-0">
-                <label class="form-label">Guardian Contact</label>
-                <div class="relative">
-                  <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.guardian_contact" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
-                </div>
-              </div>
-            </div>
-
-            <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-4 border-t border-[var(--border-light)]">
-              <BookOpen :size="14" /> Academic Information
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <!-- School -->
-              <div class="form-group !mb-0 md:col-span-2">
-                <label class="form-label">School *</label>
-                <div class="relative">
-                  <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <select
-                    v-model="userForm.profile.school"
-                    @change="onSchoolChange"
-                    required
-                    class="form-input form-select pl-9 pr-9 appearance-none"
-                    id="student-school-select"
-                  >
-                    <option value="">Select School…</option>
-                    <option v-for="school in Object.keys(schoolDepartments)" :key="school" :value="school">{{ school }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Department -->
-              <div class="form-group !mb-0 md:col-span-2">
-                <label class="form-label">Department *</label>
-                <div class="relative">
-                  <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <select
-                    v-model="userForm.profile.department"
-                    @change="onDeptChange"
-                    required
-                    :disabled="!userForm.profile.school"
-                    class="form-input form-select pl-9 pr-9 appearance-none disabled:opacity-50"
-                    id="student-dept-select"
-                  >
-                    <option value="">{{ userForm.profile.school ? 'Select Department…' : 'Select school first' }}</option>
-                    <option v-for="dept in availableDepartments" :key="dept" :value="dept">{{ dept }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Course -->
-              <div class="form-group !mb-0 md:col-span-2">
-                <label class="form-label">Course / Programme *</label>
-                <div class="relative">
-                  <BookOpen :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <select
-                    v-model="userForm.profile.course"
-                    required
-                    :disabled="!userForm.profile.department"
-                    class="form-input form-select pl-9 pr-9 appearance-none disabled:opacity-50"
-                    id="student-course-select"
-                  >
-                    <option value="">{{ userForm.profile.department ? 'Select Course…' : 'Select department first' }}</option>
-                    <option v-for="course in availableCourses" :key="course" :value="course">{{ course }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Semester -->
-              <div class="form-group !mb-0">
-                <label class="form-label">Semester *</label>
-                <div class="relative">
-                  <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <select v-model="userForm.profile.semester" required class="form-input form-select pr-9 appearance-none" id="student-semester-select">
-                    <option value="">Select Semester…</option>
-                    <option v-for="s in semesters" :key="s.value" :value="s.value">{{ s.label }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Hostel Dropdown -->
-              <div class="form-group !mb-0">
-                <label class="form-label">Hostel Resident</label>
-                <div class="relative mt-1">
-                  <Home :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-                  <select v-model="userForm.profile.hostel" class="form-input form-select pl-9 pr-9 appearance-none" id="student-hostel-select">
-                    <option :value="false">No (Day Scholar)</option>
-                    <option value="Nivedita">Nivedita</option>
-                    <option value="Sanghmitra">Sanghmitra</option>
-                    <option value="Arvind">Arvind</option>
-                    <option value="Panini">Panini</option>
-                    <option value="International">International</option>
-                    <option value="Gautum">Gautum</option>
-                    <option value="Markaandey">Markaandey</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── Faculty Fields ── -->
-          <template v-else-if="persona === 'faculty'">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-              <Briefcase :size="14" /> Faculty Information
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div class="form-group !mb-0">
-                <label class="form-label">Employee ID *</label>
-                <div class="relative">
-                  <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.employee_id" type="text" required class="form-input pl-9" placeholder="FAC001" />
-                </div>
-              </div>
-              <div class="form-group !mb-0">
-                <label class="form-label">Designation *</label>
-                <div class="relative">
-                  <Award :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.designation" type="text" required class="form-input pl-9" placeholder="e.g. Assistant Professor" />
-                </div>
-              </div>
-              <div class="form-group !mb-0 md:col-span-2">
-                <label class="form-label">Department *</label>
-                <div class="relative">
-                  <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.department" type="text" required class="form-input pl-9" placeholder="e.g. Department of Computer Sciences" />
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── Worker Fields ── -->
-          <template v-else-if="persona === 'worker'">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-              <Wrench :size="14" /> Worker Information
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div class="form-group !mb-0">
-                <label class="form-label">Employee ID *</label>
-                <div class="relative">
-                  <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.employee_id" type="text" required class="form-input pl-9" placeholder="WRK001" />
-                </div>
-              </div>
-              <div class="form-group !mb-0">
-                <label class="form-label">Role / Designation *</label>
-                <div class="relative">
-                  <Briefcase :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.worker_role" type="text" required class="form-input pl-9" placeholder="e.g. Security Staff" />
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── Visitor Fields ── -->
-          <template v-else-if="persona === 'visitor'">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-              <UserRound :size="14" /> Visitor Information
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div class="form-group !mb-0">
-                <label class="form-label">Government ID Type *</label>
-                <select v-model="userForm.profile.gov_id_type" required class="form-input form-select" id="visitor-gov-id-type">
-                  <option value="">Select ID type…</option>
-                  <option value="Aadhaar">Aadhaar</option>
-                  <option value="PAN">PAN</option>
-                  <option value="Passport">Passport</option>
-                  <option value="Driving License">Driving License</option>
-                </select>
-              </div>
-              <div class="form-group !mb-0">
-                <label class="form-label">Government ID Number *</label>
-                <div class="relative">
-                  <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.gov_id_number" type="text" required class="form-input pl-9" placeholder="ID number" />
-                </div>
-              </div>
-              <div class="form-group !mb-0">
-                <label class="form-label">Visit Purpose *</label>
-                <div class="relative">
-                  <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.visit_purpose" type="text" required class="form-input pl-9" placeholder="e.g. Meeting with IT Dept" />
-                </div>
-              </div>
-              <div class="form-group !mb-0">
-                <label class="form-label">Host Contact *</label>
-                <div class="relative">
-                  <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <input v-model="userForm.profile.host_contact" type="text" required class="form-input pl-9" placeholder="Who are you visiting?" />
-                </div>
-              </div>
-            </div>
-          </template>
+          <UserProfileForm v-model="userForm" :persona="persona" />
 
           <!-- Submit -->
           <div class="mt-8 flex justify-end gap-3">
             <button type="submit" class="btn btn-primary px-8 py-3 text-base" :disabled="isLoading" id="create-user-btn">
               <Loader2 v-if="isLoading" class="animate-spin" :size="18" />
-              <span v-else class="flex items-center gap-2">Continue to RFID <ArrowRight :size="18" /></span>
+              <span v-else class="flex items-center gap-2">Continue to Face Registration <ArrowRight :size="18" /></span>
             </button>
           </div>
         </form>

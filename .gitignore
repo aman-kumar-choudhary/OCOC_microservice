@@ -1,0 +1,16 @@
+keycloak.json
+# Keycloak
+keycloak/
+keycloak-*/
+keyclock/
+keyclock-*/
+
+# Environment files
+env/
+.env
+.env.local
+.env.*.local
+**/.env
+
+# Uploads
+uploads/

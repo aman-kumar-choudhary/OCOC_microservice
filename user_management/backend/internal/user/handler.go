@@ -220,6 +220,28 @@ func (h *Handler) Export(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// AdvanceSemester handles POST /api/admin/semester/advance
+func (h *Handler) AdvanceSemester(w http.ResponseWriter, r *http.Request) {
+	claims := auth.ClaimsFromContext(r.Context())
+	actorID := ""
+	if claims != nil {
+		actorID = claims.Sub
+	}
+
+	updatedCount, err := h.svc.AdvanceSemesters(r.Context(), actorID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "ADVANCE_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Semester advanced successfully",
+		"data": map[string]interface{}{
+			"updated_count": updatedCount,
+		},
+	})
+}
+
 func readCSVBody(r *http.Request) ([]byte, error) {
 	const maxSize = 10 << 20 // 10 MB
 	r.Body = http.MaxBytesReader(nil, r.Body, maxSize)

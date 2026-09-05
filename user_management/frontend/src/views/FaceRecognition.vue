@@ -1,0 +1,416 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { extractEmbeddings, matchFace, massMatch, registerPerson } from '@/services/frecoService'
+import api from '@/services/api'
+import { formatDateTime } from '@/utils/date'
+import type { MatchResult, MassMatchResult, FaceBboxResult } from '@/services/frecoService'
+import {
+  Upload, Camera, Loader2, ShieldCheck, ShieldX,
+  ScanFace, Users, RefreshCw, Info, Zap
+} from 'lucide-vue-next'
+import { useFaceStream } from '@/composables/useFaceStream'
+import { watch, onMounted, onUnmounted } from 'vue'
+
+// ─── shared ───────────────────────────────────────────────
+const activeTab = ref<'single' | 'mass'>('single')
+
+// ─── SINGLE FACE VERIFY ───────────────────────────────────
+const singleImg = ref<File | null>(null)
+const singleImgUrl = ref<string | null>(null)
+const singlePersonId = ref('')
+const singleEmbeddings = ref<object | null>(null)
+const singleResult = ref<MatchResult | null>(null)
+const singleLoading = ref(false)
+const singleError = ref('')
+
+const videoRef = ref<HTMLVideoElement | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const { isStreaming, error: streamError, startStream, stopStream, captureImage } = useFaceStream(videoRef)
+
+const massVideoRef = ref<HTMLVideoElement | null>(null)
+const massCanvasRefHidden = ref<HTMLCanvasElement | null>(null)
+const { isStreaming: massIsStreaming, error: massStreamError, startStream: startMassStream, stopStream: stopMassStream, captureImage: massCaptureImage } = useFaceStream(massVideoRef)
+
+watch(activeTab, (newTab) => {
+  if (newTab === 'single') {
+    stopMassStream()
+    setTimeout(() => startStream(), 100)
+  } else {
+    stopStream()
+    setTimeout(() => startMassStream(), 100)
+  }
+})
+
+onMounted(() => {
+  if (activeTab.value === 'single') {
+    setTimeout(() => startStream(), 100)
+  } else {
+    setTimeout(() => startMassStream(), 100)
+  }
+})
+
+onUnmounted(() => {
+  stopStream()
+  stopMassStream()
+})
+
+function captureFrame() {
+  const file = captureImage(canvasRef.value)
+  if (!file) return
+  singleImg.value = file
+  singleImgUrl.value = URL.createObjectURL(file)
+  singleResult.value = null
+  singleError.value = ''
+}
+
+function clearCapture() {
+  singleImg.value = null
+  singleImgUrl.value = null
+  singleResult.value = null
+  singleError.value = ''
+}
+
+async function loadCandidateEmbeddings() {
+  if (!singlePersonId.value) return
+  try {
+    const { data } = await api.get(`/onboarding/${singlePersonId.value}/embeddings`).catch(() => ({ data: null }))
+    if (data?.data?.embeddings) singleEmbeddings.value = data.data.embeddings
+  } catch {}
+}
+
+async function runSingleMatch() {
+  if (!singleImg.value) { singleError.value = 'Upload an image first'; return }
+  if (!singleEmbeddings.value) { singleError.value = 'Load candidate embeddings first'; return }
+  singleLoading.value = true
+  singleError.value = ''
+  singleResult.value = null
+  try {
+    singleResult.value = await matchFace(singleImg.value, singleEmbeddings.value)
+    // Log the auth event
+    await api.post('/face-auth/log', {
+      person_external_id: singlePersonId.value,
+      result: singleResult.value.matched ? 'success' : singleResult.value.reason === 'spoof_detected' ? 'liveness_failed' : 'failed',
+      similarity_score: singleResult.value.similarity_score,
+      liveness_score: singleResult.value.liveness_score,
+      reason: singleResult.value.reason,
+      auth_type: 'single',
+    }).catch(() => {})
+  } catch (e: any) {
+    singleError.value = e.response?.data?.detail || e.message || 'Match failed'
+  } finally { singleLoading.value = false }
+}
+
+const simPct = computed(() => singleResult.value ? Math.round(singleResult.value.similarity_score * 100) : 0)
+const livPct = computed(() => singleResult.value?.liveness_score != null ? Math.round((singleResult.value.liveness_score ?? 0) * 100) : null)
+
+// ─── MASS / GROUP RECOGNITION ─────────────────────────────
+const massImg = ref<File | null>(null)
+const massImgUrl = ref<string | null>(null)
+const massEmbedJson = ref('')
+const massResult = ref<MassMatchResult | null>(null)
+const massLoading = ref(false)
+const massError = ref('')
+const massCanvasRef = ref<HTMLCanvasElement | null>(null)
+const massImageRef = ref<HTMLImageElement | null>(null)
+
+function onMassFileChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  massImg.value = file
+  massImgUrl.value = URL.createObjectURL(file)
+  massResult.value = null
+  massError.value = ''
+}
+
+function captureMassFrame() {
+  const file = massCaptureImage(massCanvasRefHidden.value)
+  if (!file) return
+  massImg.value = file
+  massImgUrl.value = URL.createObjectURL(file)
+  massResult.value = null
+  massError.value = ''
+}
+
+function clearMassCapture() {
+  massImg.value = null
+  massImgUrl.value = null
+  massResult.value = null
+  massError.value = ''
+  setTimeout(() => startMassStream(), 100)
+}
+
+async function runMassMatch() {
+  if (!massImg.value) { massError.value = 'Upload a group photo first'; return }
+  let embeddings: object
+  try {
+    embeddings = massEmbedJson.value ? JSON.parse(massEmbedJson.value) : {}
+  } catch { massError.value = 'Invalid JSON for embeddings'; return }
+
+  massLoading.value = true
+  massError.value = ''
+  massResult.value = null
+  try {
+    massResult.value = await massMatch(massImg.value, embeddings)
+    // draw bbox overlay
+    setTimeout(() => drawBboxes(), 100)
+    // log mass events
+    for (const face of massResult.value.faces) {
+      await api.post('/face-auth/log', {
+        person_external_id: face.best_match_index?.toString() || '',
+        result: face.matched ? 'success' : face.reason === 'spoof_detected' ? 'liveness_failed' : 'failed',
+        similarity_score: face.similarity_score,
+        liveness_score: face.liveness_score,
+        reason: face.reason,
+        auth_type: 'mass',
+      }).catch(() => {})
+    }
+  } catch (e: any) {
+    massError.value = e.response?.data?.detail || e.message || 'Mass match failed'
+  } finally { massLoading.value = false }
+}
+
+function drawBboxes() {
+  const canvas = massCanvasRef.value
+  const img = massImageRef.value
+  if (!canvas || !img || !massResult.value) return
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, 0, 0)
+  for (const face of massResult.value.faces) {
+    const [x1, y1, x2, y2] = face.bbox
+    const color = face.matched ? '#10b981' : '#ef4444'
+    ctx.strokeStyle = color
+    ctx.lineWidth = 3
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+    ctx.fillStyle = color + 'cc'
+    ctx.fillRect(x1, y1 - 22, x2 - x1, 22)
+    ctx.fillStyle = '#fff'
+    ctx.font = 'bold 13px monospace'
+    ctx.fillText(face.matched ? `✓ ${Math.round(face.similarity_score * 100)}%` : '✗ Unknown', x1 + 4, y1 - 6)
+  }
+}
+
+function faceStatus(f: FaceBboxResult) {
+  if (f.matched) return { cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', label: '✓ Matched' }
+  return { cls: 'text-red-400 bg-red-500/10 border-red-500/20', label: '✗ Unknown' }
+}
+</script>
+
+<template>
+  <div class="space-y-6">
+    <!-- Header -->
+    <div>
+      <h1 class="text-2xl font-bold">Face Recognition Lab</h1>
+      <p class="text-muted text-sm mt-1">Test single face verification and mass group recognition</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 p-1 bg-[var(--bg-input)] rounded-xl w-fit">
+      <button @click="activeTab = 'single'" :id="'tab-single'"
+        :class="['flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-sm transition-all', activeTab === 'single' ? 'bg-navy text-primary shadow-sm' : 'text-muted hover:text-[var(--text-main)]']">
+        <ScanFace :size="16" /> Single Verify
+      </button>
+      <button @click="activeTab = 'mass'" :id="'tab-mass'"
+        :class="['flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-sm transition-all', activeTab === 'mass' ? 'bg-navy text-primary shadow-sm' : 'text-muted hover:text-[var(--text-main)]']">
+        <Users :size="16" /> Mass Recognition
+      </button>
+    </div>
+
+    <!-- ── SINGLE VERIFY ── -->
+    <div v-if="activeTab === 'single'" class="grid md:grid-cols-2 gap-6">
+      <!-- Left: Input -->
+      <div class="glass-panel p-5 space-y-4">
+        <h2 class="font-bold flex items-center gap-2"><ScanFace :size="18" /> Upload Test Image</h2>
+
+        <!-- Live Camera Stream or Captured Image -->
+        <div class="h-56 relative rounded-xl border border-[var(--border-light)] overflow-hidden bg-[var(--bg-main)]">
+          <template v-if="!singleImgUrl">
+            <video ref="videoRef" class="w-full h-full object-cover scale-x-[-1]" playsinline muted></video>
+            <canvas ref="canvasRef" class="hidden"></canvas>
+            
+            <div v-if="!isStreaming" class="absolute inset-0 flex items-center justify-center text-muted bg-[var(--bg-main)]">
+              <Loader2 v-if="!streamError" class="animate-spin" :size="24" />
+              <span v-else class="text-red-400 text-sm p-4 text-center">{{ streamError }}</span>
+            </div>
+            
+            <button v-if="isStreaming" @click="captureFrame" class="absolute bottom-4 left-1/2 -translate-x-1/2 btn btn-primary px-6 shadow-xl border border-white/10" id="capture-single-frame-btn">
+              <Camera :size="16" /> Capture
+            </button>
+          </template>
+          <template v-else>
+            <img :src="singleImgUrl" class="w-full h-full object-contain" />
+            <button @click="clearCapture" class="absolute top-2 right-2 p-2 rounded-lg bg-black/50 text-white hover:bg-black/70">
+              <RefreshCw :size="16" />
+            </button>
+          </template>
+        </div>
+
+        <!-- Person ID for embeddings -->
+        <div class="space-y-2">
+          <label class="form-label">Person ID (User UUID)</label>
+          <div class="flex gap-2">
+            <input v-model="singlePersonId" class="form-input flex-1 font-mono text-sm" placeholder="e.g. uuid-of-registered-user" id="person-id-input" />
+            <button @click="loadCandidateEmbeddings" class="btn btn-outline px-3" title="Load embeddings">
+              <RefreshCw :size="15" />
+            </button>
+          </div>
+          <div v-if="singleEmbeddings" class="text-xs text-emerald-400 font-semibold">✓ Embeddings loaded</div>
+          <div class="text-xs text-muted flex items-start gap-1">
+            <Info :size="12" class="mt-0.5 shrink-0" />
+            Enter the user's ID and load their stored ArcFace embeddings, then run verification.
+          </div>
+        </div>
+
+        <div v-if="singleError" class="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm font-semibold border border-red-500/20">
+          {{ singleError }}
+        </div>
+
+        <button @click="runSingleMatch" :disabled="singleLoading || !singleImg" class="btn btn-primary w-full" id="run-single-match-btn">
+          <Loader2 v-if="singleLoading" class="animate-spin" :size="16" />
+          <Zap v-else :size="16" />
+          Run Verification
+        </button>
+      </div>
+
+      <!-- Right: Result -->
+      <div class="glass-panel p-5 flex flex-col">
+        <h2 class="font-bold flex items-center gap-2 mb-5"><ShieldCheck :size="18" /> Result</h2>
+
+        <div v-if="!singleResult" class="flex-1 flex items-center justify-center text-center text-muted">
+          <div>
+            <ShieldCheck :size="48" class="mx-auto mb-3 opacity-20" />
+            <p class="text-sm">Run a verification to see results</p>
+          </div>
+        </div>
+
+        <div v-else class="flex-1 flex flex-col gap-5">
+          <!-- Big status -->
+          <div :class="['rounded-2xl p-6 text-center border', singleResult.matched ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-red-500/10 border-red-500/25']">
+            <component :is="singleResult.matched ? ShieldCheck : ShieldX" :size="52" :class="singleResult.matched ? 'text-emerald-400 mx-auto mb-2' : 'text-red-400 mx-auto mb-2'" />
+            <div :class="['text-2xl font-extrabold', singleResult.matched ? 'text-emerald-400' : 'text-red-400']">
+              {{ singleResult.matched ? 'AUTHENTICATED' : 'REJECTED' }}
+            </div>
+            <div class="text-sm text-muted mt-1">{{ singleResult.message }}</div>
+          </div>
+
+          <!-- Confidence -->
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="font-semibold text-muted">Similarity Score</span>
+                <span class="font-extrabold" :class="simPct >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ simPct }}%</span>
+              </div>
+              <div class="h-3 rounded-full bg-[var(--border-light)] overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-700" :class="simPct >= 55 ? 'bg-emerald-500' : 'bg-red-500'" :style="`width:${simPct}%`" />
+              </div>
+            </div>
+            <div v-if="livPct !== null">
+              <div class="flex justify-between text-sm mb-1">
+                <span class="font-semibold text-muted">Liveness Score</span>
+                <span class="font-extrabold" :class="(livPct ?? 0) >= 85 ? 'text-emerald-400' : 'text-orange-400'">{{ livPct }}%</span>
+              </div>
+              <div class="h-3 rounded-full bg-[var(--border-light)] overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-700" :class="(livPct ?? 0) >= 85 ? 'bg-emerald-500' : 'bg-orange-500'" :style="`width:${livPct}%`" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Meta -->
+          <div class="p-3 rounded-xl bg-[var(--bg-main)] space-y-1.5 text-sm">
+            <div class="flex justify-between">
+              <span class="text-muted">Reason</span>
+              <span class="font-mono font-semibold">{{ singleResult.reason || '—' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted">Latency</span>
+              <span class="font-mono">{{ singleResult.latency_ms?.toFixed(0) }} ms</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted">Candidates</span>
+              <span>{{ singleResult.candidate_count }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted">Timestamp</span>
+              <span class="font-mono">{{ formatDateTime(new Date().toISOString()) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MASS RECOGNITION ── -->
+    <div v-if="activeTab === 'mass'" class="space-y-5">
+      <div class="grid md:grid-cols-3 gap-5">
+        <!-- Upload or Live Camera Stream -->
+        <div class="glass-panel p-5 space-y-4">
+          <h2 class="font-bold flex items-center gap-2"><Users :size="18" /> Group Photo</h2>
+          
+          <div class="relative w-full rounded-xl border border-[var(--border-light)] overflow-hidden bg-[var(--bg-main)]">
+            <template v-if="!massImgUrl">
+              <video ref="massVideoRef" class="w-full h-auto object-cover scale-x-[-1]" playsinline muted></video>
+              <canvas ref="massCanvasRefHidden" class="hidden"></canvas>
+              
+              <div v-if="!massIsStreaming" class="absolute inset-0 flex items-center justify-center text-muted bg-[var(--bg-main)]">
+                <Loader2 v-if="!massStreamError" class="animate-spin" :size="24" />
+                <span v-else class="text-red-400 text-sm p-4 text-center">{{ massStreamError }}</span>
+              </div>
+              
+              <button v-if="massIsStreaming" @click="captureMassFrame" class="absolute bottom-4 left-1/2 -translate-x-1/2 btn btn-primary px-6 shadow-xl border border-white/10" id="capture-mass-frame-btn">
+                <Camera :size="16" /> Capture
+              </button>
+            </template>
+            <template v-else>
+              <img :src="massImgUrl" ref="massImageRef" class="hidden" />
+              <canvas ref="massCanvasRef" class="w-full h-auto object-contain"></canvas>
+              <button @click="clearMassCapture" class="absolute top-2 right-2 p-2 rounded-lg bg-black/50 text-white hover:bg-black/70 z-10" id="clear-mass-capture-btn">
+                <RefreshCw :size="16" />
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Embeddings JSON -->
+        <div class="glass-panel p-5 space-y-3">
+          <h2 class="font-bold">Candidate Embeddings</h2>
+          <div class="text-xs text-muted flex items-start gap-1.5">
+            <Info :size="12" class="shrink-0 mt-0.5" />
+            Paste a JSON object with "color" and/or "grayscale" 512-dim vectors from registered users.
+          </div>
+          <textarea v-model="massEmbedJson" rows="8" class="form-input font-mono text-xs resize-none w-full" placeholder='{"color": [[0.1, 0.2, ...512 floats]], "grayscale": [...]}' id="mass-embed-json" />
+          <div v-if="massError" class="p-3 rounded-xl bg-red-500/10 text-red-400 text-xs font-semibold border border-red-500/20">{{ massError }}</div>
+          <button @click="runMassMatch" :disabled="massLoading || !massImg" class="btn btn-primary w-full" id="run-mass-match-btn">
+            <Loader2 v-if="massLoading" class="animate-spin" :size="16" />
+            <Zap v-else :size="16" />
+            Recognize All Faces
+          </button>
+        </div>
+
+        <!-- Results -->
+        <div class="glass-panel p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold">Detection Results</h2>
+            <span v-if="massResult" class="badge badge-active">{{ massResult.faces_detected }} faces</span>
+          </div>
+          <div v-if="!massResult" class="text-center py-12 text-muted">
+            <Users :size="36" class="mx-auto mb-3 opacity-20" />
+            <p class="text-sm">Results will appear here</p>
+          </div>
+          <div v-else class="space-y-2 max-h-80 overflow-y-auto pr-1">
+            <div v-for="(face, i) in massResult.faces" :key="i"
+              :class="['p-3 rounded-xl border text-sm', faceStatus(face).cls]">
+              <div class="flex justify-between items-center">
+                <span class="font-extrabold">{{ faceStatus(face).label }}</span>
+                <span class="font-mono text-xs">{{ Math.round(face.similarity_score * 100) }}%</span>
+              </div>
+              <div class="text-xs opacity-70 mt-0.5">{{ face.reason }}</div>
+            </div>
+            <div class="p-2 rounded-lg bg-[var(--bg-main)] text-xs text-muted">
+              Latency: {{ massResult.latency_ms?.toFixed(0) }}ms · {{ massResult.faces_detected }} detected · {{ massResult.candidate_count }} candidates
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
