@@ -53,15 +53,20 @@ func TestUserRepositoryIntegration(t *testing.T) {
 	}
 
 	// 2. Create profile
+	deps, err := repo.ListDepartments(ctx)
+	if err != nil || len(deps) == 0 {
+		t.Fatalf("Failed to fetch departments or no departments found")
+	}
+	depID := deps[0].ID
+
 	p := &user.Profile{
-		UserID:     u.ID,
-		FullName:   "Test Student",
-		RollNumber: "CS12345",
-		Department: "Department of Computer Sciences",
-		School:     "School of Technology, Communication and Management",
-		Course:     "MCA",
-		Semester:   "2",
-		UpdatedAt:  time.Now(),
+		UserID:       u.ID,
+		FullName:     "Test Student",
+		RollNumber:   "CS12345",
+		DepartmentID: &depID,
+		Course:       "MCA",
+		Semester:     "2",
+		UpdatedAt:    time.Now(),
 	}
 	err = repo.CreateProfile(ctx, tx, p)
 	if err != nil {
@@ -119,8 +124,8 @@ func TestUserRepositoryIntegration(t *testing.T) {
 	if listedUser.Profile.FullName != "Test Student" {
 		t.Errorf("Expected full name 'Test Student', got '%s'", listedUser.Profile.FullName)
 	}
-	if listedUser.Profile.Department != "Department of Computer Sciences" {
-		t.Errorf("Expected department 'Department of Computer Sciences', got '%s'", listedUser.Profile.Department)
+	if listedUser.Profile.Department != deps[0].Name {
+		t.Errorf("Expected department '%s', got '%s'", deps[0].Name, listedUser.Profile.Department)
 	}
 
 	// 5. Create a user without a profile and ensure they still show up in List (LEFT JOIN check)

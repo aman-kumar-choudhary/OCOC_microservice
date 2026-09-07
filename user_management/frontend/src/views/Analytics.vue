@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import dashboardService from '@/services/dashboardService'
 import type { DashboardAnalytics, DashboardOverview } from '@/types'
-import { BarChart3, TrendingUp, Users, Calendar, Loader2, RefreshCw } from 'lucide-vue-next'
+import { BarChart3, TrendingUp, Users, Calendar, Loader2, RefreshCw, InboxIcon } from 'lucide-vue-next'
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, ArcElement, Filler, Tooltip, Legend
@@ -12,26 +12,26 @@ import { Line, Bar, Doughnut } from 'vue-chartjs'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend)
 
 const analytics = ref<DashboardAnalytics | null>(null)
-const overview = ref<DashboardOverview | null>(null)
+const overview  = ref<DashboardOverview | null>(null)
 const isLoading = ref(true)
-const error = ref('')
+const error     = ref('')
 
 // Date range
-const today = new Date().toISOString().split('T')[0]
+const today       = new Date().toISOString().split('T')[0]
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-const dateFrom = ref(thirtyDaysAgo)
-const dateTo = ref(today)
+const dateFrom    = ref(thirtyDaysAgo)
+const dateTo      = ref(today)
 
 async function loadAnalytics() {
   isLoading.value = true
-  error.value = ''
+  error.value     = ''
   try {
     const [an, ov] = await Promise.allSettled([
       dashboardService.getAnalyticsWithDateRange(dateFrom.value, dateTo.value),
       dashboardService.getOverview(),
     ])
     if (an.status === 'fulfilled') analytics.value = an.value
-    if (ov.status === 'fulfilled') overview.value = ov.value
+    if (ov.status === 'fulfilled') overview.value  = ov.value
     if (an.status === 'rejected') throw an.reason
   } catch {
     error.value = 'Could not load analytics data.'
@@ -40,103 +40,43 @@ async function loadAnalytics() {
   }
 }
 
-// Chart helpers
+// ── Shared chart style ─────────────────────────────────────────────────────
 const tooltipDefaults = {
   backgroundColor: '#0a2342',
-  titleColor: '#f5bd19',
-  bodyColor: '#fff',
-  padding: 10,
-  cornerRadius: 8,
+  titleColor:      '#f5bd19',
+  bodyColor:       '#fff',
+  padding:         10,
+  cornerRadius:    8,
 }
 
-// Onboarding Trend Chart
-const onboardingChartData = computed(() => {
-  const trend = analytics.value?.onboarding_trend ?? []
-  const labels = trend.length
-    ? trend.map((t) => new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))
-    : Array.from({ length: 14 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - (13 - i))
-        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-      })
-  const values = trend.length ? trend.map((t) => t.count) : [3, 7, 4, 10, 8, 15, 12, 18, 14, 22, 17, 25, 20, 28]
-  return {
-    labels,
-    datasets: [{
-      label: 'New Users',
-      data: values,
-      borderColor: '#f5bd19',
-      backgroundColor: 'rgba(245,189,25,0.10)',
-      borderWidth: 2.5,
-      fill: true,
-      tension: 0.45,
-      pointRadius: 4,
-      pointBackgroundColor: '#d99e00',
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-    }],
-  }
-})
-
-const lineOptions = (_label?: string) => ({
-  responsive: true,
+const lineOptions = {
+  responsive:          true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { display: false },
+    legend:  { display: false },
     tooltip: { ...tooltipDefaults },
   },
   scales: {
     x: { grid: { display: false }, ticks: { color: '#607087', font: { size: 11 }, maxTicksLimit: 8 }, border: { display: false } },
-    y: { grid: { color: 'rgba(220,227,236,0.5)' }, ticks: { color: '#607087', font: { size: 11 }, precision: 0 }, border: { display: false } },
+    y: { grid: { color: 'rgba(220,227,236,0.5)' }, ticks: { color: '#607087', font: { size: 11 }, precision: 0 }, border: { display: false }, beginAtZero: true },
   },
-})
+}
 
-// Card Issuance Trend
-const cardChartData = computed(() => {
-  const trend = analytics.value?.card_issuance_trend ?? []
-  const labels = trend.length
-    ? trend.map((t) => new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))
-    : Array.from({ length: 14 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - (13 - i))
-        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-      })
-  const values = trend.length ? trend.map((t) => t.count) : [2, 5, 3, 9, 7, 11, 9, 14, 10, 18, 13, 20, 16, 23]
-  return {
-    labels,
-    datasets: [{
-      label: 'Cards Issued',
-      data: values,
-      backgroundColor: 'rgba(14,165,233,0.15)',
-      borderColor: '#0ea5e9',
-      borderWidth: 2.5,
-      fill: true,
-      tension: 0.4,
-      pointRadius: 3,
-      pointBackgroundColor: '#0284c7',
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-    }],
-  }
-})
-
-// Persona Distribution Doughnut
-const personaChartData = computed(() => ({
-  labels: ['Students', 'Faculty', 'Workers', 'Visitors'],
-  datasets: [{
-    data: [
-      overview.value?.students ?? 45,
-      overview.value?.faculty ?? 20,
-      overview.value?.workers ?? 25,
-      overview.value?.visitors ?? 10,
-    ],
-    backgroundColor: ['#f5bd19', '#818cf8', '#34d399', '#fb923c'],
-    borderColor: ['#d99e00', '#6366f1', '#10b981', '#f97316'],
-    borderWidth: 2,
-    hoverOffset: 8,
-  }],
-}))
+const barOptions = {
+  responsive:          true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend:  { display: false },
+    tooltip: { ...tooltipDefaults },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { color: '#607087', font: { size: 11 } }, border: { display: false } },
+    y: { grid: { color: 'rgba(220,227,236,0.5)' }, ticks: { color: '#607087', font: { size: 11 }, precision: 0 }, border: { display: false }, beginAtZero: true },
+  },
+}
 
 const doughnutOptions = {
-  responsive: true,
+  responsive:          true,
   maintainAspectRatio: false,
   cutout: '68%',
   plugins: {
@@ -148,52 +88,91 @@ const doughnutOptions = {
   },
 }
 
-// Weekly bar chart (aggregate by week)
+// ── Real-data computed charts ──────────────────────────────────────────────
+
+const onboardingTrend = computed(() => analytics.value?.onboarding_trend ?? [])
+const cardTrend       = computed(() => analytics.value?.card_issuance_trend ?? [])
+
+const onboardingChartData = computed(() => ({
+  labels:   onboardingTrend.value.map(t => new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })),
+  datasets: [{
+    label:                'New Users',
+    data:                 onboardingTrend.value.map(t => t.count),
+    borderColor:          '#f5bd19',
+    backgroundColor:      'rgba(245,189,25,0.10)',
+    borderWidth:          2.5,
+    fill:                 true,
+    tension:              0.45,
+    pointRadius:          4,
+    pointBackgroundColor: '#d99e00',
+    pointBorderColor:     '#fff',
+    pointBorderWidth:     2,
+  }],
+}))
+
+const cardChartData = computed(() => ({
+  labels:   cardTrend.value.map(t => new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })),
+  datasets: [{
+    label:                'Cards Issued',
+    data:                 cardTrend.value.map(t => t.count),
+    backgroundColor:      'rgba(14,165,233,0.15)',
+    borderColor:          '#0ea5e9',
+    borderWidth:          2.5,
+    fill:                 true,
+    tension:              0.4,
+    pointRadius:          3,
+    pointBackgroundColor: '#0284c7',
+    pointBorderColor:     '#fff',
+    pointBorderWidth:     2,
+  }],
+}))
+
+// Weekly bar — aggregate real data by week
 const weeklyBarData = computed(() => {
-  const trend = analytics.value?.onboarding_trend ?? []
-  // Group into weeks
   const weekMap: Record<string, number> = {}
-  trend.forEach((t) => {
-    const d = new Date(t.date)
+  onboardingTrend.value.forEach(t => {
+    const d         = new Date(t.date)
     const weekStart = new Date(d)
     weekStart.setDate(d.getDate() - d.getDay())
-    const key = weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-    weekMap[key] = (weekMap[key] || 0) + t.count
+    const key       = weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    weekMap[key]    = (weekMap[key] || 0) + t.count
   })
-  const demo = { 'Week 1': 18, 'Week 2': 32, 'Week 3': 27, 'Week 4': 41 }
-  const data = Object.keys(weekMap).length > 0 ? weekMap : demo
   return {
-    labels: Object.keys(data),
+    labels:   Object.keys(weekMap),
     datasets: [{
-      label: 'Onboardings per Week',
-      data: Object.values(data),
-      backgroundColor: ['#f5bd19cc', '#f5bd19aa', '#f5bd1988', '#f5bd1966'],
-      borderColor: '#d99e00',
-      borderWidth: 1.5,
-      borderRadius: 8,
+      label:           'Onboardings per Week',
+      data:            Object.values(weekMap),
+      backgroundColor: ['#f5bd19cc', '#f5bd19aa', '#f5bd1988', '#f5bd1966', '#f5bd1944'],
+      borderColor:     '#d99e00',
+      borderWidth:     1.5,
+      borderRadius:    8,
     }],
   }
 })
 
-const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: tooltipDefaults,
-  },
-  scales: {
-    x: { grid: { display: false }, ticks: { color: '#607087', font: { size: 11 } }, border: { display: false } },
-    y: { grid: { color: 'rgba(220,227,236,0.5)' }, ticks: { color: '#607087', font: { size: 11 }, precision: 0 }, border: { display: false } },
-  },
-}
+// Doughnut — real counts only
+const personaChartData = computed(() => ({
+  labels:   ['Students', 'Faculty', 'Workers', 'Visitors'],
+  datasets: [{
+    data:            [
+      overview.value?.students ?? 0,
+      overview.value?.faculty  ?? 0,
+      overview.value?.workers  ?? 0,
+      overview.value?.visitors ?? 0,
+    ],
+    backgroundColor: ['#f5bd19', '#818cf8', '#34d399', '#fb923c'],
+    borderColor:     ['#d99e00', '#6366f1', '#10b981', '#f97316'],
+    borderWidth:     2,
+    hoverOffset:     8,
+  }],
+}))
 
-// Summary stats
-const totalOnboarded = computed(() => analytics.value?.onboarding_trend?.reduce((s, t) => s + t.count, 0) ?? 0)
-const totalCardsIssued = computed(() => analytics.value?.card_issuance_trend?.reduce((s, t) => s + t.count, 0) ?? 0)
+// ── Summary stats ──────────────────────────────────────────────────────────
+const totalOnboarded = computed(() => onboardingTrend.value.reduce((s, t) => s + t.count, 0))
+const totalCardsIssued = computed(() => cardTrend.value.reduce((s, t) => s + t.count, 0))
 const avgPerDay = computed(() => {
-  const trend = analytics.value?.onboarding_trend ?? []
-  return trend.length ? Math.round(totalOnboarded.value / trend.length * 10) / 10 : 0
+  const n = onboardingTrend.value.length
+  return n ? Math.round((totalOnboarded.value / n) * 10) / 10 : 0
 })
 
 onMounted(loadAnalytics)
@@ -296,8 +275,14 @@ onMounted(loadAnalytics)
             </h2>
             <p class="mt-1 text-sm text-muted">Daily new user registrations in selected period</p>
           </div>
-          <div class="h-64">
-            <Line :data="onboardingChartData" :options="lineOptions('New Users')" />
+          <div class="h-64 flex items-center justify-center">
+            <template v-if="onboardingTrend.length > 0">
+              <Line :data="onboardingChartData" :options="lineOptions" class="w-full h-full" />
+            </template>
+            <div v-else class="flex flex-col items-center gap-2 text-muted">
+              <InboxIcon :size="32" class="opacity-30" />
+              <p class="text-sm font-semibold">No registrations in selected period</p>
+            </div>
           </div>
         </section>
 
@@ -309,8 +294,14 @@ onMounted(loadAnalytics)
             </h2>
             <p class="mt-1 text-sm text-muted">RFID cards issued per day</p>
           </div>
-          <div class="h-64">
-            <Line :data="cardChartData" :options="lineOptions('Cards Issued')" />
+          <div class="h-64 flex items-center justify-center">
+            <template v-if="cardTrend.length > 0">
+              <Line :data="cardChartData" :options="lineOptions" class="w-full h-full" />
+            </template>
+            <div v-else class="flex flex-col items-center gap-2 text-muted">
+              <InboxIcon :size="32" class="opacity-30" />
+              <p class="text-sm font-semibold">No cards issued in selected period</p>
+            </div>
           </div>
         </section>
       </div>
@@ -334,8 +325,14 @@ onMounted(loadAnalytics)
             <h2 class="text-lg font-extrabold">Weekly Enrollment Volume</h2>
             <p class="mt-1 text-sm text-muted">Aggregated onboardings grouped by week</p>
           </div>
-          <div class="h-64">
-            <Bar :data="weeklyBarData" :options="barOptions" />
+          <div class="h-64 flex items-center justify-center">
+            <template v-if="Object.keys(weeklyBarData.datasets[0]?.data ?? {}).length > 0 && weeklyBarData.labels.length > 0">
+              <Bar :data="weeklyBarData" :options="barOptions" class="w-full h-full" />
+            </template>
+            <div v-else class="flex flex-col items-center gap-2 text-muted">
+              <InboxIcon :size="32" class="opacity-30" />
+              <p class="text-sm font-semibold">No data for selected period</p>
+            </div>
           </div>
         </section>
       </div>

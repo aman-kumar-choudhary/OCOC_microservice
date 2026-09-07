@@ -269,11 +269,17 @@ func (s *Service) ListByRole(ctx context.Context, role string, page, limit int) 
 
 		listQuery = `
 			SELECT u.id, u.user_type, u.status, u.email, u.phone, u.created_at,
-			       p.full_name, p.roll_number, p.employee_id,
-			       p.emergency_contact, p.guardian_contact,
-			       p.gov_id_type, p.gov_id_number, p.visit_purpose, p.host_contact
+			       COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name, 
+			       sp.roll_number, 
+			       COALESCE(fp.employee_id, wp.employee_id) as employee_id,
+			       COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact, 
+			       sp.guardian_contact,
+			       vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact
 			FROM users u
-			LEFT JOIN user_profiles p ON p.user_id = u.id
+			LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
+			LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+			LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
+			LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
 			WHERE u.user_type=$1
 			ORDER BY u.created_at DESC
 			LIMIT $2 OFFSET $3`
@@ -283,11 +289,17 @@ func (s *Service) ListByRole(ctx context.Context, role string, page, limit int) 
 
 		listQuery = `
 			SELECT u.id, u.user_type, u.status, u.email, u.phone, u.created_at,
-			       p.full_name, p.roll_number, p.employee_id,
-			       p.emergency_contact, p.guardian_contact,
-			       p.gov_id_type, p.gov_id_number, p.visit_purpose, p.host_contact
+			       COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name, 
+			       sp.roll_number, 
+			       COALESCE(fp.employee_id, wp.employee_id) as employee_id,
+			       COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact, 
+			       sp.guardian_contact,
+			       vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact
 			FROM users u
-			LEFT JOIN user_profiles p ON p.user_id = u.id
+			LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
+			LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+			LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
+			LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
 			ORDER BY u.created_at DESC
 			LIMIT $1 OFFSET $2`
 	}

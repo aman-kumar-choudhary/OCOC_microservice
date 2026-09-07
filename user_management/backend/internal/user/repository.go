@@ -76,43 +76,43 @@ func (r *PostgresRepository) CreateProfile(ctx context.Context, tx *sql.Tx, p *P
 	switch utype {
 	case "student":
 		q = `INSERT INTO student_profiles (
-				user_id, full_name, roll_number, department_id, department, school,
-				course, semester, hostel_flag, hostel_id, emergency_contact,
+				user_id, full_name, roll_number, department_id, 
+				course, semester, hostel_id, emergency_contact,
 				guardian_contact, photo_reference, updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 			ON CONFLICT (user_id) DO UPDATE SET
 				full_name=EXCLUDED.full_name, roll_number=EXCLUDED.roll_number,
-				department_id=EXCLUDED.department_id, department=EXCLUDED.department,
-				school=EXCLUDED.school, course=EXCLUDED.course, semester=EXCLUDED.semester,
-				hostel_flag=EXCLUDED.hostel_flag, hostel_id=EXCLUDED.hostel_id,
+				department_id=EXCLUDED.department_id, 
+				course=EXCLUDED.course, semester=EXCLUDED.semester,
+				hostel_id=EXCLUDED.hostel_id,
 				emergency_contact=EXCLUDED.emergency_contact, guardian_contact=EXCLUDED.guardian_contact,
 				photo_reference=EXCLUDED.photo_reference, updated_at=EXCLUDED.updated_at`
-		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.RollNumber), nullUUID(p.DepartmentID), nullStr(p.Department), nullStr(p.School), nullStr(p.Course), nullStr(p.Semester), p.HostelFlag, nullUUID(p.HostelID), nullStr(p.EmergencyContact), nullStr(p.GuardianContact), nullStr(p.PhotoReference), p.UpdatedAt)
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.RollNumber), nullUUID(p.DepartmentID), nullStr(p.Course), nullStr(p.Semester), nullUUID(p.HostelID), nullStr(p.EmergencyContact), nullStr(p.GuardianContact), nullStr(p.PhotoReference), p.UpdatedAt)
 
 	case "faculty":
 		q = `INSERT INTO faculty_profiles (
-				user_id, full_name, employee_id, department_id, department, school,
+				user_id, full_name, employee_id, department_id, 
 				designation, emergency_contact, photo_reference, updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 			ON CONFLICT (user_id) DO UPDATE SET
 				full_name=EXCLUDED.full_name, employee_id=EXCLUDED.employee_id,
-				department_id=EXCLUDED.department_id, department=EXCLUDED.department,
-				school=EXCLUDED.school, designation=EXCLUDED.designation,
+				department_id=EXCLUDED.department_id, 
+				designation=EXCLUDED.designation,
 				emergency_contact=EXCLUDED.emergency_contact, photo_reference=EXCLUDED.photo_reference,
 				updated_at=EXCLUDED.updated_at`
-		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.EmployeeID), nullUUID(p.DepartmentID), nullStr(p.Department), nullStr(p.School), nullStr(p.Designation), nullStr(p.EmergencyContact), nullStr(p.PhotoReference), p.UpdatedAt)
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.EmployeeID), nullUUID(p.DepartmentID), nullStr(p.Designation), nullStr(p.EmergencyContact), nullStr(p.PhotoReference), p.UpdatedAt)
 
 	case "worker":
 		q = `INSERT INTO worker_profiles (
-				user_id, full_name, employee_id, department_id, department,
+				user_id, full_name, employee_id, department_id, 
 				designation, emergency_contact, photo_reference, updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 			ON CONFLICT (user_id) DO UPDATE SET
 				full_name=EXCLUDED.full_name, employee_id=EXCLUDED.employee_id,
-				department_id=EXCLUDED.department_id, department=EXCLUDED.department,
+				department_id=EXCLUDED.department_id, 
 				designation=EXCLUDED.designation, emergency_contact=EXCLUDED.emergency_contact,
 				photo_reference=EXCLUDED.photo_reference, updated_at=EXCLUDED.updated_at`
-		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.EmployeeID), nullUUID(p.DepartmentID), nullStr(p.Department), nullStr(p.Designation), nullStr(p.EmergencyContact), nullStr(p.PhotoReference), p.UpdatedAt)
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.EmployeeID), nullUUID(p.DepartmentID), nullStr(p.Designation), nullStr(p.EmergencyContact), nullStr(p.PhotoReference), p.UpdatedAt)
 
 	case "visitor":
 		q = `INSERT INTO visitor_profiles (
@@ -228,7 +228,12 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) (*ListResul
 	offset := (f.Page - 1) * f.Limit
 
 	where, args := buildListWhere(f)
-	base := "FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id " + where
+	base := `FROM users u 
+		LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
+		LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+		LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
+		LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
+		LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id, wp.department_id) ` + where
 
 	var total int
 	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) "+base, args...).Scan(&total); err != nil {
@@ -237,11 +242,23 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) (*ListResul
 
 	args = append(args, f.Limit, offset)
 	q := fmt.Sprintf(`SELECT u.id, u.keycloak_user_id, u.user_type, u.status, u.email, u.phone, u.created_at, u.updated_at,
-		p.full_name, p.roll_number, p.employee_id, p.department_id, p.hostel_id,
-		p.department, p.school, p.course, p.semester, p.designation, p.hostel_flag,
-		p.emergency_contact, p.guardian_contact, p.photo_reference,
-		p.gov_id_type, p.gov_id_number, p.visit_purpose, p.host_contact,
-		p.visit_start, p.visit_duration_days, p.updated_at,
+		COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name, 
+		sp.roll_number, 
+		COALESCE(fp.employee_id, wp.employee_id) as employee_id, 
+		COALESCE(sp.department_id, fp.department_id, wp.department_id) as department_id, 
+		sp.hostel_id,
+		d.name as department, 
+		d.school as school, 
+		sp.course, 
+		sp.semester, 
+		COALESCE(fp.designation, wp.designation) as designation, 
+		CASE WHEN sp.hostel_id IS NOT NULL THEN TRUE ELSE FALSE END as hostel_flag,
+		COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact, 
+		sp.guardian_contact, 
+		COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
+		vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact,
+		vp.visit_start, vp.visit_duration_days, 
+		COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
 		(SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
 		EXISTS(SELECT 1 FROM freco_people fp JOIN freco_face_embeddings fe ON fe.person_id = fp.id WHERE fp.external_id = u.id) AS has_face_auth
 		%s ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d`, base, len(args)-1, len(args))
@@ -395,12 +412,35 @@ func (r *PostgresRepository) loadProfile(ctx context.Context, userID uuid.UUID) 
 	var visitDuration sql.NullInt32
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT full_name, roll_number, employee_id, department_id, hostel_id,
-			department, school, course, semester, designation, hostel_flag,
-			emergency_contact, guardian_contact, photo_reference,
-			gov_id_type, gov_id_number, visit_purpose, host_contact,
-			visit_start, visit_duration_days, updated_at
-		FROM user_profiles WHERE user_id=$1`, userID).
+		SELECT 
+			COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name,
+			sp.roll_number,
+			COALESCE(fp.employee_id, wp.employee_id) as employee_id,
+			COALESCE(sp.department_id, fp.department_id, wp.department_id) as department_id,
+			sp.hostel_id,
+			d.name as department,
+			d.school as school,
+			sp.course,
+			sp.semester,
+			COALESCE(fp.designation, wp.designation) as designation,
+			CASE WHEN sp.hostel_id IS NOT NULL THEN TRUE ELSE FALSE END as hostel_flag,
+			COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
+			sp.guardian_contact,
+			COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
+			vp.gov_id_type,
+			vp.gov_id_number,
+			vp.visit_purpose,
+			vp.host_contact,
+			vp.visit_start,
+			vp.visit_duration_days,
+			COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as updated_at
+		FROM users u
+		LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
+		LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+		LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
+		LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
+		LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id, wp.department_id)
+		WHERE u.id=$1`, userID).
 		Scan(&p.FullName, &roll, &emp, &deptID, &hostelID,
 			&dept, &school, &course, &semester, &designation, &hostelFlag,
 			&emerg, &guard, &photo,
@@ -460,7 +500,7 @@ func buildListWhere(f ListFilter) (string, []interface{}) {
 
 	if f.Search != "" {
 		conds = append(conds, fmt.Sprintf(
-			`(u.email ILIKE $%d OR p.full_name ILIKE $%d OR p.roll_number ILIKE $%d OR p.employee_id ILIKE $%d OR u.phone ILIKE $%d OR u.id::text ILIKE $%d)`,
+			`(u.email ILIKE $%d OR COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) ILIKE $%d OR sp.roll_number ILIKE $%d OR COALESCE(fp.employee_id, wp.employee_id) ILIKE $%d OR u.phone ILIKE $%d OR u.id::text ILIKE $%d)`,
 			n, n, n, n, n, n))
 		args = append(args, "%"+f.Search+"%")
 		n++
@@ -476,22 +516,22 @@ func buildListWhere(f ListFilter) (string, []interface{}) {
 		n++
 	}
 	if f.Department != "" {
-		conds = append(conds, fmt.Sprintf(`p.department_id=$%d`, n))
+		conds = append(conds, fmt.Sprintf(`COALESCE(sp.department_id, fp.department_id, wp.department_id)=$%d`, n))
 		args = append(args, f.Department)
 		n++
 	}
 	if f.Course != "" {
-		conds = append(conds, fmt.Sprintf(`p.course ILIKE $%d`, n))
+		conds = append(conds, fmt.Sprintf(`sp.course ILIKE $%d`, n))
 		args = append(args, "%"+f.Course+"%")
 		n++
 	}
 	if f.Semester != "" {
-		conds = append(conds, fmt.Sprintf(`p.semester=$%d`, n))
+		conds = append(conds, fmt.Sprintf(`sp.semester=$%d`, n))
 		args = append(args, f.Semester)
 		n++
 	}
 	if f.HostelID != "" {
-		conds = append(conds, fmt.Sprintf(`p.hostel_id=$%d`, n))
+		conds = append(conds, fmt.Sprintf(`sp.hostel_id=$%d`, n))
 		args = append(args, f.HostelID)
 		n++
 	}
@@ -520,7 +560,7 @@ func nullTime(t *time.Time) sql.NullTime {
 func nullInt(n int) sql.NullInt32 { return sql.NullInt32{Int32: int32(n), Valid: n > 0} }
 
 func (r *PostgresRepository) ListDepartments(ctx context.Context) ([]Department, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, name, code FROM departments ORDER BY name ASC")
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, code, school FROM departments ORDER BY name ASC")
 	if err != nil {
 		return nil, fmt.Errorf("list departments: %w", err)
 	}
@@ -529,9 +569,11 @@ func (r *PostgresRepository) ListDepartments(ctx context.Context) ([]Department,
 	var deps []Department
 	for rows.Next() {
 		var d Department
-		if err := rows.Scan(&d.ID, &d.Name, &d.Code); err != nil {
+		var school sql.NullString
+		if err := rows.Scan(&d.ID, &d.Name, &d.Code, &school); err != nil {
 			continue
 		}
+		d.School = school.String
 		deps = append(deps, d)
 	}
 	if err = rows.Err(); err != nil {

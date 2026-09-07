@@ -4,19 +4,16 @@ import userService from '@/services/userService'
 import rfidService from '@/services/rfidService'
 import { registerPerson } from '@/services/frecoService'
 import {
-  GraduationCap, Briefcase, Wrench, UserRound, CreditCard,
+  GraduationCap, Wrench, UserRound, CreditCard,
   CheckCircle, Loader2, ArrowRight, ArrowLeft, Camera, ScanFace, Award
 } from 'lucide-vue-next'
 import UserProfileForm from '@/components/UserProfileForm.vue'
-import { useFaceStream } from '@/composables/useFaceStream'
+import FaceOvalCamera from '@/components/FaceOvalCamera.vue'
 
 // ─── Camera state ──────────────────────────────────────────────────
-const videoRef = ref<HTMLVideoElement | null>(null)
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const isCameraOpen = ref(false)
+// Removed manual refs since FaceOvalCamera handles them
 const capturedImages = ref<string[]>([])
 const captureCount = ref(0)
-const maxCaptures = 5
 
 // ─── Face pose capture state ───────────────────────────────────────
 const POSES = [
@@ -34,16 +31,11 @@ const faceRegLoading = ref(false)
 const faceRegError = ref('')
 const faceRegSuccess = ref(false)
 
-const { isStreaming, error: streamError, startStream, stopStream, captureImage } = useFaceStream(videoRef)
-
 const capturedPosesCount = computed(() => POSES.filter(p => poseCaptures.value[p.key]?.captured).length)
 const allPosesCaptured = computed(() => capturedPosesCount.value === POSES.length)
 const currentPose = computed(() => POSES[currentPoseIdx.value])
 
-function captureCurrentPose() {
-  const file = captureImage(canvasRef.value)
-  if (!file) return
-  
+function handleAutoCapture(file: File) {
   const key = currentPose.value.key
   poseCaptures.value[key].file = file
   poseCaptures.value[key].url = URL.createObjectURL(file)
@@ -51,8 +43,6 @@ function captureCurrentPose() {
   
   if (currentPoseIdx.value < POSES.length - 1) {
     setTimeout(() => { currentPoseIdx.value++ }, 600)
-  } else {
-    stopStream()
   }
 }
 
@@ -87,14 +77,6 @@ function skipFaceReg() {
 const step = ref<1 | 2 | 3 | 4 | 5>(1)
 
 import { watch } from 'vue'
-watch(step, async (newStep) => {
-  if (newStep === 3 && !allPosesCaptured.value) {
-    // slight delay to allow videoRef to be mounted in DOM
-    setTimeout(() => startStream(), 100)
-  } else {
-    stopStream()
-  }
-})
 
 // ─── Persona Selection ─────────────────────────────────────────────
 const persona = ref('')
@@ -452,24 +434,14 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
           <h3 class="text-lg font-extrabold mb-1">{{ currentPose.label }}</h3>
           <p class="text-muted text-sm mb-4">{{ currentPose.description }}</p>
           
-          <div class="max-w-md mx-auto mb-4 relative rounded-2xl overflow-hidden bg-black/5 border border-[var(--border-light)] aspect-video">
-            <video ref="videoRef" class="w-full h-full object-cover scale-x-[-1]" playsinline muted></video>
-            <canvas ref="canvasRef" class="hidden"></canvas>
-            
-            <div v-if="!isStreaming" class="absolute inset-0 flex items-center justify-center text-muted">
-              <Loader2 v-if="!streamError" class="animate-spin" :size="24" />
-              <span v-else class="text-red-400 text-sm p-4 text-center">{{ streamError }}</span>
-            </div>
+          <div class="mb-4">
+            <FaceOvalCamera 
+              mode="registration" 
+              :targetPose="(currentPose.key as any)"
+              :isActive="step === 3 && !allPosesCaptured"
+              @capture="handleAutoCapture"
+            />
           </div>
-
-          <button
-            @click="captureCurrentPose"
-            :disabled="!isStreaming"
-            class="btn btn-primary px-8 py-3 w-full max-w-xs mx-auto"
-          >
-            <Camera :size="18" />
-            Capture {{ currentPose.label }} Pose
-          </button>
           
           <div class="mt-3 text-xs text-muted">{{ capturedPosesCount }} / {{ POSES.length }} poses captured</div>
         </div>

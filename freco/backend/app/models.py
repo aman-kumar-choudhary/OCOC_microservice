@@ -1,19 +1,32 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
 from app.db import Base
 
+# ── Stub for the `users` table owned by the user-management service ───────────
+# FRECO shares the same `ococ_users` database. The `users` table is created and
+# owned by the Go user-management migrations.  We only declare a minimal stub
+# here so SQLAlchemy can resolve the FK from freco_people.external_id → users.id
+# without raising NoReferencedTableError at startup.
+# `keep_existing=True` ensures create_all() never tries to CREATE TABLE users.
+Table(
+    "users",
+    Base.metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    keep_existing=True,
+)
+
 
 class Person(Base):
     __tablename__ = "freco_people"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False)
+    external_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     name = Column(String, nullable=False)
     person_type = Column(String, nullable=False)
     email = Column(String, nullable=True)

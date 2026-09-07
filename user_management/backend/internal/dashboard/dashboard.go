@@ -76,17 +76,16 @@ func (s *Service) GetOverview(ctx context.Context) (*Overview, error) {
 	return o, nil
 }
 
-// GetAnalytics returns time-series analytics.
-func (s *Service) GetAnalytics(ctx context.Context) (*Analytics, error) {
+// GetAnalytics returns time-series analytics between start and end (inclusive).
+func (s *Service) GetAnalytics(ctx context.Context, start, end time.Time) (*Analytics, error) {
 	a := &Analytics{}
 
-	// Onboarding trend: users created per day (last 30 days).
-	start := time.Now().AddDate(0, 0, -30)
+	// Onboarding trend: users created per day in the requested window.
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT date_trunc('day', created_at)::date AS d, COUNT(*)
 		FROM users
-		WHERE created_at >= $1
-		GROUP BY d ORDER BY d`, start)
+		WHERE created_at >= $1 AND created_at < $2
+		GROUP BY d ORDER BY d`, start, end)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -99,13 +98,13 @@ func (s *Service) GetAnalytics(ctx context.Context) (*Analytics, error) {
 		}
 	}
 
-	// RFID issuance trend: cards created per day (last 30 days).
-	rows2, err := s.db.QueryContext(ctx, `
+	// RFID issuance trend: cards created per day in the requested window.
+	rows2, err2 := s.db.QueryContext(ctx, `
 		SELECT date_trunc('day', created_at)::date AS d, COUNT(*)
 		FROM rfid_cards
-		WHERE created_at >= $1
-		GROUP BY d ORDER BY d`, start)
-	if err == nil {
+		WHERE created_at >= $1 AND created_at < $2
+		GROUP BY d ORDER BY d`, start, end)
+	if err2 == nil {
 		defer rows2.Close()
 		for rows2.Next() {
 			var tp TrendPoint
@@ -141,8 +140,31 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 }
 
 // Analytics handles GET /api/v1/dashboard/analytics
+// Accepts optional ?from=YYYY-MM-DD and ?to=YYYY-MM-DD query params.
+// Defaults to the last 30 days when absent or unparseable.
 func (h *Handler) Analytics(w http.ResponseWriter, r *http.Request) {
-	data, err := h.svc.GetAnalytics(r.Context())
+	const layout = "2006-01-02"
+	now := time.Now().UTC()
+
+	// Default window: last 30 days → tomorrow (so today is fully included).
+	defaultStart := now.AddDate(0, 0, -30).Truncate(24 * time.Hour)
+	defaultEnd   := now.AddDate(0, 0, 1).Truncate(24 * time.Hour)
+
+	start, end := defaultStart, defaultEnd
+
+	if v := r.URL.Query().Get("from"); v != "" {
+		if t, err := time.ParseInLocation(layout, v, time.UTC); err == nil {
+			start = t
+		}
+	}
+	if v := r.URL.Query().Get("to"); v != "" {
+		if t, err := time.ParseInLocation(layout, v, time.UTC); err == nil {
+			// Add one day so the "to" date is inclusive.
+			end = t.AddDate(0, 0, 1)
+		}
+	}
+
+	data, err := h.svc.GetAnalytics(r.Context(), start, end)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "ANALYTICS_FAILED", err.Error())
 		return

@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from app.api.identity import router as identity_router
+from app.api.stream import router as stream_router
 from app.config import settings
 from app.db import Base, engine
 from app.ml.model_manager import ModelManager
@@ -63,6 +64,9 @@ app.add_middleware(
 
 # Mount identity / attendance router (POST /api/v1/people, attendance sessions, etc.)
 app.include_router(identity_router)
+
+# Mount streaming router
+app.include_router(stream_router, prefix="/api/v1/face", tags=["stream"])
 
 async def read_image(upload: UploadFile) -> np.ndarray:
     """Read one multipart image upload into the OpenCV BGR format."""

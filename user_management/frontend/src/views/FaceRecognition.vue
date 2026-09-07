@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { extractEmbeddings, matchFace, massMatch, registerPerson } from '@/services/frecoService'
+import { matchFace, massMatch } from '@/services/frecoService'
 import api from '@/services/api'
 import { formatDateTime } from '@/utils/date'
 import type { MatchResult, MassMatchResult, FaceBboxResult } from '@/services/frecoService'
 import {
-  Upload, Camera, Loader2, ShieldCheck, ShieldX,
+  Camera, Loader2, ShieldCheck, ShieldX,
   ScanFace, Users, RefreshCw, Info, Zap
 } from 'lucide-vue-next'
-import { useFaceStream } from '@/composables/useFaceStream'
 import { watch, onMounted, onUnmounted } from 'vue'
+import FaceOvalCamera from '@/components/FaceOvalCamera.vue'
+import FaceWideCamera from '@/components/FaceWideCamera.vue'
 
 // ─── shared ───────────────────────────────────────────────
 const activeTab = ref<'single' | 'mass'>('single')
@@ -23,44 +24,17 @@ const singleResult = ref<MatchResult | null>(null)
 const singleLoading = ref(false)
 const singleError = ref('')
 
-const videoRef = ref<HTMLVideoElement | null>(null)
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const { isStreaming, error: streamError, startStream, stopStream, captureImage } = useFaceStream(videoRef)
+const singleIsActive = computed(() => activeTab.value === 'single')
+const wideCameraRef = ref<any>(null)
 
-const massVideoRef = ref<HTMLVideoElement | null>(null)
-const massCanvasRefHidden = ref<HTMLCanvasElement | null>(null)
-const { isStreaming: massIsStreaming, error: massStreamError, startStream: startMassStream, stopStream: stopMassStream, captureImage: massCaptureImage } = useFaceStream(massVideoRef)
-
-watch(activeTab, (newTab) => {
-  if (newTab === 'single') {
-    stopMassStream()
-    setTimeout(() => startStream(), 100)
-  } else {
-    stopStream()
-    setTimeout(() => startMassStream(), 100)
-  }
-})
-
-onMounted(() => {
-  if (activeTab.value === 'single') {
-    setTimeout(() => startStream(), 100)
-  } else {
-    setTimeout(() => startMassStream(), 100)
-  }
-})
-
-onUnmounted(() => {
-  stopStream()
-  stopMassStream()
-})
-
-function captureFrame() {
-  const file = captureImage(canvasRef.value)
-  if (!file) return
+function captureFrame(file: File) {
   singleImg.value = file
   singleImgUrl.value = URL.createObjectURL(file)
   singleResult.value = null
   singleError.value = ''
+  
+  // Auto-run verification
+  runSingleMatch()
 }
 
 function clearCapture() {
@@ -113,17 +87,10 @@ const massError = ref('')
 const massCanvasRef = ref<HTMLCanvasElement | null>(null)
 const massImageRef = ref<HTMLImageElement | null>(null)
 
-function onMassFileChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  massImg.value = file
-  massImgUrl.value = URL.createObjectURL(file)
-  massResult.value = null
-  massError.value = ''
-}
 
 function captureMassFrame() {
-  const file = massCaptureImage(massCanvasRefHidden.value)
+  if (!wideCameraRef.value) return
+  const file = wideCameraRef.value.capture()
   if (!file) return
   massImg.value = file
   massImgUrl.value = URL.createObjectURL(file)
@@ -136,7 +103,6 @@ function clearMassCapture() {
   massImgUrl.value = null
   massResult.value = null
   massError.value = ''
-  setTimeout(() => startMassStream(), 100)
 }
 
 async function runMassMatch() {
@@ -224,19 +190,15 @@ function faceStatus(f: FaceBboxResult) {
         <h2 class="font-bold flex items-center gap-2"><ScanFace :size="18" /> Upload Test Image</h2>
 
         <!-- Live Camera Stream or Captured Image -->
-        <div class="h-56 relative rounded-xl border border-[var(--border-light)] overflow-hidden bg-[var(--bg-main)]">
+        <div class="relative rounded-xl border border-[var(--border-light)] overflow-hidden bg-[var(--bg-main)]">
           <template v-if="!singleImgUrl">
-            <video ref="videoRef" class="w-full h-full object-cover scale-x-[-1]" playsinline muted></video>
-            <canvas ref="canvasRef" class="hidden"></canvas>
-            
-            <div v-if="!isStreaming" class="absolute inset-0 flex items-center justify-center text-muted bg-[var(--bg-main)]">
-              <Loader2 v-if="!streamError" class="animate-spin" :size="24" />
-              <span v-else class="text-red-400 text-sm p-4 text-center">{{ streamError }}</span>
+            <div class="py-4">
+              <FaceOvalCamera 
+                mode="single_recognition" 
+                :isActive="singleIsActive" 
+                @capture="captureFrame"
+              />
             </div>
-            
-            <button v-if="isStreaming" @click="captureFrame" class="absolute bottom-4 left-1/2 -translate-x-1/2 btn btn-primary px-6 shadow-xl border border-white/10" id="capture-single-frame-btn">
-              <Camera :size="16" /> Capture
-            </button>
           </template>
           <template v-else>
             <img :src="singleImgUrl" class="w-full h-full object-contain" />
@@ -348,15 +310,9 @@ function faceStatus(f: FaceBboxResult) {
           
           <div class="relative w-full rounded-xl border border-[var(--border-light)] overflow-hidden bg-[var(--bg-main)]">
             <template v-if="!massImgUrl">
-              <video ref="massVideoRef" class="w-full h-auto object-cover scale-x-[-1]" playsinline muted></video>
-              <canvas ref="massCanvasRefHidden" class="hidden"></canvas>
+              <FaceWideCamera ref="wideCameraRef" v-if="activeTab === 'mass'" />
               
-              <div v-if="!massIsStreaming" class="absolute inset-0 flex items-center justify-center text-muted bg-[var(--bg-main)]">
-                <Loader2 v-if="!massStreamError" class="animate-spin" :size="24" />
-                <span v-else class="text-red-400 text-sm p-4 text-center">{{ massStreamError }}</span>
-              </div>
-              
-              <button v-if="massIsStreaming" @click="captureMassFrame" class="absolute bottom-4 left-1/2 -translate-x-1/2 btn btn-primary px-6 shadow-xl border border-white/10" id="capture-mass-frame-btn">
+              <button @click="captureMassFrame" class="absolute bottom-4 left-1/2 -translate-x-1/2 btn btn-primary px-6 shadow-xl border border-white/10" id="capture-mass-frame-btn">
                 <Camera :size="16" /> Capture
               </button>
             </template>

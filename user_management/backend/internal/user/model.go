@@ -145,9 +145,10 @@ type Stats struct {
 
 // Department represents an academic or administrative department.
 type Department struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-	Code string    `json:"code"`
+	ID     uuid.UUID `json:"id"`
+	Name   string    `json:"name"`
+	Code   string    `json:"code"`
+	School string    `json:"school,omitempty"`
 }
 
 // Hostel represents a student residence.

@@ -4,8 +4,7 @@ import api from '@/services/api'
 import { formatDateTime, timeAgo } from '@/utils/date'
 import {
   ShieldCheck, ShieldX, Activity, RefreshCw, Search,
-  Filter, ChevronLeft, ChevronRight, Loader2, Eye,
-  X, AlertCircle
+  ChevronLeft, ChevronRight, Loader2
 } from 'lucide-vue-next'
 
 interface FaceAuthLog {
