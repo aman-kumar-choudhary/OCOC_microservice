@@ -27,37 +27,37 @@ const (
 
 // User is the core user entity.
 type User struct {
-	ID              uuid.UUID  `json:"id"`
-	KeycloakUserID  string     `json:"keycloak_user_id,omitempty"`
-	UserType        UserType   `json:"user_type"`
-	Status          UserStatus `json:"status"`
-	Email           string     `json:"email"`
-	Phone           string     `json:"phone,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	Profile         *Profile   `json:"profile,omitempty"`
-	Roles           []string   `json:"roles,omitempty"`
-	ActiveRFID      string     `json:"active_rfid,omitempty"`
-	HasFaceAuth     bool       `json:"has_face_auth,omitempty"`
+	ID             uuid.UUID  `json:"id"`
+	KeycloakUserID string     `json:"keycloak_user_id,omitempty"`
+	UserType       UserType   `json:"user_type"`
+	Status         UserStatus `json:"status"`
+	Email          string     `json:"email"`
+	Phone          string     `json:"phone,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	Profile        *Profile   `json:"profile,omitempty"`
+	Roles          []string   `json:"roles,omitempty"`
+	ActiveRFID     string     `json:"active_rfid,omitempty"`
+	HasFaceAuth    bool       `json:"has_face_auth,omitempty"`
 }
 
 // Profile holds extended user attributes.
 type Profile struct {
-	UserID            uuid.UUID  `json:"user_id"`
-	FullName          string     `json:"full_name"`
-	RollNumber        string     `json:"roll_number,omitempty"`
-	EmployeeID        string     `json:"employee_id,omitempty"`
-	DepartmentID      *uuid.UUID `json:"department_id,omitempty"`
-	Department        string     `json:"department,omitempty"`
-	School            string     `json:"school,omitempty"`
-	Course            string     `json:"course,omitempty"`
-	Semester          string     `json:"semester,omitempty"`
-	Designation       string     `json:"designation,omitempty"`
-	HostelFlag        bool       `json:"hostel_flag,omitempty"`
-	HostelID          *uuid.UUID `json:"hostel_id,omitempty"`
-	EmergencyContact  string     `json:"emergency_contact,omitempty"`
-	GuardianContact   string     `json:"guardian_contact,omitempty"`
-	PhotoReference    string     `json:"photo_reference,omitempty"`
+	UserID           uuid.UUID  `json:"user_id"`
+	FullName         string     `json:"full_name"`
+	RollNumber       string     `json:"roll_number,omitempty"`
+	EmployeeID       string     `json:"employee_id,omitempty"`
+	DepartmentID     *uuid.UUID `json:"department_id,omitempty"`
+	Department       string     `json:"department,omitempty"`
+	School           string     `json:"school,omitempty"`
+	Course           string     `json:"course,omitempty"`
+	Semester         string     `json:"semester,omitempty"`
+	Designation      string     `json:"designation,omitempty"`
+	HostelFlag       bool       `json:"hostel_flag,omitempty"`
+	HostelID         *uuid.UUID `json:"hostel_id,omitempty"`
+	EmergencyContact string     `json:"emergency_contact,omitempty"`
+	GuardianContact  string     `json:"guardian_contact,omitempty"`
+	PhotoReference   string     `json:"photo_reference,omitempty"`
 	// Visitor fields
 	GovIDType         string     `json:"gov_id_type,omitempty"`
 	GovIDNumber       string     `json:"gov_id_number,omitempty"`
@@ -70,29 +70,29 @@ type Profile struct {
 
 // CreateUserRequest is the payload for creating a new user.
 type CreateUserRequest struct {
-	UserType  UserType `json:"user_type"`
-	Email     string   `json:"email"`
-	Phone     string   `json:"phone"`
-	Password  string   `json:"password"` // initial password — sent to Keycloak only
-	Profile   ProfileRequest `json:"profile"`
+	UserType UserType       `json:"user_type"`
+	Email    string         `json:"email"`
+	Phone    string         `json:"phone"`
+	Password string         `json:"password"` // initial password — sent to Keycloak only
+	Profile  ProfileRequest `json:"profile"`
 }
 
 // ProfileRequest holds profile data in create/update requests.
 type ProfileRequest struct {
-	FullName          string     `json:"full_name"`
-	RollNumber        string     `json:"roll_number,omitempty"`
-	EmployeeID        string     `json:"employee_id,omitempty"`
-	DepartmentID      *uuid.UUID `json:"department_id,omitempty"`
-	Department        string     `json:"department,omitempty"`
-	School            string     `json:"school,omitempty"`
-	Course            string     `json:"course,omitempty"`
-	Semester          string     `json:"semester,omitempty"`
-	Designation       string     `json:"designation,omitempty"`
-	HostelFlag        bool       `json:"hostel_flag,omitempty"`
-	HostelID          *uuid.UUID `json:"hostel_id,omitempty"`
-	EmergencyContact  string     `json:"emergency_contact,omitempty"`
-	GuardianContact   string     `json:"guardian_contact,omitempty"`
-	PhotoReference    string     `json:"photo_reference,omitempty"`
+	FullName         string     `json:"full_name"`
+	RollNumber       string     `json:"roll_number,omitempty"`
+	EmployeeID       string     `json:"employee_id,omitempty"`
+	DepartmentID     *uuid.UUID `json:"department_id,omitempty"`
+	Department       string     `json:"department,omitempty"`
+	School           string     `json:"school,omitempty"`
+	Course           string     `json:"course,omitempty"`
+	Semester         string     `json:"semester,omitempty"`
+	Designation      string     `json:"designation,omitempty"`
+	HostelFlag       bool       `json:"hostel_flag,omitempty"`
+	HostelID         *uuid.UUID `json:"hostel_id,omitempty"`
+	EmergencyContact string     `json:"emergency_contact,omitempty"`
+	GuardianContact  string     `json:"guardian_contact,omitempty"`
+	PhotoReference   string     `json:"photo_reference,omitempty"`
 	// Visitor
 	GovIDType         string     `json:"gov_id_type,omitempty"`
 	GovIDNumber       string     `json:"gov_id_number,omitempty"`
@@ -104,22 +104,24 @@ type ProfileRequest struct {
 
 // UpdateUserRequest is the payload for updating a user.
 type UpdateUserRequest struct {
-	Phone   string         `json:"phone,omitempty"`
+	Phone   string          `json:"phone,omitempty"`
 	Profile *ProfileRequest `json:"profile,omitempty"`
 }
 
 // ListFilter holds query parameters for user listing.
 type ListFilter struct {
-	Search     string
-	UserType   string
-	Status     string
-	Department string
-	Course     string
-	Semester   string
-	HostelID   string
-	Role       string
-	Page       int
-	Limit      int
+	Search       string
+	UserType     string
+	Status       string
+	School       string
+	Department   string
+	Course       string
+	Semester     string
+	HostelID     string
+	HostelStatus string
+	Role         string
+	Page         int
+	Limit        int
 }
 
 // ListResult is the paginated user list response.
@@ -133,14 +135,14 @@ type ListResult struct {
 
 // Stats holds user statistics for dashboard.
 type Stats struct {
-	Total        int `json:"total"`
-	Active       int `json:"active"`
-	Suspended    int `json:"suspended"`
-	Deactivated  int `json:"deactivated"`
-	Students     int `json:"students"`
-	Faculty      int `json:"faculty"`
-	Workers      int `json:"workers"`
-	Visitors     int `json:"visitors"`
+	Total       int `json:"total"`
+	Active      int `json:"active"`
+	Suspended   int `json:"suspended"`
+	Deactivated int `json:"deactivated"`
+	Students    int `json:"students"`
+	Faculty     int `json:"faculty"`
+	Workers     int `json:"workers"`
+	Visitors    int `json:"visitors"`
 }
 
 // Department represents an academic or administrative department.

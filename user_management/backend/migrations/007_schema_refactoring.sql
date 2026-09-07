@@ -8,19 +8,9 @@ DROP VIEW IF EXISTS user_profiles;
 -- 2. Add 'school' to departments
 ALTER TABLE departments ADD COLUMN IF NOT EXISTS school TEXT;
 
--- Migrate 'school' data if any exists (naively grabbing the first non-null school for a department)
--- In a real scenario, this would be more complex, but here we just take one existing value
-UPDATE departments d
-SET school = (
-    SELECT school FROM (
-        SELECT department_id, school FROM student_profiles WHERE school IS NOT NULL
-        UNION
-        SELECT department_id, school FROM faculty_profiles WHERE school IS NOT NULL
-    ) AS s
-    WHERE s.department_id = d.id
-    LIMIT 1
-)
-WHERE d.school IS NULL;
+-- The role-specific profile tables created by migration 006 do not contain
+-- school columns, so there is no profile data to migrate here. Keep the
+-- department-level column available for directory display and future data.
 
 -- 3. Remove denormalized columns from profile tables
 ALTER TABLE student_profiles

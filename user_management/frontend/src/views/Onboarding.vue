@@ -5,7 +5,7 @@ import rfidService from '@/services/rfidService'
 import { registerPerson } from '@/services/frecoService'
 import {
   GraduationCap, Wrench, UserRound, CreditCard,
-  CheckCircle, Loader2, ArrowRight, ArrowLeft, Camera, ScanFace, Award
+  CheckCircle, Loader2, ArrowRight, ArrowLeft, ScanFace, Award
 } from 'lucide-vue-next'
 import UserProfileForm from '@/components/UserProfileForm.vue'
 import FaceOvalCamera from '@/components/FaceOvalCamera.vue'
@@ -75,8 +75,6 @@ function skipFaceReg() {
 
 // ─── Step management ───────────────────────────────────────────────
 const step = ref<1 | 2 | 3 | 4 | 5>(1)
-
-import { watch } from 'vue'
 
 // ─── Persona Selection ─────────────────────────────────────────────
 const persona = ref('')

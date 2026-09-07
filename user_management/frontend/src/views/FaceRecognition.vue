@@ -8,7 +8,6 @@ import {
   Camera, Loader2, ShieldCheck, ShieldX,
   ScanFace, Users, RefreshCw, Info, Zap
 } from 'lucide-vue-next'
-import { watch, onMounted, onUnmounted } from 'vue'
 import FaceOvalCamera from '@/components/FaceOvalCamera.vue'
 import FaceWideCamera from '@/components/FaceWideCamera.vue'
 

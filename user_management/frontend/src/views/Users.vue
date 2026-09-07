@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import userService from '@/services/userService'
 import type { User } from '@/types'
 import { formatDate } from '@/utils/date'
 import {
-  Search, Download, Loader2, CreditCard, Camera,
+  Search, Download, Upload, Loader2, CreditCard, Camera,
   ChevronLeft, ChevronRight, X, Filter, Edit2,
   ShieldOff, ShieldCheck, UserX, MoreVertical
 } from 'lucide-vue-next'
@@ -19,13 +19,33 @@ const page = ref(1)
 const limit = ref(10)
 const totalPages = ref(1)
 const exportLoading = ref(false)
+const importLoading = ref(false)
+const importMessage = ref('')
+const importError = ref('')
+const importInput = ref<HTMLInputElement | null>(null)
 
 const dbDepartments = ref<any[]>([])
 const dbHostels = ref<any[]>([])
 
 // Static reference data for dropdowns
-const courses = ['B.Tech', 'M.Tech', 'MBA', 'PhD']
+const courses = [
+  'B.Sc. IT', 'BCA', 'M.Sc. Data Science', 'MCA', 'BBA Tourism', 'MBA Tourism',
+  'B.A. Mass Comm', 'M.A. Mass Comm', 'B.Sc. Animation', 'M.Sc. Animation',
+  'BBA Rural Management', 'MBA Rural Management', 'B.Sc. Environmental Science',
+  'M.Sc. Environmental Science', 'B.Ed.', 'M.Ed.', 'B.A. Psychology',
+  'M.A. Clinical Psychology', 'B.A. English (Honors)', 'M.A. English',
+  'B.A. Sanskrit (Honors)', 'M.A. Sanskrit', 'B.A. Hindi (Honors)',
+  'M.A. History and Indian Culture', 'B.A. History (Honors)', 'B.A. Music (Vocal) (Honors)',
+  'M.A. Music (Vocal)', 'B.A. Music Instrumental Mridang/Tabla (Honors)',
+  'M.A. Music (Tabla, Pakhaawaj)', 'M.A. Hindu Studies', 'M.A. Philosophy',
+  'B.Sc. Yogic Science (Honors)', 'M.Sc. Yoga Therapy',
+  'M.A. Human Consciousness & Yogic Science', 'M.Sc. Human Consciousness & Yogic Science',
+  'P. G. Diploma Human Consciousness, Yoga & Alternative Therapy',
+  'Certificate In Yoga And Alternative Therapy'
+]
 const semesters = ['1', '2', '3', '4', '5', '6', '7', '8']
+const schools = computed(() => [...new Set(dbDepartments.value.map((department) => department.school).filter(Boolean))])
+const filteredDepartments = computed(() => dbDepartments.value.filter((department) => !filters.value.school || department.school === filters.value.school))
 
 // Modal state
 const viewTarget = ref<User | null>(null)
@@ -38,10 +58,12 @@ const filters = ref({
   search: '',
   user_type: 'student', // Default to student
   status: '',
+  school: '',
   department: '',
   course: '',
   semester: '',
-  hostel_id: ''
+  hostel_id: '',
+  hostel_status: ''
 })
 
 let searchTimeout: ReturnType<typeof setTimeout>
@@ -68,11 +90,11 @@ async function fetchUsers() {
 function handleFilterChange() { page.value = 1; fetchUsers() }
 
 function clearFilters() {
-  filters.value = { search: '', user_type: 'student', status: '', department: '', course: '', semester: '', hostel_id: '' }
+  filters.value = { search: '', user_type: 'student', status: '', school: '', department: '', course: '', semester: '', hostel_id: '', hostel_status: '' }
   page.value = 1; fetchUsers()
 }
 
-const hasActiveFilters = () => filters.value.search || filters.value.user_type !== 'student' || filters.value.status || filters.value.department || filters.value.course || filters.value.semester || filters.value.hostel_id
+const hasActiveFilters = () => filters.value.search || filters.value.user_type !== 'student' || filters.value.status || filters.value.school || filters.value.department || filters.value.course || filters.value.semester || filters.value.hostel_id || filters.value.hostel_status
 
 function getStatusClass(status: string) {
   if (status === 'active') return 'badge-active'
@@ -129,6 +151,36 @@ async function exportToCSV() {
   finally { exportLoading.value = false }
 }
 
+function openImportPicker() {
+  importMessage.value = ''
+  importError.value = ''
+  importInput.value?.click()
+}
+
+async function importFromCSV(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  importLoading.value = true
+  importMessage.value = ''
+  importError.value = ''
+  try {
+    const result = await userService.importCsv(file)
+    const created = result?.created_rows ?? 0
+    const invalid = result?.invalid_rows ?? 0
+    const failed = result?.failed_rows ?? 0
+    importMessage.value = `Import complete: ${created} user${created === 1 ? '' : 's'} added${invalid || failed ? `, ${invalid + failed} row${invalid + failed === 1 ? '' : 's'} skipped` : ''}.`
+    await fetchUsers()
+  } catch (e: any) {
+    console.error(e)
+    importError.value = e.response?.data?.error?.message || 'Failed to import CSV. Please check the file and try again.'
+  } finally {
+    importLoading.value = false
+    input.value = ''
+  }
+}
+
 onMounted(async () => {
   fetchUsers()
   try {
@@ -143,7 +195,7 @@ onMounted(async () => {
 <template>
   <div>
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-7">
       <div>
         <h1 class="text-2xl font-bold">User Directory</h1>
         <p class="text-muted text-sm mt-1">
@@ -151,65 +203,92 @@ onMounted(async () => {
           <span v-else>Loading directory…</span>
         </p>
       </div>
-      <button class="btn btn-primary" @click="exportToCSV" :disabled="exportLoading" id="export-csv-btn">
-        <Loader2 v-if="exportLoading" class="animate-spin" :size="16" />
-        <Download v-else :size="16" />
-        Export CSV
-      </button>
+      <div class="flex items-center gap-2">
+        <input ref="importInput" type="file" accept=".csv,text/csv" class="hidden" @change="importFromCSV" />
+        <button class="btn btn-outline" @click="openImportPicker" :disabled="importLoading" id="import-csv-btn">
+          <Loader2 v-if="importLoading" class="animate-spin" :size="16" />
+          <Upload v-else :size="16" />
+          Import CSV
+        </button>
+        <button class="btn btn-primary" @click="exportToCSV" :disabled="exportLoading" id="export-csv-btn">
+          <Loader2 v-if="exportLoading" class="animate-spin" :size="16" />
+          <Download v-else :size="16" />
+          Export CSV
+        </button>
+      </div>
     </div>
 
+    <p v-if="importMessage" class="mb-4 text-sm font-semibold text-emerald-700">{{ importMessage }}</p>
+    <p v-if="importError" class="mb-4 text-sm font-semibold text-red-600">{{ importError }}</p>
+
     <!-- Filters -->
-    <div class="glass-panel p-4 mb-6">
-      <div class="flex flex-col md:flex-row gap-3 items-start md:items-center">
-        <div class="relative flex-1 min-w-0">
+    <div class="glass-panel p-4 sm:p-5 mb-6">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <p class="text-sm font-bold">Find a campus identity</p>
+          <p class="text-xs text-muted mt-0.5">Use the filters below to narrow the directory.</p>
+        </div>
+        <span v-if="hasActiveFilters()" class="hidden sm:inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+          Filters applied
+        </span>
+      </div>
+      <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(280px,1.4fr)_repeat(3,minmax(150px,1fr))]">
+        <div class="relative min-w-0 xl:col-span-1">
           <Search :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
           <input v-model="filters.search" type="text" placeholder="Search name, email, roll number…" class="form-input pl-9 pr-8" id="user-search-input" />
           <button v-if="filters.search" @click="filters.search = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-red-500 transition-colors">
             <X :size="15" />
           </button>
         </div>
-          <div class="flex flex-wrap gap-2 items-center">
-            <div class="relative">
-              <Filter :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-              <select v-model="filters.user_type" @change="handleFilterChange" class="form-input form-select pl-8 min-w-[130px] text-sm py-1.5 h-auto" id="user-type-filter">
-                <option value="">All Roles</option>
-                <option value="student">🎓 Student</option>
-                <option value="faculty">👨‍🏫 Faculty</option>
-                <option value="worker">🔧 Worker</option>
-                <option value="visitor">👤 Visitor</option>
-              </select>
-            </div>
+        <div class="relative min-w-0">
+          <Filter :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+          <select v-model="filters.user_type" @change="handleFilterChange" class="form-input form-select pl-8 text-sm" id="user-type-filter">
+            <option value="">All Registration Types</option>
+            <option value="student">🎓 Student</option>
+            <option value="faculty">👨‍🏫 Faculty</option>
+            <option value="worker">🔧 Worker</option>
+            <option value="visitor">👤 Visitor</option>
+          </select>
+        </div>
 
-            <!-- Student specific filters -->
-            <template v-if="filters.user_type === 'student'">
-              <select v-model="filters.course" @change="handleFilterChange" class="form-input form-select min-w-[110px] text-sm py-1.5 h-auto">
-                <option value="">All Courses</option>
-                <option v-for="c in courses" :key="c" :value="c">{{ c }}</option>
-              </select>
-              <select v-model="filters.semester" @change="handleFilterChange" class="form-input form-select min-w-[110px] text-sm py-1.5 h-auto">
-                <option value="">All Semesters</option>
-                <option v-for="s in semesters" :key="s" :value="s">Sem {{ s }}</option>
-              </select>
-              <select v-model="filters.department" @change="handleFilterChange" class="form-input form-select min-w-[130px] text-sm py-1.5 h-auto">
-                <option value="">All Departments</option>
-                <option v-for="d in dbDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
-              </select>
-              <select v-model="filters.hostel_id" @change="handleFilterChange" class="form-input form-select min-w-[110px] text-sm py-1.5 h-auto">
-                <option value="">All Hostels</option>
-                <option v-for="h in dbHostels" :key="h.id" :value="h.id">{{ h.name }}</option>
-              </select>
-            </template>
+        <!-- Student specific filters -->
+        <template v-if="filters.user_type === 'student'">
+          <select v-model="filters.school" @change="filters.department = ''; filters.course = ''; handleFilterChange()" class="form-input form-select text-sm" id="school-filter">
+            <option value="">All Schools</option>
+            <option v-for="school in schools" :key="school" :value="school">{{ school }}</option>
+          </select>
+          <select v-model="filters.course" @change="handleFilterChange" class="form-input form-select text-sm">
+            <option value="">All Courses</option>
+            <option v-for="c in courses" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <select v-model="filters.semester" @change="handleFilterChange" class="form-input form-select text-sm">
+            <option value="">All Semesters</option>
+            <option v-for="s in semesters" :key="s" :value="s">Sem {{ s }}</option>
+          </select>
+          <select v-model="filters.department" @change="handleFilterChange" class="form-input form-select text-sm">
+            <option value="">All Departments</option>
+            <option v-for="d in filteredDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+          <select v-model="filters.hostel_id" @change="filters.hostel_status = ''; handleFilterChange()" class="form-input form-select text-sm">
+            <option value="">All Hostels</option>
+            <option v-for="h in dbHostels" :key="h.id" :value="h.id">{{ h.name }}</option>
+          </select>
+          <select v-model="filters.hostel_status" @change="filters.hostel_id = ''; handleFilterChange()" class="form-input form-select text-sm" id="hostel-status-filter">
+            <option value="">All Residence Types</option>
+            <option value="resident">Hostel Resident</option>
+            <option value="day_scholar">Day Scholar</option>
+          </select>
+        </template>
 
-            <select v-model="filters.status" @change="handleFilterChange" class="form-input form-select min-w-[120px] text-sm py-1.5 h-auto" id="status-filter">
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="deactivated">Deactivated</option>
-            </select>
-            <button v-if="hasActiveFilters()" @click="clearFilters" class="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 px-3 py-1.5 h-auto text-sm" id="clear-filters-btn">
-              <X :size="14" /> Clear
-            </button>
-          </div>
+        <select v-model="filters.status" @change="handleFilterChange" class="form-input form-select text-sm" id="status-filter">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+          <option value="deactivated">Deactivated</option>
+        </select>
+        <button v-if="hasActiveFilters()" @click="clearFilters" class="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 text-sm xl:col-span-1" id="clear-filters-btn">
+          <X :size="14" /> Clear filters
+        </button>
       </div>
     </div>
 
@@ -219,7 +298,7 @@ onMounted(async () => {
         <Loader2 class="animate-spin text-primary" :size="32" />
       </div>
 
-      <table class="table min-w-full">
+      <table class="table min-w-[1080px]">
         <thead>
           <tr>
             <th>User</th>
@@ -466,7 +545,6 @@ onMounted(async () => {
                     </p>
                   </div>
                 </template>
-
                 <template v-else-if="viewTarget.user_type === 'faculty' || viewTarget.user_type === 'worker'">
                   <div class="col-span-2">
                     <p class="text-xs text-muted mb-1 font-semibold">Designation</p>

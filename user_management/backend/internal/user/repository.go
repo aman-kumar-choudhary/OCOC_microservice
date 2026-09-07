@@ -126,7 +126,7 @@ func (r *PostgresRepository) CreateProfile(ctx context.Context, tx *sql.Tx, p *P
 				visit_duration_days=EXCLUDED.visit_duration_days, photo_reference=EXCLUDED.photo_reference,
 				updated_at=EXCLUDED.updated_at`
 		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.GovIDType), nullStr(p.GovIDNumber), nullStr(p.VisitPurpose), nullStr(p.HostContact), nullTime(p.VisitStart), nullInt(p.VisitDurationDays), p.UpdatedAt)
-		
+
 	default:
 		return fmt.Errorf("unknown user type: %s", utype)
 	}
@@ -515,6 +515,11 @@ func buildListWhere(f ListFilter) (string, []interface{}) {
 		args = append(args, f.Status)
 		n++
 	}
+	if f.School != "" {
+		conds = append(conds, fmt.Sprintf(`d.school=$%d`, n))
+		args = append(args, f.School)
+		n++
+	}
 	if f.Department != "" {
 		conds = append(conds, fmt.Sprintf(`COALESCE(sp.department_id, fp.department_id, wp.department_id)=$%d`, n))
 		args = append(args, f.Department)
@@ -534,6 +539,11 @@ func buildListWhere(f ListFilter) (string, []interface{}) {
 		conds = append(conds, fmt.Sprintf(`sp.hostel_id=$%d`, n))
 		args = append(args, f.HostelID)
 		n++
+	}
+	if f.HostelStatus == "resident" {
+		conds = append(conds, `sp.hostel_id IS NOT NULL`)
+	} else if f.HostelStatus == "day_scholar" {
+		conds = append(conds, `sp.hostel_id IS NULL`)
 	}
 	if len(conds) == 0 {
 		return "", args

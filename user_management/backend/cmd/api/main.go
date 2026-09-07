@@ -55,6 +55,7 @@ func main() {
 		filepath.Join(projectRoot, "migrations/005_user_directory_indexes.sql"),
 		filepath.Join(projectRoot, "migrations/006_split_profiles.sql"),
 		filepath.Join(projectRoot, "migrations/007_schema_refactoring.sql"),
+		filepath.Join(projectRoot, "migrations/008_directory_filter_columns.sql"),
 	}
 	for _, migrationPath := range migrations {
 		if err := database.RunMigration(db, migrationPath); err != nil {

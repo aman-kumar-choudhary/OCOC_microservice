@@ -26,14 +26,16 @@ func NewHandler(svc *Service) *Handler {
 // List handles GET /api/v1/users
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	f := ListFilter{
-		Search:     r.URL.Query().Get("search"),
-		UserType:   r.URL.Query().Get("user_type"),
-		Status:     r.URL.Query().Get("status"),
-		Department: r.URL.Query().Get("department"),
-		Course:     r.URL.Query().Get("course"),
-		Semester:   r.URL.Query().Get("semester"),
-		HostelID:   r.URL.Query().Get("hostel_id"),
-		Role:       r.URL.Query().Get("role"),
+		Search:       r.URL.Query().Get("search"),
+		UserType:     r.URL.Query().Get("user_type"),
+		Status:       r.URL.Query().Get("status"),
+		School:       r.URL.Query().Get("school"),
+		Department:   r.URL.Query().Get("department"),
+		Course:       r.URL.Query().Get("course"),
+		Semester:     r.URL.Query().Get("semester"),
+		HostelID:     r.URL.Query().Get("hostel_id"),
+		HostelStatus: r.URL.Query().Get("hostel_status"),
+		Role:         r.URL.Query().Get("role"),
 	}
 	f.Page, _ = strconv.Atoi(r.URL.Query().Get("page"))
 	f.Limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))

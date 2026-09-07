@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useLiveFaceInference } from '@/composables/useLiveFaceInference'
 import { Loader2, VideoOff } from 'lucide-vue-next'
 

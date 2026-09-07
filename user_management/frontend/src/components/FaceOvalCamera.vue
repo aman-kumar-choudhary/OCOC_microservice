@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useLiveFaceInference } from '@/composables/useLiveFaceInference'
-import { Loader2, Video, VideoOff, Camera } from 'lucide-vue-next'
+import { Loader2, VideoOff } from 'lucide-vue-next'
 
 const props = defineProps<{
   mode: 'registration' | 'single_recognition'
@@ -103,10 +103,10 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col items-center">
-    <div class="relative w-64 h-80">
+    <div class="relative w-[min(72vw,16rem)] aspect-[4/5]">
       <!-- Oval Container -->
       <div 
-        class="absolute inset-0 rounded-[100px] overflow-hidden bg-slate-900 border-4 transition-colors duration-300 shadow-xl"
+        class="absolute inset-0 rounded-[50%] overflow-hidden bg-slate-900 border-4 transition-colors duration-300 shadow-xl"
         :class="{
           'border-slate-300': borderState === 'gray',
           'border-red-500 shadow-red-500/20': borderState === 'red',

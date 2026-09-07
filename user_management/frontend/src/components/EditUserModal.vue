@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import userService from '@/services/userService'
 import rfidService from '@/services/rfidService'
 import frecoService from '@/services/frecoService'
-import { useLiveFaceInference } from '@/composables/useLiveFaceInference'
 import FaceOvalCamera from '@/components/FaceOvalCamera.vue'
 import type { User } from '@/types'
 import UserProfileForm from '@/components/UserProfileForm.vue'
 import {
   X, Loader2, Save, Camera, CreditCard, User as UserIcon,
-  CheckCircle2, AlertCircle, Video, VideoOff,
+  CheckCircle2, AlertCircle,
   Scan, Shield, RotateCcw
 } from 'lucide-vue-next'
 
@@ -24,7 +23,7 @@ const activeTab = ref<Tab>('profile')
 // ── Keyboard close ─────────────────────────────────────────────────────────
 function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
 onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => { window.removeEventListener('keydown', onKeydown); stopStream() })
+onUnmounted(() => { window.removeEventListener('keydown', onKeydown) })
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TAB 1 — PROFILE
@@ -89,11 +88,6 @@ const isFaceLoading  = ref(false)
 const faceError      = ref('')
 const faceSuccess    = ref(false)
 const faceResult     = ref<{ face_embeddings_created: number } | null>(null)
-
-// Stop camera when leaving face tab - handled via isActive prop now
-watch(activeTab, (tab, prev) => {
-  // If we wanted we could reset state here
-})
 
 function handleAutoCapture(file: File) {
   const pose = poses.value[currentPoseIdx.value]

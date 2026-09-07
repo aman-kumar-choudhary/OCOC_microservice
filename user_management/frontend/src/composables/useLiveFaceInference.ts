@@ -1,4 +1,4 @@
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 
 export interface FaceInferenceResult {
   bbox: [number, number, number, number]
