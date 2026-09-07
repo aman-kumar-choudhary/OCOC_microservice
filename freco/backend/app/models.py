@@ -45,7 +45,7 @@ class AttendanceSession(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
-    session_type = Column(String, nullable=False)
+    mode = Column(String, nullable=False)   # 'face' | 'rfid' | 'mass'
     device_id = Column(String, nullable=True)
     starts_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     ends_at = Column(DateTime(timezone=True), nullable=True)

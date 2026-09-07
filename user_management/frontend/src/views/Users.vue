@@ -13,13 +13,22 @@ import UserStatusModal from '@/components/UserStatusModal.vue'
 
 const users = ref<User[]>([])
 const isLoading = ref(true)
+const apiError = ref('')
 const total = ref(0)
 const page = ref(1)
 const limit = ref(10)
 const totalPages = ref(1)
 const exportLoading = ref(false)
 
+const dbDepartments = ref<any[]>([])
+const dbHostels = ref<any[]>([])
+
+// Static reference data for dropdowns
+const courses = ['B.Tech', 'M.Tech', 'MBA', 'PhD']
+const semesters = ['1', '2', '3', '4', '5', '6', '7', '8']
+
 // Modal state
+const viewTarget = ref<User | null>(null)
 const editTarget = ref<User | null>(null)
 const statusTarget = ref<User | null>(null)
 const statusAction = ref<'suspend' | 'activate' | 'deactivate'>('suspend')
@@ -27,8 +36,12 @@ const showActions = ref<string | null>(null)
 
 const filters = ref({
   search: '',
-  user_type: '',
-  status: ''
+  user_type: 'student', // Default to student
+  status: '',
+  department: '',
+  course: '',
+  semester: '',
+  hostel_id: ''
 })
 
 let searchTimeout: ReturnType<typeof setTimeout>
@@ -39,23 +52,27 @@ watch(() => filters.value.search, () => {
 
 async function fetchUsers() {
   isLoading.value = true
+  apiError.value = ''
   try {
     const data = await userService.list({ page: page.value, limit: limit.value, ...filters.value })
     users.value = data.users || []
     total.value = data.total
     totalPages.value = data.total_pages
-  } catch (e) { console.error(e) }
+  } catch (e: any) {
+    console.error(e)
+    apiError.value = e.response?.data?.error?.message || 'Failed to load users. Please try again.'
+  }
   finally { isLoading.value = false }
 }
 
 function handleFilterChange() { page.value = 1; fetchUsers() }
 
 function clearFilters() {
-  filters.value = { search: '', user_type: '', status: '' }
+  filters.value = { search: '', user_type: 'student', status: '', department: '', course: '', semester: '', hostel_id: '' }
   page.value = 1; fetchUsers()
 }
 
-const hasActiveFilters = () => filters.value.search || filters.value.user_type || filters.value.status
+const hasActiveFilters = () => filters.value.search || filters.value.user_type !== 'student' || filters.value.status || filters.value.department || filters.value.course || filters.value.semester || filters.value.hostel_id
 
 function getStatusClass(status: string) {
   if (status === 'active') return 'badge-active'
@@ -112,7 +129,15 @@ async function exportToCSV() {
   finally { exportLoading.value = false }
 }
 
-onMounted(fetchUsers)
+onMounted(async () => {
+  fetchUsers()
+  try {
+    dbDepartments.value = await userService.getDepartments()
+    dbHostels.value = await userService.getHostels()
+  } catch (e) {
+    console.error('Failed to load reference data', e)
+  }
+})
 </script>
 
 <template>
@@ -143,32 +168,53 @@ onMounted(fetchUsers)
             <X :size="15" />
           </button>
         </div>
-        <div class="flex gap-3 flex-wrap">
-          <div class="relative">
-            <Filter :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <select v-model="filters.user_type" @change="handleFilterChange" class="form-input form-select pl-8 min-w-[150px]" id="user-type-filter">
-              <option value="">All Roles</option>
-              <option value="student">🎓 Student</option>
-              <option value="faculty">👨‍🏫 Faculty</option>
-              <option value="worker">🔧 Worker</option>
-              <option value="visitor">👤 Visitor</option>
+          <div class="flex flex-wrap gap-2 items-center">
+            <div class="relative">
+              <Filter :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <select v-model="filters.user_type" @change="handleFilterChange" class="form-input form-select pl-8 min-w-[130px] text-sm py-1.5 h-auto" id="user-type-filter">
+                <option value="">All Roles</option>
+                <option value="student">🎓 Student</option>
+                <option value="faculty">👨‍🏫 Faculty</option>
+                <option value="worker">🔧 Worker</option>
+                <option value="visitor">👤 Visitor</option>
+              </select>
+            </div>
+
+            <!-- Student specific filters -->
+            <template v-if="filters.user_type === 'student'">
+              <select v-model="filters.course" @change="handleFilterChange" class="form-input form-select min-w-[110px] text-sm py-1.5 h-auto">
+                <option value="">All Courses</option>
+                <option v-for="c in courses" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <select v-model="filters.semester" @change="handleFilterChange" class="form-input form-select min-w-[110px] text-sm py-1.5 h-auto">
+                <option value="">All Semesters</option>
+                <option v-for="s in semesters" :key="s" :value="s">Sem {{ s }}</option>
+              </select>
+              <select v-model="filters.department" @change="handleFilterChange" class="form-input form-select min-w-[130px] text-sm py-1.5 h-auto">
+                <option value="">All Departments</option>
+                <option v-for="d in dbDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
+              </select>
+              <select v-model="filters.hostel_id" @change="handleFilterChange" class="form-input form-select min-w-[110px] text-sm py-1.5 h-auto">
+                <option value="">All Hostels</option>
+                <option v-for="h in dbHostels" :key="h.id" :value="h.id">{{ h.name }}</option>
+              </select>
+            </template>
+
+            <select v-model="filters.status" @change="handleFilterChange" class="form-input form-select min-w-[120px] text-sm py-1.5 h-auto" id="status-filter">
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="deactivated">Deactivated</option>
             </select>
+            <button v-if="hasActiveFilters()" @click="clearFilters" class="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 px-3 py-1.5 h-auto text-sm" id="clear-filters-btn">
+              <X :size="14" /> Clear
+            </button>
           </div>
-          <select v-model="filters.status" @change="handleFilterChange" class="form-input form-select min-w-[145px]" id="status-filter">
-            <option value="">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="deactivated">Deactivated</option>
-          </select>
-          <button v-if="hasActiveFilters()" @click="clearFilters" class="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 px-3" id="clear-filters-btn">
-            <X :size="15" /> Clear
-          </button>
-        </div>
       </div>
     </div>
 
     <!-- Table -->
-    <div class="table-container animate-fade-in relative">
+    <div class="table-container animate-fade-in relative overflow-x-auto">
       <div v-if="isLoading" class="absolute inset-0 bg-[var(--bg-card)]/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
         <Loader2 class="animate-spin text-primary" :size="32" />
       </div>
@@ -177,9 +223,10 @@ onMounted(fetchUsers)
         <thead>
           <tr>
             <th>User</th>
-            <th>Role</th>
-            <th>Identifier</th>
+            <th>Role & ID</th>
+            <th v-if="filters.user_type === 'student'">Course & Sem</th>
             <th>Department / School</th>
+            <th v-if="filters.user_type === 'student'">Hostel</th>
             <th>Status</th>
             <th class="text-center"><span class="flex items-center justify-center gap-1"><CreditCard :size="13" /> RFID Tag</span></th>
             <th class="text-center"><span class="flex items-center justify-center gap-1"><Camera :size="13" /> Photo</span></th>
@@ -188,8 +235,17 @@ onMounted(fetchUsers)
           </tr>
         </thead>
         <tbody>
-          <tr v-if="users.length === 0 && !isLoading">
-            <td colspan="9" class="text-center py-16 text-muted">
+          <tr v-if="apiError && !isLoading">
+            <td colspan="10" class="text-center py-16 text-red-500">
+              <div class="flex flex-col items-center gap-3">
+                <ShieldOff :size="32" class="opacity-50" />
+                <p class="text-sm font-semibold">{{ apiError }}</p>
+                <button @click="fetchUsers" class="text-xs font-bold hover:underline">Retry</button>
+              </div>
+            </td>
+          </tr>
+          <tr v-else-if="users.length === 0 && !isLoading">
+            <td colspan="10" class="text-center py-16 text-muted">
               <div class="flex flex-col items-center gap-3">
                 <Search :size="32" class="opacity-30" />
                 <p class="text-sm font-semibold">No users match your filters.</p>
@@ -198,33 +254,47 @@ onMounted(fetchUsers)
             </td>
           </tr>
 
-          <tr v-for="user in users" :key="user.id" class="group">
-            <!-- User -->
+          <tr v-for="user in users" :key="user.id" class="group cursor-pointer hover:bg-slate-50 transition-colors" @click="viewTarget = user">
+            <!-- User Name (Primary) & Email -->
             <td>
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-full bg-navy/8 flex items-center justify-center text-sm font-bold text-navy shrink-0">
                   {{ getUserName(user).charAt(0).toUpperCase() }}
                 </div>
                 <div class="flex flex-col min-w-0">
-                  <span class="font-semibold truncate max-w-[150px]">{{ getUserName(user) }}</span>
+                  <span class="font-semibold truncate max-w-[150px] text-[var(--text-main)]">{{ getUserName(user) }}</span>
                   <span class="text-xs text-muted truncate max-w-[150px]">{{ user.email }}</span>
                 </div>
               </div>
             </td>
 
-            <!-- Role -->
+            <!-- Role & Identifier -->
             <td>
-              <span :class="['badge border text-xs capitalize', getRoleColor(user.user_type)]">{{ user.user_type }}</span>
+              <div class="flex flex-col gap-1 items-start">
+                <span :class="['badge border text-[10px] uppercase font-bold tracking-wider', getRoleColor(user.user_type)]">{{ user.user_type }}</span>
+                <span class="text-xs font-mono font-medium text-muted" title="Identifier">{{ getIdentifier(user) }}</span>
+              </div>
             </td>
 
-            <!-- Identifier (roll / employee / gov ID) -->
-            <td>
-              <span class="text-sm font-mono font-medium">{{ getIdentifier(user) }}</span>
+            <!-- Course & Sem (Students only) -->
+            <td v-if="filters.user_type === 'student'">
+              <div class="flex flex-col">
+                <span class="text-sm">{{ (user.profile as any)?.course || '—' }}</span>
+                <span class="text-xs text-muted" v-if="(user.profile as any)?.semester">Sem {{ (user.profile as any)?.semester }}</span>
+              </div>
             </td>
 
             <!-- Dept / School -->
             <td>
               <span class="text-sm text-muted">{{ (user.profile as any)?.department || (user.profile as any)?.school || '—' }}</span>
+            </td>
+
+            <!-- Hostel (Students only) -->
+            <td v-if="filters.user_type === 'student'">
+               <span v-if="(user.profile as any)?.hostel_flag" class="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                 Hostel
+               </span>
+               <span v-else class="text-xs text-muted">—</span>
             </td>
 
             <!-- Status -->
@@ -242,8 +312,8 @@ onMounted(fetchUsers)
 
             <!-- Photo -->
             <td class="text-center">
-              <span v-if="(user.profile as any)?.photo_reference" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
-                <Camera :size="12" /> Set
+              <span v-if="user.has_face_auth" class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+                <Camera :size="12" /> Enrolled
               </span>
               <span v-else class="text-xs text-muted">— None</span>
             </td>
@@ -304,7 +374,129 @@ onMounted(fetchUsers)
       </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Modals & Drawers -->
+
+    <!-- View User Details Drawer -->
+    <Teleport to="body">
+      <div v-if="viewTarget" class="fixed inset-0 z-50 flex justify-end" @click.self="viewTarget = null">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="viewTarget = null" />
+        <div class="relative z-10 w-full max-w-lg h-full bg-[var(--bg-main)] shadow-2xl flex flex-col overflow-hidden animate-slide-in-right">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-5 bg-[var(--bg-card)] border-b border-[var(--border-light)] shrink-0 shadow-sm z-10">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-navy/8 flex items-center justify-center text-lg font-bold text-navy shrink-0">
+                {{ getUserName(viewTarget).charAt(0).toUpperCase() }}
+              </div>
+              <div>
+                <h2 class="text-lg font-extrabold text-[var(--text-main)] leading-tight">{{ getUserName(viewTarget) }}</h2>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="badge border text-[10px] uppercase font-bold tracking-wider" :class="getRoleColor(viewTarget.user_type)">{{ viewTarget.user_type }}</span>
+                  <span class="text-xs text-muted">{{ viewTarget.email }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="editTarget = viewTarget; viewTarget = null" class="p-2 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors text-slate-700" title="Edit User">
+                <Edit2 :size="16" />
+              </button>
+              <button @click="viewTarget = null" class="p-2 rounded-lg hover:bg-slate-100 transition-colors text-muted shrink-0" title="Close">
+                <X :size="20" />
+              </button>
+            </div>
+          </div>
+          
+          <!-- Body -->
+          <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            
+            <div class="rounded-xl border border-[var(--border-light)] p-5 bg-[var(--bg-card)]">
+              <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 border-b border-[var(--border-light)] pb-2">Status & Identity</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <p class="text-xs text-muted mb-1 font-semibold">Account Status</p>
+                  <span :class="['badge', getStatusClass(viewTarget.status)]">{{ viewTarget.status }}</span>
+                </div>
+                <div>
+                  <p class="text-xs text-muted mb-1 font-semibold">Primary Identifier</p>
+                  <p class="text-sm font-mono font-medium">{{ getIdentifier(viewTarget) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-muted mb-1 font-semibold">RFID Tag</p>
+                  <span v-if="viewTarget.active_rfid" class="text-sm font-mono font-medium text-emerald-700">{{ viewTarget.active_rfid.slice(0, 8) }}…</span>
+                  <span v-else class="text-sm text-muted">None</span>
+                </div>
+                <div>
+                  <p class="text-xs text-muted mb-1 font-semibold">Face Enrollment</p>
+                  <span v-if="viewTarget.has_face_auth" class="text-sm font-semibold text-blue-700">Enrolled</span>
+                  <span v-else class="text-sm text-muted">Not enrolled</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-[var(--border-light)] p-5 bg-[var(--bg-card)]">
+              <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 border-b border-[var(--border-light)] pb-2">Profile Details</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                  <p class="text-xs text-muted mb-1 font-semibold">Phone Number</p>
+                  <p class="text-sm">{{ viewTarget.phone || '—' }}</p>
+                </div>
+                
+                <template v-if="viewTarget.user_type === 'student'">
+                  <div class="col-span-2">
+                    <p class="text-xs text-muted mb-1 font-semibold">School & Department</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.school || '—' }}</p>
+                    <p class="text-sm text-muted mt-0.5">{{ (viewTarget.profile as any)?.department || '—' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted mb-1 font-semibold">Course</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.course || '—' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted mb-1 font-semibold">Semester</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.semester || '—' }}</p>
+                  </div>
+                  <div class="col-span-2">
+                    <p class="text-xs text-muted mb-1 font-semibold">Guardian Contact</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.guardian_contact || '—' }}</p>
+                  </div>
+                  <div class="col-span-2">
+                    <p class="text-xs text-muted mb-1 font-semibold">Hostel Resident</p>
+                    <p class="text-sm">
+                      <span v-if="(viewTarget.profile as any)?.hostel_flag" class="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">Yes (Hostel ID: {{ (viewTarget.profile as any)?.hostel_id }})</span>
+                      <span v-else>No (Day Scholar)</span>
+                    </p>
+                  </div>
+                </template>
+
+                <template v-else-if="viewTarget.user_type === 'faculty' || viewTarget.user_type === 'worker'">
+                  <div class="col-span-2">
+                    <p class="text-xs text-muted mb-1 font-semibold">Designation</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.designation || '—' }}</p>
+                  </div>
+                  <div class="col-span-2" v-if="viewTarget.user_type === 'faculty'">
+                    <p class="text-xs text-muted mb-1 font-semibold">Department</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.department || '—' }}</p>
+                  </div>
+                </template>
+                
+                <template v-else-if="viewTarget.user_type === 'visitor'">
+                  <div class="col-span-2">
+                    <p class="text-xs text-muted mb-1 font-semibold">Visit Purpose</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.visit_purpose || '—' }}</p>
+                  </div>
+                  <div class="col-span-2">
+                    <p class="text-xs text-muted mb-1 font-semibold">Host Contact</p>
+                    <p class="text-sm">{{ (viewTarget.profile as any)?.host_contact || '—' }}</p>
+                  </div>
+                </template>
+                
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <EditUserModal v-if="editTarget" :user="editTarget" @close="editTarget = null" @saved="fetchUsers" />
     <UserStatusModal
       v-if="statusTarget"

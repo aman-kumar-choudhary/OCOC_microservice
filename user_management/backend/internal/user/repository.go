@@ -23,6 +23,9 @@ type Repository interface {
 	UpdateStatus(ctx context.Context, tx *sql.Tx, id uuid.UUID, status UserStatus) error
 	UpdateKeycloakID(ctx context.Context, tx *sql.Tx, id uuid.UUID, kcID string) error
 	List(ctx context.Context, f ListFilter) (*ListResult, error)
+
+	ListDepartments(ctx context.Context) ([]Department, error)
+	ListHostels(ctx context.Context) ([]Hostel, error)
 	Stats(ctx context.Context) (*Stats, error)
 	Delete(ctx context.Context, tx *sql.Tx, id uuid.UUID) error
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
@@ -56,36 +59,80 @@ func (r *PostgresRepository) Create(ctx context.Context, tx *sql.Tx, u *User) er
 }
 
 func (r *PostgresRepository) CreateProfile(ctx context.Context, tx *sql.Tx, p *Profile) error {
-	q := `INSERT INTO user_profiles (
-			user_id, full_name, roll_number, employee_id, department_id, hostel_id,
-			department, school, course, semester, designation, hostel_flag,
-			emergency_contact, guardian_contact, photo_reference,
-			gov_id_type, gov_id_number, visit_purpose, host_contact,
-			visit_start, visit_duration_days, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
-		ON CONFLICT (user_id) DO UPDATE SET
-			full_name=EXCLUDED.full_name, roll_number=EXCLUDED.roll_number,
-			employee_id=EXCLUDED.employee_id, department_id=EXCLUDED.department_id,
-			department=EXCLUDED.department, school=EXCLUDED.school,
-			course=EXCLUDED.course, semester=EXCLUDED.semester,
-			designation=EXCLUDED.designation, hostel_flag=EXCLUDED.hostel_flag,
-			hostel_id=EXCLUDED.hostel_id, emergency_contact=EXCLUDED.emergency_contact,
-			guardian_contact=EXCLUDED.guardian_contact, photo_reference=EXCLUDED.photo_reference,
-			gov_id_type=EXCLUDED.gov_id_type, gov_id_number=EXCLUDED.gov_id_number,
-			visit_purpose=EXCLUDED.visit_purpose, host_contact=EXCLUDED.host_contact,
-			visit_start=EXCLUDED.visit_start, visit_duration_days=EXCLUDED.visit_duration_days,
-			updated_at=EXCLUDED.updated_at`
 	exec := sqlExec(tx, r.db)
-	_, err := exec(ctx, q,
-		p.UserID, p.FullName, nullStr(p.RollNumber), nullStr(p.EmployeeID),
-		nullUUID(p.DepartmentID), nullUUID(p.HostelID),
-		nullStr(p.Department), nullStr(p.School), nullStr(p.Course),
-		nullStr(p.Semester), nullStr(p.Designation), p.HostelFlag,
-		nullStr(p.EmergencyContact), nullStr(p.GuardianContact), nullStr(p.PhotoReference),
-		nullStr(p.GovIDType), nullStr(p.GovIDNumber), nullStr(p.VisitPurpose), nullStr(p.HostContact),
-		nullTime(p.VisitStart), nullInt(p.VisitDurationDays), p.UpdatedAt)
+
+	var utype string
+	var err error
+	if tx != nil {
+		err = tx.QueryRowContext(ctx, `SELECT user_type FROM users WHERE id=$1`, p.UserID).Scan(&utype)
+	} else {
+		err = r.db.QueryRowContext(ctx, `SELECT user_type FROM users WHERE id=$1`, p.UserID).Scan(&utype)
+	}
 	if err != nil {
-		return fmt.Errorf("create profile: %w", err)
+		return fmt.Errorf("failed to lookup user type for profile creation: %w", err)
+	}
+
+	var q string
+	switch utype {
+	case "student":
+		q = `INSERT INTO student_profiles (
+				user_id, full_name, roll_number, department_id, department, school,
+				course, semester, hostel_flag, hostel_id, emergency_contact,
+				guardian_contact, photo_reference, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			ON CONFLICT (user_id) DO UPDATE SET
+				full_name=EXCLUDED.full_name, roll_number=EXCLUDED.roll_number,
+				department_id=EXCLUDED.department_id, department=EXCLUDED.department,
+				school=EXCLUDED.school, course=EXCLUDED.course, semester=EXCLUDED.semester,
+				hostel_flag=EXCLUDED.hostel_flag, hostel_id=EXCLUDED.hostel_id,
+				emergency_contact=EXCLUDED.emergency_contact, guardian_contact=EXCLUDED.guardian_contact,
+				photo_reference=EXCLUDED.photo_reference, updated_at=EXCLUDED.updated_at`
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.RollNumber), nullUUID(p.DepartmentID), nullStr(p.Department), nullStr(p.School), nullStr(p.Course), nullStr(p.Semester), p.HostelFlag, nullUUID(p.HostelID), nullStr(p.EmergencyContact), nullStr(p.GuardianContact), nullStr(p.PhotoReference), p.UpdatedAt)
+
+	case "faculty":
+		q = `INSERT INTO faculty_profiles (
+				user_id, full_name, employee_id, department_id, department, school,
+				designation, emergency_contact, photo_reference, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			ON CONFLICT (user_id) DO UPDATE SET
+				full_name=EXCLUDED.full_name, employee_id=EXCLUDED.employee_id,
+				department_id=EXCLUDED.department_id, department=EXCLUDED.department,
+				school=EXCLUDED.school, designation=EXCLUDED.designation,
+				emergency_contact=EXCLUDED.emergency_contact, photo_reference=EXCLUDED.photo_reference,
+				updated_at=EXCLUDED.updated_at`
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.EmployeeID), nullUUID(p.DepartmentID), nullStr(p.Department), nullStr(p.School), nullStr(p.Designation), nullStr(p.EmergencyContact), nullStr(p.PhotoReference), p.UpdatedAt)
+
+	case "worker":
+		q = `INSERT INTO worker_profiles (
+				user_id, full_name, employee_id, department_id, department,
+				designation, emergency_contact, photo_reference, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+			ON CONFLICT (user_id) DO UPDATE SET
+				full_name=EXCLUDED.full_name, employee_id=EXCLUDED.employee_id,
+				department_id=EXCLUDED.department_id, department=EXCLUDED.department,
+				designation=EXCLUDED.designation, emergency_contact=EXCLUDED.emergency_contact,
+				photo_reference=EXCLUDED.photo_reference, updated_at=EXCLUDED.updated_at`
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.EmployeeID), nullUUID(p.DepartmentID), nullStr(p.Department), nullStr(p.Designation), nullStr(p.EmergencyContact), nullStr(p.PhotoReference), p.UpdatedAt)
+
+	case "visitor":
+		q = `INSERT INTO visitor_profiles (
+				user_id, full_name, gov_id_type, gov_id_number, visit_purpose,
+				host_contact, visit_start, visit_duration_days, photo_reference, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			ON CONFLICT (user_id) DO UPDATE SET
+				full_name=EXCLUDED.full_name, gov_id_type=EXCLUDED.gov_id_type,
+				gov_id_number=EXCLUDED.gov_id_number, visit_purpose=EXCLUDED.visit_purpose,
+				host_contact=EXCLUDED.host_contact, visit_start=EXCLUDED.visit_start,
+				visit_duration_days=EXCLUDED.visit_duration_days, photo_reference=EXCLUDED.photo_reference,
+				updated_at=EXCLUDED.updated_at`
+		_, err = exec(ctx, q, p.UserID, p.FullName, nullStr(p.GovIDType), nullStr(p.GovIDNumber), nullStr(p.VisitPurpose), nullStr(p.HostContact), nullTime(p.VisitStart), nullInt(p.VisitDurationDays), p.UpdatedAt)
+		
+	default:
+		return fmt.Errorf("unknown user type: %s", utype)
+	}
+
+	if err != nil {
+		return fmt.Errorf("create %s profile: %w", utype, err)
 	}
 	return nil
 }
@@ -96,8 +143,10 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 	var status, utype string
 
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, keycloak_user_id, user_type, status, email, phone, created_at, updated_at FROM users WHERE id=$1`, id).
-		Scan(&u.ID, &kcID, &utype, &status, &u.Email, &phone, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, keycloak_user_id, user_type, status, email, phone, created_at, updated_at,
+		 EXISTS(SELECT 1 FROM freco_people fp JOIN freco_face_embeddings fe ON fe.person_id = fp.id WHERE fp.external_id = users.id) AS has_face_auth
+		 FROM users WHERE id=$1`, id).
+		Scan(&u.ID, &kcID, &utype, &status, &u.Email, &phone, &u.CreatedAt, &u.UpdatedAt, &u.HasFaceAuth)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -154,7 +203,12 @@ func (r *PostgresRepository) UpdateProfile(ctx context.Context, tx *sql.Tx, p *P
 
 func (r *PostgresRepository) UpdateStatus(ctx context.Context, tx *sql.Tx, id uuid.UUID, status UserStatus) error {
 	exec := sqlExec(tx, r.db)
-	_, err := exec(ctx, `UPDATE users SET status=$2, updated_at=$3 WHERE id=$1`, id, string(status), time.Now())
+	now := time.Now()
+	if _, err := exec(ctx, `UPDATE users SET status=$2, updated_at=$3 WHERE id=$1`, id, string(status), now); err != nil {
+		return err
+	}
+	isActive := status == StatusActive
+	_, err := exec(ctx, `UPDATE freco_people SET active=$2, updated_at=$3 WHERE external_id=$1`, id, isActive, now)
 	return err
 }
 
@@ -182,7 +236,14 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) (*ListResul
 	}
 
 	args = append(args, f.Limit, offset)
-	q := fmt.Sprintf(`SELECT u.id, u.keycloak_user_id, u.user_type, u.status, u.email, u.phone, u.created_at, u.updated_at
+	q := fmt.Sprintf(`SELECT u.id, u.keycloak_user_id, u.user_type, u.status, u.email, u.phone, u.created_at, u.updated_at,
+		p.full_name, p.roll_number, p.employee_id, p.department_id, p.hostel_id,
+		p.department, p.school, p.course, p.semester, p.designation, p.hostel_flag,
+		p.emergency_contact, p.guardian_contact, p.photo_reference,
+		p.gov_id_type, p.gov_id_number, p.visit_purpose, p.host_contact,
+		p.visit_start, p.visit_duration_days, p.updated_at,
+		(SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
+		EXISTS(SELECT 1 FROM freco_people fp JOIN freco_face_embeddings fe ON fe.person_id = fp.id WHERE fp.external_id = u.id) AS has_face_auth
 		%s ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d`, base, len(args)-1, len(args))
 
 	rows, err := r.db.QueryContext(ctx, q, args...)
@@ -194,16 +255,79 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) (*ListResul
 	var users []User
 	for rows.Next() {
 		var u User
+		var p Profile
 		var kcID, phone sql.NullString
 		var utype, status string
-		if err := rows.Scan(&u.ID, &kcID, &utype, &status, &u.Email, &phone, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		var fullName, roll, emp, emerg, guard, photo sql.NullString
+		var deptID, hostelID sql.NullString
+		var dept, school, course, semester, designation sql.NullString
+		var hostelFlag sql.NullBool
+		var govType, govNum, purpose, host sql.NullString
+		var visitStart sql.NullTime
+		var visitDuration sql.NullInt32
+		var pUpdatedAt sql.NullTime
+		var activeRFID sql.NullString
+
+		if err := rows.Scan(
+			&u.ID, &kcID, &utype, &status, &u.Email, &phone, &u.CreatedAt, &u.UpdatedAt,
+			&fullName, &roll, &emp, &deptID, &hostelID,
+			&dept, &school, &course, &semester, &designation, &hostelFlag,
+			&emerg, &guard, &photo,
+			&govType, &govNum, &purpose, &host,
+			&visitStart, &visitDuration, &pUpdatedAt,
+			&activeRFID, &u.HasFaceAuth,
+		); err != nil {
 			continue
 		}
 		u.KeycloakUserID = kcID.String
 		u.Phone = phone.String
 		u.UserType = UserType(utype)
 		u.Status = UserStatus(status)
+		u.ActiveRFID = activeRFID.String
+
+		if fullName.Valid {
+			p.UserID = u.ID
+			p.FullName = fullName.String
+			p.RollNumber = roll.String
+			p.EmployeeID = emp.String
+			p.Department = dept.String
+			p.School = school.String
+			p.Course = course.String
+			p.Semester = semester.String
+			p.Designation = designation.String
+			p.HostelFlag = hostelFlag.Bool
+			p.EmergencyContact = emerg.String
+			p.GuardianContact = guard.String
+			p.PhotoReference = photo.String
+			p.GovIDType = govType.String
+			p.GovIDNumber = govNum.String
+			p.VisitPurpose = purpose.String
+			p.HostContact = host.String
+			if deptID.Valid {
+				id, _ := uuid.Parse(deptID.String)
+				p.DepartmentID = &id
+			}
+			if hostelID.Valid {
+				id, _ := uuid.Parse(hostelID.String)
+				p.HostelID = &id
+			}
+			if visitStart.Valid {
+				t := visitStart.Time
+				p.VisitStart = &t
+			}
+			if visitDuration.Valid {
+				p.VisitDurationDays = int(visitDuration.Int32)
+			}
+			if pUpdatedAt.Valid {
+				p.UpdatedAt = pUpdatedAt.Time
+			}
+			u.Profile = &p
+		}
+
 		users = append(users, u)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("list users iteration: %w", err)
 	}
 
 	totalPages := (total + f.Limit - 1) / f.Limit
@@ -336,8 +460,8 @@ func buildListWhere(f ListFilter) (string, []interface{}) {
 
 	if f.Search != "" {
 		conds = append(conds, fmt.Sprintf(
-			`(u.email ILIKE $%d OR p.full_name ILIKE $%d OR p.roll_number ILIKE $%d OR p.employee_id ILIKE $%d)`,
-			n, n, n, n))
+			`(u.email ILIKE $%d OR p.full_name ILIKE $%d OR p.roll_number ILIKE $%d OR p.employee_id ILIKE $%d OR u.phone ILIKE $%d OR u.id::text ILIKE $%d)`,
+			n, n, n, n, n, n))
 		args = append(args, "%"+f.Search+"%")
 		n++
 	}
@@ -354,6 +478,21 @@ func buildListWhere(f ListFilter) (string, []interface{}) {
 	if f.Department != "" {
 		conds = append(conds, fmt.Sprintf(`p.department_id=$%d`, n))
 		args = append(args, f.Department)
+		n++
+	}
+	if f.Course != "" {
+		conds = append(conds, fmt.Sprintf(`p.course ILIKE $%d`, n))
+		args = append(args, "%"+f.Course+"%")
+		n++
+	}
+	if f.Semester != "" {
+		conds = append(conds, fmt.Sprintf(`p.semester=$%d`, n))
+		args = append(args, f.Semester)
+		n++
+	}
+	if f.HostelID != "" {
+		conds = append(conds, fmt.Sprintf(`p.hostel_id=$%d`, n))
+		args = append(args, f.HostelID)
 		n++
 	}
 	if len(conds) == 0 {
@@ -379,3 +518,45 @@ func nullTime(t *time.Time) sql.NullTime {
 }
 
 func nullInt(n int) sql.NullInt32 { return sql.NullInt32{Int32: int32(n), Valid: n > 0} }
+
+func (r *PostgresRepository) ListDepartments(ctx context.Context) ([]Department, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, code FROM departments ORDER BY name ASC")
+	if err != nil {
+		return nil, fmt.Errorf("list departments: %w", err)
+	}
+	defer rows.Close()
+
+	var deps []Department
+	for rows.Next() {
+		var d Department
+		if err := rows.Scan(&d.ID, &d.Name, &d.Code); err != nil {
+			continue
+		}
+		deps = append(deps, d)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("list departments iteration: %w", err)
+	}
+	return deps, nil
+}
+
+func (r *PostgresRepository) ListHostels(ctx context.Context) ([]Hostel, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, code FROM hostels ORDER BY name ASC")
+	if err != nil {
+		return nil, fmt.Errorf("list hostels: %w", err)
+	}
+	defer rows.Close()
+
+	var hostels []Hostel
+	for rows.Next() {
+		var h Hostel
+		if err := rows.Scan(&h.ID, &h.Name, &h.Code); err != nil {
+			continue
+		}
+		hostels = append(hostels, h)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("list hostels iteration: %w", err)
+	}
+	return hostels, nil
+}

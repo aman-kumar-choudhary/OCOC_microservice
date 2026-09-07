@@ -38,6 +38,7 @@ type User struct {
 	Profile         *Profile   `json:"profile,omitempty"`
 	Roles           []string   `json:"roles,omitempty"`
 	ActiveRFID      string     `json:"active_rfid,omitempty"`
+	HasFaceAuth     bool       `json:"has_face_auth,omitempty"`
 }
 
 // Profile holds extended user attributes.
@@ -113,6 +114,9 @@ type ListFilter struct {
 	UserType   string
 	Status     string
 	Department string
+	Course     string
+	Semester   string
+	HostelID   string
 	Role       string
 	Page       int
 	Limit      int
@@ -137,4 +141,18 @@ type Stats struct {
 	Faculty      int `json:"faculty"`
 	Workers      int `json:"workers"`
 	Visitors     int `json:"visitors"`
+}
+
+// Department represents an academic or administrative department.
+type Department struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Code string    `json:"code"`
+}
+
+// Hostel represents a student residence.
+type Hostel struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Code string    `json:"code"`
 }

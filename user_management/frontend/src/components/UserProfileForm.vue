@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { UserRound, Mail, Phone, Hash, Building2, BookOpen, ChevronDown, Award, Home, Briefcase, Users, Wrench } from 'lucide-vue-next'
+import userService from '@/services/userService'
 
 const props = defineProps<{
   modelValue: {
@@ -15,6 +16,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: any]
 }>()
+
+const dbDepartments = ref<any[]>([])
+const dbHostels = ref<any[]>([])
+
+onMounted(async () => {
+  try {
+    dbDepartments.value = await userService.getDepartments()
+    dbHostels.value = await userService.getHostels()
+  } catch (err) {
+    console.error('Failed to load reference data', err)
+  }
+})
 
 // ─── DSVV Academic Hierarchy ───────────────────────────────────────
 const schoolDepartments: Record<string, string[]> = {
@@ -95,143 +108,166 @@ function onSchoolChange() {
 function onDeptChange() {
   const v = { ...props.modelValue }
   v.profile.course = ''
+  
+  // Find department ID from DB
+  const dbDept = (dbDepartments.value || []).find(d => d.name === v.profile.department)
+  if (dbDept) {
+    v.profile.department_id = dbDept.id
+  } else {
+    v.profile.department_id = null
+  }
+  
+  emit('update:modelValue', v)
+}
+
+function onHostelFlagChange() {
+  const v = { ...props.modelValue }
+  if (!v.profile.hostel_flag) {
+    v.profile.hostel_id = null
+  }
   emit('update:modelValue', v)
 }
 </script>
 
 <template>
-  <div>
-    <!-- ── Common fields ── -->
-    <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2">
-      <Users :size="14" /> Personal Information
-    </h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div class="form-group !mb-0">
-        <label class="form-label">Full Name *</label>
-        <div class="relative">
-          <UserRound :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-          <input v-model="modelValue.profile.full_name" type="text" required class="form-input pl-9" placeholder="e.g. Arjun Sharma" />
+  <div class="space-y-6">
+    <!-- ── Personal & Contact Information ── -->
+    <div class="rounded-xl border border-[var(--border-light)] p-5 bg-slate-50/50">
+      <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 flex items-center gap-2">
+        <Users :size="15" class="text-primary" /> Personal Information
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+          <label class="form-label">Full Name <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <UserRound :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+            <input v-model="modelValue.profile.full_name" type="text" required class="form-input pl-9" placeholder="e.g. Arjun Sharma" />
+          </div>
         </div>
-      </div>
-      <div class="form-group !mb-0">
-        <label class="form-label">Email Address *</label>
-        <div class="relative">
-          <Mail :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-          <input v-model="modelValue.email" type="email" required :disabled="isEdit" class="form-input pl-9 disabled:opacity-50" placeholder="arjun@dsvv.ac.in" />
+        <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+          <label class="form-label">Email Address <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <Mail :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+            <input v-model="modelValue.email" type="email" required :disabled="isEdit" class="form-input pl-9 disabled:opacity-50" placeholder="arjun@dsvv.ac.in" />
+          </div>
         </div>
-      </div>
-      <div class="form-group !mb-0 md:col-span-2">
-        <label class="form-label">Phone Number</label>
-        <div class="relative">
-          <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-          <input v-model="modelValue.phone" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
+        <div class="form-group !mb-0 md:col-span-2">
+          <label class="form-label">Phone Number</label>
+          <div class="relative">
+            <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+            <input v-model="modelValue.phone" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ── Student Fields ── -->
     <template v-if="persona === 'student'">
-      <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-        <Hash :size="14" /> Student Identity
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="form-group !mb-0">
-          <label class="form-label">Roll Number *</label>
-          <div class="relative">
-            <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.roll_number" type="text" required class="form-input pl-9" placeholder="CS24001" />
+      <div class="rounded-xl border border-[var(--border-light)] p-5 bg-slate-50/50">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 flex items-center gap-2">
+          <BookOpen :size="15" class="text-primary" /> Academic Information
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+          <div class="form-group !mb-0">
+            <label class="form-label">Roll Number <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.roll_number" type="text" required class="form-input pl-9" placeholder="CS24001" />
+            </div>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Guardian Contact</label>
+            <div class="relative">
+              <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.guardian_contact" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
+            </div>
           </div>
         </div>
-        <div class="form-group !mb-0">
-          <label class="form-label">Guardian Contact</label>
-          <div class="relative">
-            <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.guardian_contact" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- School -->
+          <div class="form-group !mb-0 md:col-span-2">
+            <label class="form-label">School <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <select v-model="modelValue.profile.school" @change="onSchoolChange" required class="form-input form-select pl-9 pr-9 appearance-none">
+                <option value="">Select School…</option>
+                <option v-for="school in Object.keys(schoolDepartments)" :key="school" :value="school">{{ school }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Department -->
+          <div class="form-group !mb-0 md:col-span-2">
+            <label class="form-label">Department <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <select v-model="modelValue.profile.department" @change="onDeptChange" required :disabled="!modelValue.profile.school" class="form-input form-select pl-9 pr-9 appearance-none disabled:opacity-50">
+                <option value="">{{ modelValue.profile.school ? 'Select Department…' : 'Select school first' }}</option>
+                <option v-for="dept in availableDepartments" :key="dept" :value="dept">{{ dept }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Course -->
+          <div class="form-group !mb-0 md:col-span-2">
+            <label class="form-label">Course / Programme <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <BookOpen :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <select v-model="modelValue.profile.course" required :disabled="!modelValue.profile.department" class="form-input form-select pl-9 pr-9 appearance-none disabled:opacity-50">
+                <option value="">{{ modelValue.profile.department ? 'Select Course…' : 'Select department first' }}</option>
+                <option v-for="course in availableCourses" :key="course" :value="course">{{ course }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Semester -->
+          <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+            <label class="form-label">Semester <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <select v-model="modelValue.profile.semester" required class="form-input form-select pr-9 appearance-none">
+                <option value="">Select Semester…</option>
+                <option v-for="s in semesters" :key="s.value" :value="s.value">{{ s.label }}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
-      <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-4 border-t border-[var(--border-light)]">
-        <BookOpen :size="14" /> Academic Information
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <!-- School -->
-        <div class="form-group !mb-0 md:col-span-2">
-          <label class="form-label">School *</label>
-          <div class="relative">
-            <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <select
-              v-model="modelValue.profile.school"
-              @change="onSchoolChange"
-              required
-              class="form-input form-select pl-9 pr-9 appearance-none"
-            >
-              <option value="">Select School…</option>
-              <option v-for="school in Object.keys(schoolDepartments)" :key="school" :value="school">{{ school }}</option>
-            </select>
+      <!-- ── Hostel Information ── -->
+      <div class="rounded-xl border border-[var(--border-light)] p-5 bg-slate-50/50">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 flex items-center gap-2">
+          <Home :size="15" class="text-primary" /> Hostel Information
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Hostel Dropdown -->
+          <div class="form-group !mb-0 md:col-span-2">
+            <label class="form-label">Hostel Resident?</label>
+            <div class="relative">
+              <Home :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <select v-model="modelValue.profile.hostel_flag" @change="onHostelFlagChange" class="form-input form-select pl-9 pr-9 appearance-none">
+                <option :value="false">No (Day Scholar)</option>
+                <option :value="true">Yes (Hostel Resident)</option>
+              </select>
+            </div>
           </div>
-        </div>
-
-        <!-- Department -->
-        <div class="form-group !mb-0 md:col-span-2">
-          <label class="form-label">Department *</label>
-          <div class="relative">
-            <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <select
-              v-model="modelValue.profile.department"
-              @change="onDeptChange"
-              required
-              :disabled="!modelValue.profile.school"
-              class="form-input form-select pl-9 pr-9 appearance-none disabled:opacity-50"
-            >
-              <option value="">{{ modelValue.profile.school ? 'Select Department…' : 'Select school first' }}</option>
-              <option v-for="dept in availableDepartments" :key="dept" :value="dept">{{ dept }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Course -->
-        <div class="form-group !mb-0 md:col-span-2">
-          <label class="form-label">Course / Programme *</label>
-          <div class="relative">
-            <BookOpen :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <select
-              v-model="modelValue.profile.course"
-              required
-              :disabled="!modelValue.profile.department"
-              class="form-input form-select pl-9 pr-9 appearance-none disabled:opacity-50"
-            >
-              <option value="">{{ modelValue.profile.department ? 'Select Course…' : 'Select department first' }}</option>
-              <option v-for="course in availableCourses" :key="course" :value="course">{{ course }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Semester -->
-        <div class="form-group !mb-0">
-          <label class="form-label">Semester *</label>
-          <div class="relative">
-            <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <select v-model="modelValue.profile.semester" required class="form-input form-select pr-9 appearance-none">
-              <option value="">Select Semester…</option>
-              <option v-for="s in semesters" :key="s.value" :value="s.value">{{ s.label }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Hostel Dropdown -->
-        <div class="form-group !mb-0">
-          <label class="form-label">Hostel Resident</label>
-          <div class="relative mt-1">
-            <Home :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
-            <select v-model="modelValue.profile.hostel_flag" class="form-input form-select pl-9 pr-9 appearance-none">
-              <option :value="false">No (Day Scholar)</option>
-              <option :value="true">Yes (Hostel)</option>
-            </select>
+          
+          <!-- Select Specific Hostel -->
+          <div v-if="modelValue.profile.hostel_flag" class="form-group !mb-0 md:col-span-2">
+            <label class="form-label">Select Hostel <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Home :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <ChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10" />
+              <select v-model="modelValue.profile.hostel_id" required class="form-input form-select pl-9 pr-9 appearance-none">
+                <option :value="undefined">Select Hostel…</option>
+                <option v-for="h in dbHostels" :key="h.id" :value="h.id">{{ h.name }}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -239,29 +275,31 @@ function onDeptChange() {
 
     <!-- ── Faculty Fields ── -->
     <template v-else-if="persona === 'faculty'">
-      <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-        <Briefcase :size="14" /> Faculty Information
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="form-group !mb-0">
-          <label class="form-label">Employee ID *</label>
-          <div class="relative">
-            <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.employee_id" type="text" required class="form-input pl-9" placeholder="FAC001" />
+      <div class="rounded-xl border border-[var(--border-light)] p-5 bg-slate-50/50">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 flex items-center gap-2">
+          <Briefcase :size="15" class="text-primary" /> Faculty Information
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+            <label class="form-label">Employee ID <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.employee_id" type="text" required class="form-input pl-9" placeholder="FAC001" />
+            </div>
           </div>
-        </div>
-        <div class="form-group !mb-0">
-          <label class="form-label">Designation *</label>
-          <div class="relative">
-            <Award :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.designation" type="text" required class="form-input pl-9" placeholder="e.g. Assistant Professor" />
+          <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+            <label class="form-label">Designation <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Award :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.designation" type="text" required class="form-input pl-9" placeholder="e.g. Assistant Professor" />
+            </div>
           </div>
-        </div>
-        <div class="form-group !mb-0 md:col-span-2">
-          <label class="form-label">Department *</label>
-          <div class="relative">
-            <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.department" type="text" required class="form-input pl-9" placeholder="e.g. Department of Computer Sciences" />
+          <div class="form-group !mb-0 md:col-span-2">
+            <label class="form-label">Department <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.department" type="text" required class="form-input pl-9" placeholder="e.g. Department of Computer Sciences" />
+            </div>
           </div>
         </div>
       </div>
@@ -269,22 +307,24 @@ function onDeptChange() {
 
     <!-- ── Worker Fields ── -->
     <template v-else-if="persona === 'worker'">
-      <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-        <Wrench :size="14" /> Worker Information
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="form-group !mb-0">
-          <label class="form-label">Employee ID *</label>
-          <div class="relative">
-            <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.employee_id" type="text" required class="form-input pl-9" placeholder="WRK001" />
+      <div class="rounded-xl border border-[var(--border-light)] p-5 bg-slate-50/50">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 flex items-center gap-2">
+          <Wrench :size="15" class="text-primary" /> Worker Information
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+            <label class="form-label">Employee ID <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.employee_id" type="text" required class="form-input pl-9" placeholder="WRK001" />
+            </div>
           </div>
-        </div>
-        <div class="form-group !mb-0">
-          <label class="form-label">Role / Designation *</label>
-          <div class="relative">
-            <Briefcase :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.worker_role" type="text" required class="form-input pl-9" placeholder="e.g. Security Staff" />
+          <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
+            <label class="form-label">Role / Designation <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Briefcase :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.designation" type="text" required class="form-input pl-9" placeholder="e.g. Security Staff" />
+            </div>
           </div>
         </div>
       </div>
@@ -292,39 +332,43 @@ function onDeptChange() {
 
     <!-- ── Visitor Fields ── -->
     <template v-else-if="persona === 'visitor'">
-      <h3 class="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2 pt-2 border-t border-[var(--border-light)]">
-        <UserRound :size="14" /> Visitor Information
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="form-group !mb-0">
-          <label class="form-label">Government ID Type *</label>
-          <select v-model="modelValue.profile.gov_id_type" required class="form-input form-select">
-            <option value="">Select ID type…</option>
-            <option value="Aadhaar">Aadhaar</option>
-            <option value="PAN">PAN</option>
-            <option value="Passport">Passport</option>
-            <option value="Driving License">Driving License</option>
-          </select>
-        </div>
-        <div class="form-group !mb-0">
-          <label class="form-label">Government ID Number *</label>
-          <div class="relative">
-            <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.gov_id_number" type="text" required class="form-input pl-9" placeholder="ID number" />
+      <div class="rounded-xl border border-[var(--border-light)] p-5 bg-slate-50/50">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-navy mb-4 flex items-center gap-2">
+          <UserRound :size="15" class="text-primary" /> Visitor Information
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="form-group !mb-0">
+            <label class="form-label">Government ID Type <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <select v-model="modelValue.profile.gov_id_type" required class="form-input form-select pl-4">
+                <option value="">Select ID type…</option>
+                <option value="Aadhaar">Aadhaar</option>
+                <option value="PAN">PAN</option>
+                <option value="Passport">Passport</option>
+                <option value="Driving License">Driving License</option>
+              </select>
+            </div>
           </div>
-        </div>
-        <div class="form-group !mb-0">
-          <label class="form-label">Visit Purpose *</label>
-          <div class="relative">
-            <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.visit_purpose" type="text" required class="form-input pl-9" placeholder="e.g. Meeting with IT Dept" />
+          <div class="form-group !mb-0">
+            <label class="form-label">Government ID Number <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.gov_id_number" type="text" required class="form-input pl-9" placeholder="ID number" />
+            </div>
           </div>
-        </div>
-        <div class="form-group !mb-0">
-          <label class="form-label">Host Contact *</label>
-          <div class="relative">
-            <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.host_contact" type="text" required class="form-input pl-9" placeholder="Who are you visiting?" />
+          <div class="form-group !mb-0">
+            <label class="form-label">Visit Purpose <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.visit_purpose" type="text" required class="form-input pl-9" placeholder="e.g. Meeting with IT Dept" />
+            </div>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Host Contact <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+              <input v-model="modelValue.profile.host_contact" type="text" required class="form-input pl-9" placeholder="Who are you visiting?" />
+            </div>
           </div>
         </div>
       </div>

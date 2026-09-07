@@ -19,9 +19,9 @@ type AuditLogger interface {
 	Log(ctx context.Context, actorID, operation, entityType, entityID string, before, after interface{}, ip string) error
 }
 
-// RFIDRevoker allows user service to revoke RFID on suspend/deactivate.
-type RFIDRevoker interface {
-	RevokeAllForUser(ctx context.Context, tx *sql.Tx, userID uuid.UUID) error
+// RFIDCardSynchronizer allows user service to synchronize RFID card status on user status change.
+type RFIDCardSynchronizer interface {
+	SyncUserCardStatus(ctx context.Context, tx *sql.Tx, userID uuid.UUID, active bool) error
 }
 
 // Service handles user business logic.
@@ -30,12 +30,12 @@ type Service struct {
 	kc    *keycloak.Client
 	redis *redis.Client
 	audit AuditLogger
-	rfid  RFIDRevoker
+	rfid  RFIDCardSynchronizer
 	db    *sql.DB
 }
 
 // NewService creates a user service.
-func NewService(repo Repository, kc *keycloak.Client, rc *redis.Client, audit AuditLogger, rfid RFIDRevoker, db *sql.DB) *Service {
+func NewService(repo Repository, kc *keycloak.Client, rc *redis.Client, audit AuditLogger, rfid RFIDCardSynchronizer, db *sql.DB) *Service {
 	return &Service{repo: repo, kc: kc, redis: rc, audit: audit, rfid: rfid, db: db}
 }
 
@@ -140,6 +140,14 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return u, nil
 }
 
+func (s *Service) ListDepartments(ctx context.Context) ([]Department, error) {
+	return s.repo.ListDepartments(ctx)
+}
+
+func (s *Service) ListHostels(ctx context.Context) ([]Hostel, error) {
+	return s.repo.ListHostels(ctx)
+}
+
 // Update updates a user's profile.
 func (s *Service) Update(ctx context.Context, actorID string, id uuid.UUID, req UpdateUserRequest) (*User, error) {
 	before, err := s.repo.GetByID(ctx, id)
@@ -148,7 +156,7 @@ func (s *Service) Update(ctx context.Context, actorID string, id uuid.UUID, req 
 	}
 
 	now := time.Now()
-	before.Phone = orString(req.Phone, before.Phone)
+	before.Phone = req.Phone
 	before.UpdatedAt = now
 
 	var p *Profile
@@ -209,11 +217,10 @@ func (s *Service) changeStatus(ctx context.Context, actorID string, id uuid.UUID
 		if err := s.repo.UpdateStatus(ctx, tx, id, newStatus); err != nil {
 			return err
 		}
-		if newStatus == StatusSuspended || newStatus == StatusDeactivated {
-			if s.rfid != nil {
-				if err := s.rfid.RevokeAllForUser(ctx, tx, id); err != nil {
-					return err
-				}
+		if s.rfid != nil {
+			active := newStatus == StatusActive
+			if err := s.rfid.SyncUserCardStatus(ctx, tx, id, active); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -224,10 +231,11 @@ func (s *Service) changeStatus(ctx context.Context, actorID string, id uuid.UUID
 
 	// Post-transaction: invalidate Keycloak sessions and Redis cache.
 	if before.KeycloakUserID != "" {
-		if newStatus == StatusSuspended || newStatus == StatusDeactivated {
+		switch newStatus {
+		case StatusSuspended, StatusDeactivated:
 			_ = s.kc.DisableUser(ctx, before.KeycloakUserID)
 			_ = s.kc.LogoutAllSessions(ctx, before.KeycloakUserID)
-		} else if newStatus == StatusActive {
+		case StatusActive:
 			_ = s.kc.EnableUser(ctx, before.KeycloakUserID)
 		}
 	}
@@ -435,54 +443,29 @@ func applyProfileRequest(p *Profile, pr ProfileRequest, now time.Time) {
 	if pr.FullName != "" {
 		p.FullName = pr.FullName
 	}
-	if pr.RollNumber != "" {
-		p.RollNumber = pr.RollNumber
-	}
-	if pr.EmployeeID != "" {
-		p.EmployeeID = pr.EmployeeID
-	}
-	if pr.DepartmentID != nil {
-		p.DepartmentID = pr.DepartmentID
-	}
-	if pr.Department != "" {
-		p.Department = pr.Department
-	}
-	if pr.School != "" {
-		p.School = pr.School
-	}
-	if pr.Course != "" {
-		p.Course = pr.Course
-	}
-	if pr.Semester != "" {
-		p.Semester = pr.Semester
-	}
-	if pr.Designation != "" {
-		p.Designation = pr.Designation
-	}
+	p.RollNumber = pr.RollNumber
+	p.EmployeeID = pr.EmployeeID
+	p.DepartmentID = pr.DepartmentID
+	p.Department = pr.Department
+	p.School = pr.School
+	p.Course = pr.Course
+	p.Semester = pr.Semester
+	p.Designation = pr.Designation
 	p.HostelFlag = pr.HostelFlag
-	if pr.HostelID != nil {
-		p.HostelID = pr.HostelID
-	}
-	if pr.EmergencyContact != "" {
-		p.EmergencyContact = pr.EmergencyContact
-	}
-	if pr.GuardianContact != "" {
-		p.GuardianContact = pr.GuardianContact
-	}
-	if pr.PhotoReference != "" {
-		p.PhotoReference = pr.PhotoReference
-	}
+	p.HostelID = pr.HostelID
+	p.EmergencyContact = pr.EmergencyContact
+	p.GuardianContact = pr.GuardianContact
+	p.PhotoReference = pr.PhotoReference
+	p.GovIDType = pr.GovIDType
+	p.GovIDNumber = pr.GovIDNumber
+	p.VisitPurpose = pr.VisitPurpose
+	p.HostContact = pr.HostContact
+	p.VisitStart = pr.VisitStart
+	p.VisitDurationDays = pr.VisitDurationDays
 	p.UpdatedAt = now
 }
 
-func orString(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
-func withTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+var withTx = func(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)

@@ -226,9 +226,9 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*Card, error) {
 	return c, nil
 }
 
-// RevokeAllForUser revokes all RFID cards for a user (used on suspend/deactivate).
-func (s *Service) RevokeAllForUser(ctx context.Context, tx *sql.Tx, userID uuid.UUID) error {
-	return s.repo.RevokeAllForUser(ctx, tx, userID)
+// SyncUserCardStatus pauses or resumes a user's assigned card.
+func (s *Service) SyncUserCardStatus(ctx context.Context, tx *sql.Tx, userID uuid.UUID, active bool) error {
+	return s.repo.SyncUserCardStatus(ctx, tx, userID, active)
 }
 
 // Scan triggers the RFID reader to scan a card.

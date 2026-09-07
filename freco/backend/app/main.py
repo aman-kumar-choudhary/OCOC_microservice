@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
+from app.api.identity import router as identity_router
 from app.config import settings
+from app.db import Base, engine
 from app.ml.model_manager import ModelManager
 from app.ml.face_detector import MultipleFacesDetectedError, NoFaceDetectedError
 from app.ml.pipeline import FacePipeline, LivenessRejected
@@ -28,6 +30,12 @@ logging.basicConfig(
 
 
 async def lifespan(app: FastAPI):
+    # Ensure FRECO tables exist (migration 004 is authoritative; this is a fallback).
+    if engine is not None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("freco_db_tables_ensured")
+
     started = time.perf_counter()
     runtime = get_inference_runtime()
     model_manager = ModelManager()
@@ -53,6 +61,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount identity / attendance router (POST /api/v1/people, attendance sessions, etc.)
+app.include_router(identity_router)
 
 async def read_image(upload: UploadFile) -> np.ndarray:
     """Read one multipart image upload into the OpenCV BGR format."""

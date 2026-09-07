@@ -20,7 +20,7 @@ type Repository interface {
 	Assign(ctx context.Context, tx *sql.Tx, a *Assignment) error
 	Unassign(ctx context.Context, tx *sql.Tx, userID, cardID uuid.UUID) error
 	GetActiveCardForUser(ctx context.Context, userID uuid.UUID) (*Card, error)
-	RevokeAllForUser(ctx context.Context, tx *sql.Tx, userID uuid.UUID) error
+	SyncUserCardStatus(ctx context.Context, tx *sql.Tx, userID uuid.UUID, active bool) error
 	UIDExists(ctx context.Context, uid string) (bool, error)
 	GetStats(ctx context.Context) (total, active, revoked int, err error)
 }
@@ -159,22 +159,25 @@ func (r *PostgresRepository) GetActiveCardForUser(ctx context.Context, userID uu
 		LIMIT 1`, userID))
 }
 
-func (r *PostgresRepository) RevokeAllForUser(ctx context.Context, tx *sql.Tx, userID uuid.UUID) error {
+func (r *PostgresRepository) SyncUserCardStatus(ctx context.Context, tx *sql.Tx, userID uuid.UUID, active bool) error {
 	exec := execFn(tx, r.db)
 	now := time.Now()
-	// Unassign all active assignments.
-	if _, err := exec(ctx, `
-		UPDATE user_rfid_cards SET unassigned_at=$2
-		WHERE user_id=$1 AND unassigned_at IS NULL`, userID, now); err != nil {
+	
+	if active {
+		_, err := exec(ctx, `
+			UPDATE rfid_cards SET status='active', updated_at=$2, revoked_reason=NULL
+			WHERE id IN (
+				SELECT rfid_card_id FROM user_rfid_cards WHERE user_id=$1 AND unassigned_at IS NULL
+			) AND status='inactive'`, userID, now)
+		return err
+	} else {
+		_, err := exec(ctx, `
+			UPDATE rfid_cards SET status='inactive', updated_at=$2, revoked_reason='user_suspended_or_deactivated'
+			WHERE id IN (
+				SELECT rfid_card_id FROM user_rfid_cards WHERE user_id=$1 AND unassigned_at IS NULL
+			) AND status='active'`, userID, now)
 		return err
 	}
-	// Revoke all active cards belonging to this user.
-	_, err := exec(ctx, `
-		UPDATE rfid_cards SET status='revoked', revoked_at=$2, revoked_reason='user_suspended_or_deactivated', updated_at=$2
-		WHERE id IN (
-			SELECT rfid_card_id FROM user_rfid_cards WHERE user_id=$1
-		) AND status='active'`, userID, now)
-	return err
 }
 
 func (r *PostgresRepository) UIDExists(ctx context.Context, uid string) (bool, error) {

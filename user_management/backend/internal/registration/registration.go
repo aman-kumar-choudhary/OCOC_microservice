@@ -196,28 +196,40 @@ func (s *Service) Register(ctx context.Context, req RegistrationRequest) (*Regis
 		}
 	}
 
-	// Insert into user_profiles table
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO user_profiles (
-			user_id, full_name, roll_number, employee_id,
-			emergency_contact, guardian_contact,
-			gov_id_type, gov_id_number, visit_purpose, host_contact,
-			visit_start, visit_duration_days, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		userID,
-		req.FullName,
-		nullStr(req.RollNumber),
-		nullStr(req.EmployeeID),
-		nullStr(req.EmergencyContact),
-		nullStr(req.GuardianContact),
-		nullStr(req.GovIDType),
-		nullStr(req.GovIDNumber),
-		nullStr(req.VisitPurpose),
-		nullStr(req.HostContact),
-		visitStart,
-		nullInt(req.VisitDurationDays),
-		now,
-	)
+	// Insert into role-specific profile table
+	switch req.Role {
+	case "student":
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO student_profiles (
+				user_id, full_name, roll_number, emergency_contact, guardian_contact, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6)`,
+			userID, req.FullName, nullStr(req.RollNumber), nullStr(req.EmergencyContact), nullStr(req.GuardianContact), now,
+		)
+	case "faculty":
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO faculty_profiles (
+				user_id, full_name, employee_id, emergency_contact, updated_at
+			) VALUES ($1,$2,$3,$4,$5)`,
+			userID, req.FullName, nullStr(req.EmployeeID), nullStr(req.EmergencyContact), now,
+		)
+	case "worker":
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO worker_profiles (
+				user_id, full_name, employee_id, emergency_contact, updated_at
+			) VALUES ($1,$2,$3,$4,$5)`,
+			userID, req.FullName, nullStr(req.EmployeeID), nullStr(req.EmergencyContact), now,
+		)
+	case "visitor":
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO visitor_profiles (
+				user_id, full_name, gov_id_type, gov_id_number, visit_purpose, host_contact, visit_start, visit_duration_days, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			userID, req.FullName, nullStr(req.GovIDType), nullStr(req.GovIDNumber), nullStr(req.VisitPurpose), nullStr(req.HostContact), visitStart, nullInt(req.VisitDurationDays), now,
+		)
+	default:
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("unknown role: %s", req.Role)
+	}
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, fmt.Errorf("create profile: %w", err)

@@ -45,9 +45,22 @@ func main() {
 	defer db.Close()
 	log.Println("PostgreSQL connected")
 
-	migrationPath := filepath.Join(projectRoot, "migrations/001_initial_schema.sql")
-	if err := database.RunMigration(db, migrationPath); err != nil {
-		log.Printf("Migration warning (may already be applied): %v", err)
+	// Apply all numbered migrations in order.
+	// Each migration is idempotent (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS).
+	migrations := []string{
+		filepath.Join(projectRoot, "migrations/001_initial_schema.sql"),
+		filepath.Join(projectRoot, "migrations/002_user_profiles_missing_columns.sql"),
+		filepath.Join(projectRoot, "migrations/003_face_auth_logs.sql"),
+		filepath.Join(projectRoot, "migrations/004_pgvector_and_freco.sql"),
+		filepath.Join(projectRoot, "migrations/005_user_directory_indexes.sql"),
+		filepath.Join(projectRoot, "migrations/006_split_profiles.sql"),
+	}
+	for _, migrationPath := range migrations {
+		if err := database.RunMigration(db, migrationPath); err != nil {
+			log.Printf("Migration warning [%s] (may already be applied): %v", filepath.Base(migrationPath), err)
+		} else {
+			log.Printf("Migration applied: %s", filepath.Base(migrationPath))
+		}
 	}
 
 	redis, err := rclient.NewClient()
@@ -126,6 +139,10 @@ func main() {
 
 	// Public registration endpoint
 	r.Post("/api/v1/register", regHandler.Register)
+
+	// Reference Data
+	r.Get("/api/v1/departments", userHandler.ListDepartments)
+	r.Get("/api/v1/hostels", userHandler.ListHostels)
 
 	// ── Protected routes (JWT required) ────────────────────────────────────
 	issuerURL := kc.GetIssuer()
@@ -279,6 +296,9 @@ func loadEnv(path string) {
 		if _, exists := os.LookupEnv(key); !exists {
 			os.Setenv(key, value)
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("Error reading .env file: %v", err)
 	}
 }
 

@@ -50,5 +50,15 @@ export default {
       headers: { 'Content-Type': 'text/csv' }
     })
     return data.data
+  },
+
+  async getDepartments(): Promise<any[]> {
+    const { data } = await api.get('/departments')
+    return data.data
+  },
+
+  async getHostels(): Promise<any[]> {
+    const { data } = await api.get('/hostels')
+    return data.data
   }
 }

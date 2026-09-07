@@ -19,6 +19,7 @@ from app.models import AttendanceRecord, AttendanceSession, FaceEmbedding, Perso
 from app.schemas import (
     AttendanceMarkResponse, AttendanceSessionCreate, AttendanceSessionResponse,
     MassAttendanceResponse, MassFaceResult, PersonCreateResponse, PersonSummary,
+    RecognitionResult, MultiRecognitionFaceResult, MultiRecognitionResult,
 )
 from app.utils.image_utils import InvalidImageError, decode_uploaded_image
 
@@ -199,3 +200,64 @@ async def mark_mass_attendance(session_id: UUID, request: Request, image: Upload
         results.append(MassFaceResult(bbox=bbox.astype(float).tolist(), detection_score=det_score, external_id=person.external_id, name=person.name, similarity_score=score, status=recorded.status))
     return MassAttendanceResponse(session_id=session_id, faces_detected=len(detections), results=results,
                                   latency_ms=round((time.perf_counter()-started)*1000, 2), step_latencies_ms=timings)
+
+
+@router.post("/recognize", response_model=RecognitionResult)
+async def recognize_face(
+    request: Request, image: UploadFile = File(...), db: AsyncSession = Depends(get_db_session)
+):
+    """Stateless single-face recognition against the database."""
+    image_bgr = await _read_upload(image)
+    try:
+        embeddings, _, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings, image_bgr)
+    except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    person, score = await _best_person(db, embeddings)
+    if person:
+        return RecognitionResult(
+            recognized=True,
+            userId=person.external_id,
+            name=person.name,
+            role=person.person_type,
+            similarity=round(score, 4),
+            message="Match successful"
+        )
+    return RecognitionResult(recognized=False, message="No matching user found")
+
+
+@router.post("/recognize/mass", response_model=MultiRecognitionResult)
+async def recognize_faces_mass(
+    request: Request, image: UploadFile = File(...), db: AsyncSession = Depends(get_db_session)
+):
+    """Stateless multi-face recognition against the database."""
+    image_bgr = await _read_upload(image)
+    try:
+        detections, _, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings_for_all_faces, image_bgr)
+    except NoFaceDetectedError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    results: list[MultiRecognitionFaceResult] = []
+    matched_person_ids: set[UUID] = set()
+
+    for idx, (bbox, det_score, embeddings) in enumerate(detections):
+        person, score = await _best_person(db, embeddings, exclude_person_ids=matched_person_ids)
+        if person:
+            matched_person_ids.add(person.id)
+            results.append(MultiRecognitionFaceResult(
+                faceIndex=idx,
+                recognized=True,
+                userId=person.external_id,
+                name=person.name,
+                role=person.person_type,
+                similarity=round(score, 4),
+                message="Match successful"
+            ))
+        else:
+            results.append(MultiRecognitionFaceResult(
+                faceIndex=idx,
+                recognized=False,
+                message="No matching user found"
+            ))
+
+    return MultiRecognitionResult(faces=results)

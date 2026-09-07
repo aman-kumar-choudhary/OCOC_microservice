@@ -9,6 +9,7 @@ export interface User {
   updated_at: string
   profile?: Profile
   active_rfid?: string
+  has_face_auth?: boolean
 }
 
 export interface Profile {
@@ -21,6 +22,7 @@ export interface Profile {
   course?: string
   semester?: string
   hostel?: boolean
+  hostel_flag?: boolean
   guardian_contact?: string
   designation?: string
   hostel_id?: string

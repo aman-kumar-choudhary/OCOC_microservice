@@ -30,6 +30,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		UserType:   r.URL.Query().Get("user_type"),
 		Status:     r.URL.Query().Get("status"),
 		Department: r.URL.Query().Get("department"),
+		Course:     r.URL.Query().Get("course"),
+		Semester:   r.URL.Query().Get("semester"),
+		HostelID:   r.URL.Query().Get("hostel_id"),
 		Role:       r.URL.Query().Get("role"),
 	}
 	f.Page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -137,6 +140,24 @@ func (h *Handler) Deactivate(w http.ResponseWriter, r *http.Request) {
 	h.statusAction(w, r, func(actorID string, id uuid.UUID) error {
 		return h.svc.Deactivate(r.Context(), actorID, id, r.RemoteAddr)
 	}, "DEACTIVATE_FAILED")
+}
+
+func (h *Handler) ListDepartments(w http.ResponseWriter, r *http.Request) {
+	deps, err := h.svc.ListDepartments(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "LIST_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": deps})
+}
+
+func (h *Handler) ListHostels(w http.ResponseWriter, r *http.Request) {
+	hostels, err := h.svc.ListHostels(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "LIST_FAILED", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": hostels})
 }
 
 func (h *Handler) statusAction(w http.ResponseWriter, r *http.Request, fn func(string, uuid.UUID) error, errCode string) {

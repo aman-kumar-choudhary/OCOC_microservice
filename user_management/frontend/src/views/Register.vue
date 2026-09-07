@@ -136,8 +136,8 @@ async function handleRegister() {
       <form id="register-form" @submit.prevent="handleRegister" class="login-form">
         
         <!-- Role Selection -->
-        <div class="field-group">
-          <label class="field-label">I am a...</label>
+        <div class="form-group">
+          <label class="form-label">I am a...</label>
           <div class="role-selector">
             <label class="role-option" :class="{'active': role === 'student'}">
               <input type="radio" v-model="role" value="student" class="sr-only" />
@@ -160,38 +160,38 @@ async function handleRegister() {
 
         <div class="scrollable-fields">
           <!-- Full Name -->
-          <div class="field-group">
-            <label class="field-label">Full Name</label>
-            <div class="field-input-wrap">
-              <div class="field-icon"><User :size="18" /></div>
-              <input v-model="fullName" type="text" required class="field-input" placeholder="e.g. John Doe" :disabled="isLoading" />
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <div class="relative">
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><User :size="18" /></div>
+              <input v-model="fullName" type="text" required class="form-input pl-9" placeholder="e.g. John Doe" :disabled="isLoading" />
             </div>
           </div>
 
           <!-- Email -->
-          <div class="field-group">
-            <label class="field-label">Email</label>
-            <div class="field-input-wrap">
-              <div class="field-icon"><Mail :size="18" /></div>
-              <input v-model="email" type="email" required class="field-input" placeholder="john.doe@example.com" :disabled="isLoading" />
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <div class="relative">
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Mail :size="18" /></div>
+              <input v-model="email" type="email" required class="form-input pl-9" placeholder="john.doe@example.com" :disabled="isLoading" />
             </div>
           </div>
 
           <!-- Phone -->
-          <div class="field-group">
-            <label class="field-label">Phone Number</label>
-            <div class="field-input-wrap">
-              <div class="field-icon"><Phone :size="18" /></div>
-              <input v-model="phone" type="tel" required class="field-input" placeholder="10-digit number" pattern="[0-9]{10,15}" :disabled="isLoading" />
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <div class="relative">
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Phone :size="18" /></div>
+              <input v-model="phone" type="tel" required class="form-input pl-9" placeholder="10-digit number" pattern="[0-9]{10,15}" :disabled="isLoading" />
             </div>
           </div>
 
           <!-- Password -->
-          <div class="field-group">
-            <label class="field-label">Password</label>
-            <div class="field-input-wrap">
-              <div class="field-icon"><Lock :size="18" /></div>
-              <input v-model="password" :type="showPassword ? 'text' : 'password'" required class="field-input" placeholder="8-12 chars, strong" minlength="8" maxlength="12" :disabled="isLoading" />
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="relative">
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Lock :size="18" /></div>
+              <input v-model="password" :type="showPassword ? 'text' : 'password'" required class="form-input pl-9" placeholder="8-12 chars, strong" minlength="8" maxlength="12" :disabled="isLoading" />
               <button type="button" class="field-toggle" @click="showPassword = !showPassword" tabindex="-1">
                 <EyeOff v-if="showPassword" :size="16" />
                 <Eye v-else :size="16" />
@@ -200,68 +200,68 @@ async function handleRegister() {
           </div>
 
           <!-- Confirm Password -->
-          <div class="field-group">
-            <label class="field-label">Confirm Password</label>
-            <div class="field-input-wrap">
-              <div class="field-icon"><Lock :size="18" /></div>
-              <input v-model="confirmPassword" :type="showPassword ? 'text' : 'password'" required class="field-input" placeholder="Re-enter password" minlength="8" maxlength="12" :disabled="isLoading" />
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <div class="relative">
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Lock :size="18" /></div>
+              <input v-model="confirmPassword" :type="showPassword ? 'text' : 'password'" required class="form-input pl-9" placeholder="Re-enter password" minlength="8" maxlength="12" :disabled="isLoading" />
             </div>
           </div>
 
           <!-- Student Fields -->
           <template v-if="isStudent">
-            <div class="field-group">
-              <label class="field-label">Roll Number</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><Hash :size="18" /></div>
-                <input v-model="rollNumber" type="text" required class="field-input" placeholder="e.g. CS2024001" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Roll Number</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Hash :size="18" /></div>
+                <input v-model="rollNumber" type="text" required class="form-input pl-9" placeholder="e.g. CS2024001" :disabled="isLoading" />
               </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Department</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><Building :size="18" /></div>
-                <input v-model="department" type="text" required class="field-input" placeholder="e.g. Computer Science" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Building :size="18" /></div>
+                <input v-model="department" type="text" required class="form-input pl-9" placeholder="e.g. Computer Science" :disabled="isLoading" />
               </div>
             </div>
           </template>
 
           <!-- Faculty Fields -->
           <template v-if="isFaculty">
-            <div class="field-group">
-              <label class="field-label">Employee ID</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><Briefcase :size="18" /></div>
-                <input v-model="employeeId" type="text" required class="field-input" placeholder="e.g. FAC001" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Employee ID</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Briefcase :size="18" /></div>
+                <input v-model="employeeId" type="text" required class="form-input pl-9" placeholder="e.g. FAC001" :disabled="isLoading" />
               </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Department</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><Building :size="18" /></div>
-                <input v-model="department" type="text" required class="field-input" placeholder="e.g. Computer Science" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Building :size="18" /></div>
+                <input v-model="department" type="text" required class="form-input pl-9" placeholder="e.g. Computer Science" :disabled="isLoading" />
               </div>
             </div>
           </template>
 
           <!-- Worker Fields -->
           <template v-if="isWorker">
-            <div class="field-group">
-              <label class="field-label">Employee ID</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><Briefcase :size="18" /></div>
-                <input v-model="employeeId" type="text" required class="field-input" placeholder="e.g. WRK001" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Employee ID</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Briefcase :size="18" /></div>
+                <input v-model="employeeId" type="text" required class="form-input pl-9" placeholder="e.g. WRK001" :disabled="isLoading" />
               </div>
             </div>
           </template>
 
           <!-- Visitor Fields -->
           <template v-if="isVisitor">
-            <div class="field-group">
-              <label class="field-label">Gov ID Type</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><FileText :size="18" /></div>
-                <select v-model="govIdType" required class="field-input" :disabled="isLoading">
+            <div class="form-group">
+              <label class="form-label">Gov ID Type</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><FileText :size="18" /></div>
+                <select v-model="govIdType" required class="form-input pl-9" :disabled="isLoading">
                   <option value="Aadhaar">Aadhaar</option>
                   <option value="PAN">PAN</option>
                   <option value="Passport">Passport</option>
@@ -269,31 +269,31 @@ async function handleRegister() {
                 </select>
               </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Gov ID Number</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><Hash :size="18" /></div>
-                <input v-model="govIdNumber" type="text" required class="field-input" placeholder="Enter ID number" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Gov ID Number</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Hash :size="18" /></div>
+                <input v-model="govIdNumber" type="text" required class="form-input pl-9" placeholder="Enter ID number" :disabled="isLoading" />
               </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Visit Purpose</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><MapPin :size="18" /></div>
-                <input v-model="visitPurpose" type="text" required class="field-input" placeholder="e.g. Meeting" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Visit Purpose</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><MapPin :size="18" /></div>
+                <input v-model="visitPurpose" type="text" required class="form-input pl-9" placeholder="e.g. Meeting" :disabled="isLoading" />
               </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Host Contact (Phone/Email)</label>
-              <div class="field-input-wrap">
-                <div class="field-icon"><UserCheck :size="18" /></div>
-                <input v-model="hostContact" type="text" required class="field-input" placeholder="Who are you visiting?" :disabled="isLoading" />
+            <div class="form-group">
+              <label class="form-label">Host Contact (Phone/Email)</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><UserCheck :size="18" /></div>
+                <input v-model="hostContact" type="text" required class="form-input pl-9" placeholder="Who are you visiting?" :disabled="isLoading" />
               </div>
             </div>
           </template>
         </div>
 
-        <button type="submit" class="login-btn" :disabled="isLoading">
+        <button type="submit" class="btn btn-primary w-full mt-4" :disabled="isLoading">
           <template v-if="!isLoading">
             <span>Submit Registration</span>
             <ArrowRight :size="18" class="login-btn-arrow" />
@@ -471,90 +471,7 @@ async function handleRegister() {
   75% { transform: translateX(-4px); }
 }
 
-/* Field groups */
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.field-label {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.field-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.field-icon {
-  position: absolute;
-  left: 0.875rem;
-  display: flex;
-  color: var(--text-muted);
-  pointer-events: none;
-  transition: color 0.2s ease;
-}
-
-.field-input-wrap:focus-within .field-icon {
-  color: #d99e00;
-}
-
-.field-input {
-  width: 100%;
-  min-height: 2.875rem;
-  border: 1px solid var(--border-light);
-  border-radius: 0.75rem;
-  background: var(--bg-input);
-  color: var(--text-main);
-  padding: 0 0.875rem 0 2.75rem;
-  font-size: 0.875rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.field-toggle {
-  position: absolute;
-  right: 0.625rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 0.5rem;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.field-toggle:hover {
-  color: var(--text-main);
-  background: rgba(10, 35, 66, 0.04);
-}
-/* Select specific styles */
-select.field-input {
-  appearance: none;
-  cursor: pointer;
-}
-
-.field-input::placeholder {
-  color: #8b99aa;
-}
-
-.field-input:focus {
-  border-color: #d99e00;
-  box-shadow: 0 0 0 3px rgba(245, 189, 25, 0.18);
-  outline: none;
-}
-
-.field-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+/* Replaced custom form CSS to use global style.css definitions */
 
 /* Submit button */
 .login-btn {
