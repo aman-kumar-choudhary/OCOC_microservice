@@ -51,7 +51,7 @@ const filteredDepartments = computed(() => dbDepartments.value.filter((departmen
 const viewTarget = ref<User | null>(null)
 const editTarget = ref<User | null>(null)
 const statusTarget = ref<User | null>(null)
-const statusAction = ref<'suspend' | 'activate' | 'deactivate'>('suspend')
+const statusAction = ref<'suspend' | 'activate' | 'deactivate' | 'delete'>('suspend')
 const showActions = ref<string | null>(null)
 
 const filters = ref({
@@ -121,7 +121,7 @@ function getUserName(user: User) {
   return user.profile?.full_name || 'Unnamed User'
 }
 
-function openAction(user: User, action: 'suspend' | 'activate' | 'deactivate') {
+function openAction(user: User, action: 'suspend' | 'activate' | 'deactivate' | 'delete') {
   statusTarget.value = user
   statusAction.value = action
   showActions.value = null
@@ -426,6 +426,10 @@ onMounted(async () => {
                   <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-sm font-semibold hover:bg-[var(--bg-main)] rounded-lg transition-colors text-red-600"
                     @click="openAction(user, 'deactivate')">
                     <UserX :size="14" /> Deactivate
+                  </button>
+                  <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-sm font-semibold hover:bg-red-50 rounded-lg transition-colors text-red-700"
+                    @click="openAction(user, 'delete')">
+                    <UserX :size="14" /> Delete permanently
                   </button>
                 </div>
               </div>

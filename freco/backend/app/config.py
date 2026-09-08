@@ -11,6 +11,12 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "freco"
     LOG_LEVEL: str = "INFO"
+    # Comma-separated browser origins allowed to call FreCo directly.
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:5173"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     # --- Hardware ---
     INFERENCE_DEVICE: str = "auto"

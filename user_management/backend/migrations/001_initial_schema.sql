@@ -42,6 +42,33 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- A few early development databases contain a placeholder `users` table with
+-- only `id`. CREATE TABLE IF NOT EXISTS deliberately does not evolve it, so
+-- add the complete core contract before any dependent index or FK is created.
+-- Defaults make this safe for legacy rows; the application still validates all
+-- new registrations and writes explicit values.
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS keycloak_user_id TEXT,
+    ADD COLUMN IF NOT EXISTS user_type TEXT NOT NULL DEFAULT 'student',
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS email TEXT,
+    ADD COLUMN IF NOT EXISTS phone TEXT,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- Existing valid user records keep their values. A legacy placeholder table
+-- may have no rows; only then it is safe to restore the new-schema invariant.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE email IS NULL) THEN
+        ALTER TABLE users ALTER COLUMN email SET NOT NULL;
+    END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_keycloak_user_id_unique
+    ON users (keycloak_user_id) WHERE keycloak_user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (email);
+
 CREATE INDEX IF NOT EXISTS idx_users_email     ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_user_type ON users (user_type);
 CREATE INDEX IF NOT EXISTS idx_users_status    ON users (status);

@@ -19,6 +19,7 @@ import (
 	"github.com/ococ/user-management/internal/audit"
 	"github.com/ococ/user-management/internal/auth"
 	"github.com/ococ/user-management/internal/dashboard"
+	"github.com/ococ/user-management/internal/faceauth"
 	"github.com/ococ/user-management/internal/infrastructure/database"
 	kclient "github.com/ococ/user-management/internal/infrastructure/keycloak"
 	rclient "github.com/ococ/user-management/internal/infrastructure/redis"
@@ -45,25 +46,10 @@ func main() {
 	defer db.Close()
 	log.Println("PostgreSQL connected")
 
-	// Apply all numbered migrations in order.
-	// Each migration is idempotent (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS).
-	migrations := []string{
-		filepath.Join(projectRoot, "migrations/001_initial_schema.sql"),
-		filepath.Join(projectRoot, "migrations/002_user_profiles_missing_columns.sql"),
-		filepath.Join(projectRoot, "migrations/003_face_auth_logs.sql"),
-		filepath.Join(projectRoot, "migrations/004_pgvector_and_freco.sql"),
-		filepath.Join(projectRoot, "migrations/005_user_directory_indexes.sql"),
-		filepath.Join(projectRoot, "migrations/006_split_profiles.sql"),
-		filepath.Join(projectRoot, "migrations/007_schema_refactoring.sql"),
-		filepath.Join(projectRoot, "migrations/008_directory_filter_columns.sql"),
+	if err := database.RunMigrations(context.Background(), db, filepath.Join(projectRoot, "migrations")); err != nil {
+		log.Fatalf("Database migration aborted: %v", err)
 	}
-	for _, migrationPath := range migrations {
-		if err := database.RunMigration(db, migrationPath); err != nil {
-			log.Printf("Migration warning [%s] (may already be applied): %v", filepath.Base(migrationPath), err)
-		} else {
-			log.Printf("Migration applied: %s", filepath.Base(migrationPath))
-		}
-	}
+	log.Println("Database schema is current")
 
 	redis, err := rclient.NewClient()
 	if err != nil {
@@ -91,6 +77,7 @@ func main() {
 	roleSvc := role.NewService(roleRepo)
 	onboardingSvc := onboarding.NewService(userSvc, rfidSvc, auditSvc, db.DB)
 	dashSvc := dashboard.NewService(db.DB)
+	faceAuthSvc := faceauth.NewService(db.DB, auditSvc)
 
 	// ── Auth Service ───────────────────────────────────────────────────────
 	var otpStore auth.OTPStore
@@ -109,9 +96,10 @@ func main() {
 	auditHandler := audit.NewHandler(auditSvc)
 	onboardingHandler := onboarding.NewHandler(onboardingSvc)
 	dashHandler := dashboard.NewHandler(dashSvc)
+	faceAuthHandler := faceauth.NewHandler(faceAuthSvc)
 
 	// Registration (public self-registration + admin listing)
-	regSvc := registration.NewService(db.DB)
+	regSvc := registration.NewService(db.DB, auditSvc)
 	regHandler := registration.NewHandler(regSvc)
 
 	// ── Router ─────────────────────────────────────────────────────────────
@@ -168,7 +156,7 @@ func main() {
 				r.With(auth.RequirePermission("user:read")).Get("/", userHandler.GetByID)
 				r.With(auth.RequirePermission("user:update")).Put("/", userHandler.Update)
 				r.With(auth.RequirePermission("user:update")).Patch("/", userHandler.Update)
-				r.With(auth.RequirePermission("user:deactivate")).Delete("/", userHandler.Deactivate)
+				r.With(auth.RequirePermission("user:delete")).Delete("/", userHandler.Delete)
 				r.With(auth.RequirePermission("user:suspend")).Patch("/suspend", userHandler.Suspend)
 				r.With(auth.RequirePermission("user:update")).Patch("/activate", userHandler.Activate)
 				r.With(auth.RequirePermission("user:deactivate")).Patch("/deactivate", userHandler.Deactivate)
@@ -224,6 +212,13 @@ func main() {
 			r.Use(auth.RequirePermission("audit:read"))
 			r.Get("/", auditHandler.List)
 			r.Get("/{id}", auditHandler.GetByID)
+		})
+
+		// Face Lab records every completed recognition here. The same write also
+		// creates an immutable audit event.
+		r.Route("/api/v1/face-auth", func(r chi.Router) {
+			r.With(auth.RequirePermission("user:read")).Post("/log", faceAuthHandler.CreateLog)
+			r.With(auth.RequirePermission("audit:read")).Get("/logs", faceAuthHandler.ListLogs)
 		})
 
 		// Admin Utilities

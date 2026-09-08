@@ -6,7 +6,7 @@ from uuid import UUID
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -53,36 +53,54 @@ async def register_person(
     images: list[UploadFile] = File(...), poses: str | None = Form(None), db: AsyncSession = Depends(get_db_session),
 ):
     """Register a student/visitor and create ArcFace embeddings from uploaded files."""
-    if person_type not in {"student", "visitor"}:
-        raise HTTPException(422, "person_type must be student or visitor")
-    if not images:
-        raise HTTPException(422, "At least one enrollment image is required")
-    if len(images) > 10:
-        raise HTTPException(422, "A maximum of 10 enrollment images is allowed")
+    if person_type not in {"student", "faculty", "worker", "visitor"}:
+        raise HTTPException(422, "person_type must be student, faculty, worker, or visitor")
+    if len(images) != 5:
+        raise HTTPException(422, "Exactly five enrollment images are required")
     if metadata_json:
         try: json.loads(metadata_json)
         except json.JSONDecodeError as exc: raise HTTPException(422, "metadata_json must be valid JSON") from exc
     pose_names = [p.strip() for p in poses.split(",")] if poses else ["center"] * len(images)
     if len(pose_names) != len(images):
         raise HTTPException(422, "poses must have one comma-separated value per image")
+    required_poses = {"center", "left", "right", "chin_up", "chin_down"}
+    if set(pose_names) != required_poses or len(set(pose_names)) != 5:
+        raise HTTPException(422, "poses must contain center, left, right, chin_up, and chin_down exactly once")
     try:
         face_images = [await _read_upload(image) for image in images]
         processed = [await run_in_threadpool(request.app.state.pipeline.extract_embeddings, image) for image in face_images]
     except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
         raise HTTPException(422, str(exc)) from exc
-    person = Person(external_id=external_id, name=name, person_type=person_type, email=email,
-                    rfid_uid=rfid_uid, metadata_json=metadata_json)
+    try:
+        person_id = UUID(external_id)
+    except ValueError as exc:
+        raise HTTPException(422, "external_id must be a user UUID") from exc
+    person = (await db.execute(select(Person).where(Person.external_id == person_id))).scalar_one_or_none()
+    if person is None:
+        person = Person(external_id=person_id, name=name, person_type=person_type, email=email,
+                        rfid_uid=rfid_uid, metadata_json=metadata_json)
+        db.add(person)
+        # Flush first so the UUID is available without touching a lazy-loaded
+        # relationship. Async SQLAlchemy cannot lazy-load that collection here.
+        await db.flush()
+    else:
+        # Re-enrollment is replacement, not uncontrolled accumulation.
+        person.name, person.person_type, person.email = name, person_type, email
+        person.rfid_uid, person.metadata_json, person.active = rfid_uid, metadata_json, True
+        await db.execute(delete(FaceEmbedding).where(FaceEmbedding.person_id == person.id))
+        await db.flush()
+    created_embeddings = 0
     for pose, (embeddings, _, models) in zip(pose_names, processed):
         for variant, vector in embeddings.items():
-            person.face_embeddings.append(FaceEmbedding(variant=variant, pose=pose, model_name=models["recognition"],
-                                                        embedding=vector.astype(float).tolist()))
-    db.add(person)
+            db.add(FaceEmbedding(person_id=person.id, variant=variant, pose=pose, model_name=models["recognition"],
+                                 embedding=vector.astype(float).tolist()))
+            created_embeddings += 1
     try:
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "external_id or RFID UID already exists") from exc
-    return PersonCreateResponse(id=person.id, external_id=person.external_id, face_embeddings_created=len(person.face_embeddings))
+    return PersonCreateResponse(id=person.id, external_id=person.external_id, face_embeddings_created=created_embeddings)
 
 
 @router.get("/people", response_model=list[PersonSummary])
@@ -179,7 +197,8 @@ async def mark_mass_attendance(session_id: UUID, request: Request, image: Upload
         select(AttendanceRecord.person_id).where(AttendanceRecord.session_id == session_id)
     )).scalars())
     results: list[MassFaceResult] = []
-    for bbox, det_score, embeddings in detections:
+    for detected in detections:
+        bbox, det_score, embeddings = detected.bbox, detected.detection_score, detected.embeddings
         already_recorded, recorded_score = await _best_person(
             db, embeddings, only_person_ids=recorded_person_ids
         )
@@ -209,6 +228,13 @@ async def recognize_face(
     """Stateless single-face recognition against the database."""
     image_bgr = await _read_upload(image)
     try:
+        # Database recognition must apply the same liveness gate as the
+        # verification pipeline; otherwise a spoof can bypass Face Lab.
+        models = request.app.state.pipeline._models.snapshot()
+        detected = await run_in_threadpool(models.detector.detect_single, image_bgr)
+        is_live, liveness_score = await run_in_threadpool(models.liveness_detector.predict, image_bgr, detected.bbox)
+        if not is_live:
+            return RecognitionResult(recognized=False, message="Liveness check failed")
         embeddings, _, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings, image_bgr)
     except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -240,12 +266,25 @@ async def recognize_faces_mass(
     results: list[MultiRecognitionFaceResult] = []
     matched_person_ids: set[UUID] = set()
 
-    for idx, (bbox, det_score, embeddings) in enumerate(detections):
+    models = request.app.state.pipeline._models.snapshot()
+    # `extract_embeddings_for_all_faces` returns FaceEmbedding dataclasses,
+    # not tuples. Reuse those exact detector boxes for liveness too, avoiding a
+    # second detection pass whose order/coordinates can differ from ArcFace.
+    for idx, detected in enumerate(detections):
+        bbox, det_score, embeddings = detected.bbox, detected.detection_score, detected.embeddings
+        is_live, liveness_score = await run_in_threadpool(models.liveness_detector.predict, image_bgr, bbox)
+        if not is_live:
+            results.append(MultiRecognitionFaceResult(
+                faceIndex=idx, bbox=bbox.astype(float).tolist(), detection_score=det_score,
+                liveness_score=liveness_score, recognized=False, message="Liveness check failed",
+            ))
+            continue
         person, score = await _best_person(db, embeddings, exclude_person_ids=matched_person_ids)
         if person:
             matched_person_ids.add(person.id)
             results.append(MultiRecognitionFaceResult(
-                faceIndex=idx,
+                faceIndex=idx, bbox=bbox.astype(float).tolist(), detection_score=det_score,
+                liveness_score=liveness_score,
                 recognized=True,
                 userId=person.external_id,
                 name=person.name,
@@ -255,7 +294,8 @@ async def recognize_faces_mass(
             ))
         else:
             results.append(MultiRecognitionFaceResult(
-                faceIndex=idx,
+                faceIndex=idx, bbox=bbox.astype(float).tolist(), detection_score=det_score,
+                liveness_score=liveness_score,
                 recognized=False,
                 message="No matching user found"
             ))

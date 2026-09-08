@@ -19,8 +19,20 @@ const ClaimsKey contextKey = "claims"
 func JWTMiddleware(issuerURL string) func(http.Handler) http.Handler {
 	provider, err := oidc.NewProvider(context.Background(), issuerURL)
 	if err != nil {
-		log.Printf("[WARN] OIDC provider not available (%v) — JWT middleware in passthrough mode", err)
-		return func(next http.Handler) http.Handler { return next }
+		// Never turn an authentication outage into unrestricted administrative
+		// access. Public endpoints are registered outside this middleware; every
+		// protected endpoint must fail closed until Keycloak is reachable.
+		log.Printf("[ERROR] OIDC provider unavailable (%v) — protected routes disabled", err)
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"success": false,
+					"error":   map[string]string{"code": "AUTH_PROVIDER_UNAVAILABLE", "message": "authentication service is temporarily unavailable"},
+				})
+			})
+		}
 	}
 
 	verifier := provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
@@ -84,6 +96,7 @@ func RequirePermission(perm string) func(http.Handler) http.Handler {
 		"user:update":     {"SUPER_ADMIN", "ADMIN", "USER_MANAGER"},
 		"user:suspend":    {"SUPER_ADMIN", "ADMIN"},
 		"user:deactivate": {"SUPER_ADMIN", "ADMIN"},
+		"user:delete":     {"SUPER_ADMIN", "ADMIN"},
 		"user:import":     {"SUPER_ADMIN", "ADMIN", "USER_MANAGER"},
 		"user:export":     {"SUPER_ADMIN", "ADMIN", "USER_MANAGER", "VIEWER"},
 		"rfid:assign":     {"SUPER_ADMIN", "ADMIN", "USER_MANAGER", "SECURITY_ADMIN"},

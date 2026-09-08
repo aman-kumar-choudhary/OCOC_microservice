@@ -56,8 +56,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="freco", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.cors_origins,
+    # FreCo is called with multipart frames, not browser credentials. A
+    # wildcard credential policy is both invalid for browsers and unsafe.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

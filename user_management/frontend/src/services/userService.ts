@@ -28,6 +28,10 @@ export default {
   async deactivate(id: string): Promise<void> {
     await api.patch(`/users/${id}/deactivate`)
   },
+
+  async remove(id: string): Promise<void> {
+    await api.delete(`/users/${id}`)
+  },
   
   async onboard(persona: string, payload: any): Promise<any> {
     const { data } = await api.post(`/onboarding/${persona}`, payload)

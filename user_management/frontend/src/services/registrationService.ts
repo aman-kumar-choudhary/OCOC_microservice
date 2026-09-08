@@ -8,8 +8,8 @@ export interface RegistrationPayload {
   phone: string
   roll_number?: string
   employee_id?: string
-  department?: string
-  hostel?: string
+  department_id?: string
+  hostel_id?: string
   emergency_contact?: string
   guardian_contact?: string
   gov_id_type?: string
@@ -31,8 +31,8 @@ export interface RegisteredUser {
   created_at: string
   roll_number?: string
   employee_id?: string
-  department?: string
-  hostel?: string
+  department_id?: string
+  hostel_id?: string
   emergency_contact?: string
   guardian_contact?: string
   gov_id_type?: string

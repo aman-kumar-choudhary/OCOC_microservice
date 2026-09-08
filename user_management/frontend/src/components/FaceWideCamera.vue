@@ -4,22 +4,11 @@ import { useLiveFaceInference } from '@/composables/useLiveFaceInference'
 import { Loader2, VideoOff } from 'lucide-vue-next'
 
 const videoRef = ref<HTMLVideoElement | null>(null)
-const { isStreaming, error, wsError, faces, startStream, stopStream, captureHighQualityImage } = useLiveFaceInference(videoRef, 'multi_recognition')
+const { isStreaming, error, wsError, faces, frameSize, startStream, stopStream, captureInferenceImage } = useLiveFaceInference(videoRef, 'multi_recognition')
 
 defineExpose({
-  capture: captureHighQualityImage
+  capture: captureInferenceImage
 })
-
-const videoWidth = ref(0)
-const videoHeight = ref(0)
-
-// Keep track of original video size to scale boxes correctly
-function onVideoPlay() {
-  if (videoRef.value) {
-    videoWidth.value = videoRef.value.videoWidth
-    videoHeight.value = videoRef.value.videoHeight
-  }
-}
 
 onMounted(() => {
   startStream()
@@ -38,7 +27,6 @@ onUnmounted(() => {
       playsinline 
       muted 
       autoplay
-      @play="onVideoPlay"
     ></video>
     
     <!-- Offline overlay -->
@@ -48,10 +36,11 @@ onUnmounted(() => {
       <p class="text-sm font-medium">{{ error || wsError || 'Starting Camera...' }}</p>
     </div>
     
-    <!-- SVG overlay for bounding boxes -->
-    <!-- Assuming coordinates from backend are in original video resolution, and video is object-cover -->
-    <!-- It's actually tricky to map object-cover coordinates perfectly without ResizeObserver. Let's do a simple percentage mapping. -->
-    <svg v-if="isStreaming && videoWidth > 0" class="absolute inset-0 w-full h-full pointer-events-none scale-x-[-1]" preserveAspectRatio="xMidYMid slice" :viewBox="`0 0 ${videoWidth} ${videoHeight}`">
+    <!-- SCRFD boxes are returned in the resized websocket-frame coordinates.
+         Use that exact viewBox; mirror the shapes inside the SVG to match the
+         mirrored video preview rather than scaling against camera-native size. -->
+    <svg v-if="isStreaming && frameSize.width > 0" class="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice" :viewBox="`0 0 ${frameSize.width} ${frameSize.height}`">
+      <g :transform="`translate(${frameSize.width} 0) scale(-1 1)`">
       <g v-for="(face, idx) in faces" :key="idx">
         <rect 
           :x="face.bbox[0]" 
@@ -63,8 +52,8 @@ onUnmounted(() => {
           stroke-width="3" 
           rx="4"
         />
-        <!-- We mirror the text back so it's readable -->
-        <g :transform="`translate(${face.bbox[0]}, ${face.bbox[1] - 8}) scale(-1, 1)`">
+        <!-- Counter-mirror labels so they remain readable. -->
+        <g :transform="`translate(${frameSize.width - face.bbox[0]}, ${face.bbox[1] - 8}) scale(-1, 1)`">
           <text 
             x="0" 
             y="0" 
@@ -77,6 +66,7 @@ onUnmounted(() => {
             Live: {{ (face.liveness_score * 100).toFixed(0) }}%
           </text>
         </g>
+      </g>
       </g>
     </svg>
     

@@ -77,7 +77,7 @@ SELECT
     p.user_id, p.full_name, p.roll_number, p.department_id, 
     p.course, p.semester, p.hostel_id, p.emergency_contact, 
     p.guardian_contact, p.photo_reference, p.updated_at
-FROM (SELECT * FROM user_profiles LIMIT 0) p
+FROM user_profiles p
 JOIN users u ON u.id = p.user_id
 WHERE u.user_type = 'student'
 ON CONFLICT DO NOTHING;
@@ -90,7 +90,7 @@ INSERT INTO faculty_profiles (
 SELECT 
     p.user_id, p.full_name, p.employee_id, p.department_id, 
     p.designation, p.emergency_contact, p.photo_reference, p.updated_at
-FROM (SELECT * FROM user_profiles LIMIT 0) p
+FROM user_profiles p
 JOIN users u ON u.id = p.user_id
 WHERE u.user_type = 'faculty'
 ON CONFLICT DO NOTHING;
@@ -103,7 +103,7 @@ INSERT INTO worker_profiles (
 SELECT 
     p.user_id, p.full_name, p.employee_id, p.department_id, 
     p.designation, p.emergency_contact, p.photo_reference, p.updated_at
-FROM (SELECT * FROM user_profiles LIMIT 0) p
+FROM user_profiles p
 JOIN users u ON u.id = p.user_id
 WHERE u.user_type = 'worker'
 ON CONFLICT DO NOTHING;
@@ -116,13 +116,11 @@ INSERT INTO visitor_profiles (
 SELECT 
     p.user_id, p.full_name, p.gov_id_type, p.gov_id_number, p.visit_purpose, 
     p.host_contact, p.visit_start, p.visit_duration_days, p.photo_reference, p.updated_at
-FROM (SELECT * FROM user_profiles LIMIT 0) p
+FROM user_profiles p
 JOIN users u ON u.id = p.user_id
 WHERE u.user_type = 'visitor'
 ON CONFLICT DO NOTHING;
 
--- 4. Drop the old table and its indexes (indexes are dropped implicitly with table)
-DROP TABLE IF EXISTS user_profiles CASCADE;
-
--- We don't recreate the view anymore, since we removed it in 007 and we want to keep it removed.
--- Any code needing it should have been updated to use explicit joins.
+-- Keep the legacy table during the compatibility window.  It is the source for
+-- safe backfills on databases created by older releases; application queries
+-- use the normalized tables above.

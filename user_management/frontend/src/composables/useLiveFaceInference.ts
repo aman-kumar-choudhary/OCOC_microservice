@@ -28,6 +28,7 @@ export function useLiveFaceInference(
   let stream: MediaStream | null = null
   let ws: WebSocket | null = null
   let loopId: number | null = null
+  let frameInFlight = false
   let canvas: HTMLCanvasElement | null = null
   let ctx: CanvasRenderingContext2D | null = null
   
@@ -49,6 +50,7 @@ export function useLiveFaceInference(
       console.log('WebSocket connected for face inference')
     }
     ws.onmessage = (event) => {
+      frameInFlight = false
       try {
         const data = JSON.parse(event.data)
         if (data.error) {
@@ -67,6 +69,7 @@ export function useLiveFaceInference(
       wsError.value = 'Failed to connect to face stream backend.'
     }
     ws.onclose = () => {
+      frameInFlight = false
       ws = null
     }
   }
@@ -79,7 +82,7 @@ export function useLiveFaceInference(
   }
 
   function captureAndSendFrame() {
-    if (!videoElementRef.value || !isStreaming.value || !ws || ws.readyState !== WebSocket.OPEN) {
+    if (!videoElementRef.value || !isStreaming.value || frameInFlight || !ws || ws.readyState !== WebSocket.OPEN) {
       return
     }
     
@@ -114,7 +117,37 @@ export function useLiveFaceInference(
       frame: base64Frame
     }
     
+    frameInFlight = true
     ws.send(JSON.stringify(payload))
+  }
+
+  // Capture at the exact resolution used by the websocket detector. Face Lab
+  // recognition uses this rather than a separate full-resolution crop, so
+  // detector/recognition boxes refer to the same coordinate system.
+  function captureInferenceImage(): File | null {
+    if (!videoElementRef.value || !isStreaming.value) return null
+    const video = videoElementRef.value
+    if (!video.videoWidth || !video.videoHeight) return null
+    if (!canvas) {
+      canvas = document.createElement('canvas')
+      ctx = canvas.getContext('2d')
+    }
+    const maxWidth = 640
+    let width = video.videoWidth
+    let height = video.videoHeight
+    if (width > maxWidth) {
+      height = Math.round(height * (maxWidth / width))
+      width = maxWidth
+    }
+    canvas.width = width
+    canvas.height = height
+    frameSize.value = { width, height }
+    ctx?.drawImage(video, 0, 0, width, height)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+    const bytes = atob(dataUrl.split(',')[1])
+    const data = new Uint8Array(bytes.length)
+    for (let i = 0; i < bytes.length; i++) data[i] = bytes.charCodeAt(i)
+    return new File([data], `live-frame-${Date.now()}.jpg`, { type: 'image/jpeg' })
   }
 
   function loop() {
@@ -147,6 +180,7 @@ export function useLiveFaceInference(
 
   function stopStream() {
     isStreaming.value = false
+    frameInFlight = false
     faces.value = []
     if (loopId) cancelAnimationFrame(loopId)
     if (stream) {
@@ -210,6 +244,7 @@ export function useLiveFaceInference(
     frameSize,
     startStream,
     stopStream,
-    captureHighQualityImage
+    captureHighQualityImage,
+    captureInferenceImage
   }
 }

@@ -2,8 +2,10 @@
 -- Migration 007: Schema Refactoring and Cleanup
 -- ============================================================
 
--- 1. Drop the monolithic view
-DROP VIEW IF EXISTS user_profiles;
+-- `user_profiles` is a legacy table on older deployments, not a view. Do not
+-- issue DROP VIEW here: PostgreSQL treats a same-named table as a hard error.
+-- It remains available only for compatibility/backfill; runtime code uses the
+-- role-specific profile tables created in migration 006.
 
 -- 2. Add 'school' to departments
 ALTER TABLE departments ADD COLUMN IF NOT EXISTS school TEXT;

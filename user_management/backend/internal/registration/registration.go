@@ -17,45 +17,47 @@ import (
 
 // RegistrationRequest is the public registration payload.
 type RegistrationRequest struct {
-	Role              string `json:"role"`               // student|faculty|worker|visitor
-	FullName          string `json:"full_name"`
-	Email             string `json:"email"`
-	Phone             string `json:"phone"`
-	RollNumber        string `json:"roll_number,omitempty"`        // student
-	EmployeeID        string `json:"employee_id,omitempty"`        // faculty / worker
-	Department        string `json:"department,omitempty"`          // student / faculty
-	Hostel            string `json:"hostel,omitempty"`              // student
-	EmergencyContact  string `json:"emergency_contact,omitempty"`
-	GuardianContact   string `json:"guardian_contact,omitempty"`    // student
-	GovIDType         string `json:"gov_id_type,omitempty"`         // visitor
-	GovIDNumber       string `json:"gov_id_number,omitempty"`       // visitor
-	VisitPurpose      string `json:"visit_purpose,omitempty"`       // visitor
-	HostContact       string `json:"host_contact,omitempty"`        // visitor
-	VisitStart        string `json:"visit_start,omitempty"`         // visitor (ISO date)
-	VisitDurationDays int    `json:"visit_duration_days,omitempty"` // visitor
-	WorkerType        string `json:"worker_type,omitempty"`         // worker: maintenance, security, gardening, etc.
+	Role              string     `json:"role"` // student|faculty|worker|visitor
+	FullName          string     `json:"full_name"`
+	Email             string     `json:"email"`
+	Phone             string     `json:"phone"`
+	RollNumber        string     `json:"roll_number,omitempty"`   // student
+	EmployeeID        string     `json:"employee_id,omitempty"`   // faculty / worker
+	Department        string     `json:"department,omitempty"`    // student / faculty
+	DepartmentID      *uuid.UUID `json:"department_id,omitempty"` // selected reference-data ID
+	Hostel            string     `json:"hostel,omitempty"`        // student
+	HostelID          *uuid.UUID `json:"hostel_id,omitempty"`     // selected reference-data ID
+	EmergencyContact  string     `json:"emergency_contact,omitempty"`
+	GuardianContact   string     `json:"guardian_contact,omitempty"`    // student
+	GovIDType         string     `json:"gov_id_type,omitempty"`         // visitor
+	GovIDNumber       string     `json:"gov_id_number,omitempty"`       // visitor
+	VisitPurpose      string     `json:"visit_purpose,omitempty"`       // visitor
+	HostContact       string     `json:"host_contact,omitempty"`        // visitor
+	VisitStart        string     `json:"visit_start,omitempty"`         // visitor (ISO date)
+	VisitDurationDays int        `json:"visit_duration_days,omitempty"` // visitor
+	WorkerType        string     `json:"worker_type,omitempty"`         // worker: maintenance, security, gardening, etc.
 }
 
 // RegisteredUser is returned in the admin listing.
 type RegisteredUser struct {
-	ID          string `json:"id"`
-	Role        string `json:"role"`
-	FullName    string `json:"full_name"`
-	Email       string `json:"email"`
-	Phone       string `json:"phone"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
+	ID        string `json:"id"`
+	Role      string `json:"role"`
+	FullName  string `json:"full_name"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
 	// Extra fields depending on role
-	RollNumber        string `json:"roll_number,omitempty"`
-	EmployeeID        string `json:"employee_id,omitempty"`
-	Department        string `json:"department,omitempty"`
-	Hostel            string `json:"hostel,omitempty"`
-	EmergencyContact  string `json:"emergency_contact,omitempty"`
-	GuardianContact   string `json:"guardian_contact,omitempty"`
-	GovIDType         string `json:"gov_id_type,omitempty"`
-	GovIDNumber       string `json:"gov_id_number,omitempty"`
-	VisitPurpose      string `json:"visit_purpose,omitempty"`
-	HostContact       string `json:"host_contact,omitempty"`
+	RollNumber       string `json:"roll_number,omitempty"`
+	EmployeeID       string `json:"employee_id,omitempty"`
+	Department       string `json:"department,omitempty"`
+	Hostel           string `json:"hostel,omitempty"`
+	EmergencyContact string `json:"emergency_contact,omitempty"`
+	GuardianContact  string `json:"guardian_contact,omitempty"`
+	GovIDType        string `json:"gov_id_type,omitempty"`
+	GovIDNumber      string `json:"gov_id_number,omitempty"`
+	VisitPurpose     string `json:"visit_purpose,omitempty"`
+	HostContact      string `json:"host_contact,omitempty"`
 }
 
 // RegistrationListResult is the paginated result for listing registrations.
@@ -78,12 +80,19 @@ type RegistrationStats struct {
 
 // Service handles registration business logic.
 type Service struct {
-	db *sql.DB
+	db    *sql.DB
+	audit AuditLogger
+}
+
+// AuditLogger is deliberately small to keep registration independent from the
+// audit package implementation.
+type AuditLogger interface {
+	Log(ctx context.Context, actorID, operation, entityType, entityID string, before, after interface{}, ip string) error
 }
 
 // NewService creates a registration service.
-func NewService(db *sql.DB) *Service {
-	return &Service{db: db}
+func NewService(db *sql.DB, audit AuditLogger) *Service {
+	return &Service{db: db, audit: audit}
 }
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -136,15 +145,15 @@ func (s *Service) Register(ctx context.Context, req RegistrationRequest) (*Regis
 		if req.RollNumber == "" {
 			return nil, fmt.Errorf("roll_number is required for students")
 		}
-		if req.Department == "" {
-			return nil, fmt.Errorf("department is required for students")
+		if req.DepartmentID == nil {
+			return nil, fmt.Errorf("department_id is required for students")
 		}
 	case "faculty":
 		if req.EmployeeID == "" {
 			return nil, fmt.Errorf("employee_id is required for faculty")
 		}
-		if req.Department == "" {
-			return nil, fmt.Errorf("department is required for faculty")
+		if req.DepartmentID == nil {
+			return nil, fmt.Errorf("department_id is required for faculty")
 		}
 	case "worker":
 		if req.EmployeeID == "" {
@@ -196,28 +205,39 @@ func (s *Service) Register(ctx context.Context, req RegistrationRequest) (*Regis
 		}
 	}
 
+	// Reference data is owned by migrations/admin configuration, not by a
+	// registration request. A form selection must point at an existing row.
+	if err := validateReference(ctx, tx, "departments", req.DepartmentID); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	if err := validateReference(ctx, tx, "hostels", req.HostelID); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	// Insert into role-specific profile table
 	switch req.Role {
 	case "student":
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO student_profiles (
-				user_id, full_name, roll_number, emergency_contact, guardian_contact, updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6)`,
-			userID, req.FullName, nullStr(req.RollNumber), nullStr(req.EmergencyContact), nullStr(req.GuardianContact), now,
+				user_id, full_name, roll_number, department_id, hostel_id, emergency_contact, guardian_contact, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			userID, req.FullName, nullStr(req.RollNumber), req.DepartmentID, req.HostelID, nullStr(req.EmergencyContact), nullStr(req.GuardianContact), now,
 		)
 	case "faculty":
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO faculty_profiles (
-				user_id, full_name, employee_id, emergency_contact, updated_at
-			) VALUES ($1,$2,$3,$4,$5)`,
-			userID, req.FullName, nullStr(req.EmployeeID), nullStr(req.EmergencyContact), now,
+				user_id, full_name, employee_id, department_id, emergency_contact, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6)`,
+			userID, req.FullName, nullStr(req.EmployeeID), req.DepartmentID, nullStr(req.EmergencyContact), now,
 		)
 	case "worker":
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO worker_profiles (
-				user_id, full_name, employee_id, emergency_contact, updated_at
-			) VALUES ($1,$2,$3,$4,$5)`,
-			userID, req.FullName, nullStr(req.EmployeeID), nullStr(req.EmergencyContact), now,
+				user_id, full_name, employee_id, department_id, emergency_contact, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6)`,
+			userID, req.FullName, nullStr(req.EmployeeID), req.DepartmentID, nullStr(req.EmergencyContact), now,
 		)
 	case "visitor":
 		_, err = tx.ExecContext(ctx,
@@ -239,15 +259,39 @@ func (s *Service) Register(ctx context.Context, req RegistrationRequest) (*Regis
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	return &RegisteredUser{
-		ID:        userID.String(),
-		Role:      req.Role,
-		FullName:  req.FullName,
-		Email:     req.Email,
-		Phone:     req.Phone,
-		Status:    "active",
-		CreatedAt: now.Format(time.RFC3339),
-	}, nil
+	registered := &RegisteredUser{
+		ID:         userID.String(),
+		Role:       req.Role,
+		FullName:   req.FullName,
+		Email:      req.Email,
+		Phone:      req.Phone,
+		Status:     "active",
+		CreatedAt:  now.Format(time.RFC3339),
+		RollNumber: req.RollNumber, EmployeeID: req.EmployeeID, Department: req.Department, Hostel: req.Hostel,
+		EmergencyContact: req.EmergencyContact, GuardianContact: req.GuardianContact,
+		GovIDType: req.GovIDType, GovIDNumber: req.GovIDNumber, VisitPurpose: req.VisitPurpose, HostContact: req.HostContact,
+	}
+	if s.audit != nil {
+		_ = s.audit.Log(ctx, "", "PUBLIC_REGISTRATION", "user", userID.String(), nil, registered, "")
+	}
+	return registered, nil
+}
+
+func validateReference(ctx context.Context, tx *sql.Tx, table string, id *uuid.UUID) error {
+	if id == nil {
+		return nil
+	}
+	if table != "departments" && table != "hostels" {
+		return fmt.Errorf("unsupported reference table")
+	}
+	var exists bool
+	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM "+table+" WHERE id=$1)", *id).Scan(&exists); err != nil {
+		return fmt.Errorf("validate %s: %w", table, err)
+	}
+	if !exists {
+		return fmt.Errorf("selected %s does not exist", strings.TrimSuffix(table, "s"))
+	}
+	return nil
 }
 
 // ListByRole returns a paginated list of registered users, optionally filtered by role.

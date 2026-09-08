@@ -190,6 +190,16 @@ function startCaptureSequence() {
       if (file) {
         hasCapturedCurrentPose = true
         emit('capture', file)
+        // Face Lab is continuous, unlike enrollment. Keep the stream alive
+        // and permit a debounced re-check while the face remains valid.
+        if (props.mode === 'single_recognition') {
+          window.setTimeout(() => {
+            if (props.isActive !== false) {
+              hasCapturedCurrentPose = false
+              startCaptureSequence()
+            }
+          }, 1500)
+        }
       }
     }
   }, TICK_MS)

@@ -45,13 +45,23 @@ async def face_stream(websocket: WebSocket):
                 
                 # We can't do heavy inference in the async event loop directly. Use threadpool.
                 response = await run_in_threadpool(process_frame, pipeline, image_bgr, mode)
-                await websocket.send_json(response)
+                try:
+                    await websocket.send_json(response)
+                except WebSocketDisconnect:
+                    # Browser navigation/teardown is normal; never try to
+                    # send an error after a closed socket.
+                    break
                 
             except json.JSONDecodeError:
                 await websocket.send_json({"error": "Invalid JSON"})
+            except WebSocketDisconnect:
+                break
             except Exception as e:
                 logger.exception("Error processing frame")
-                await websocket.send_json({"error": str(e)})
+                try:
+                    await websocket.send_json({"error": "Frame processing failed"})
+                except WebSocketDisconnect:
+                    break
                 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")

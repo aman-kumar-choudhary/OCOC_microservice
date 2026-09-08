@@ -51,6 +51,25 @@ export interface PersonRegisterResult {
   face_embeddings_created: number
 }
 
+// Database-backed Face Lab responses. These endpoints search pgvector
+// directly; callers never supply RFID, UUIDs, or candidate vectors.
+export interface RecognitionResult { recognized: boolean; userId?: string; name?: string; role?: string; similarity?: number; message?: string }
+export interface MultiRecognitionResult { faces: Array<RecognitionResult & { faceIndex: number; bbox: [number, number, number, number]; detection_score: number; liveness_score?: number }> }
+
+export async function recognizeFace(image: File): Promise<RecognitionResult> {
+  const form = new FormData()
+  form.append('image', image)
+  const { data } = await freco.post<RecognitionResult>('/api/v1/recognize', form)
+  return data
+}
+
+export async function recognizeFaces(image: File): Promise<MultiRecognitionResult> {
+  const form = new FormData()
+  form.append('image', image)
+  const { data } = await freco.post<MultiRecognitionResult>('/api/v1/recognize/mass', form)
+  return data
+}
+
 /**
  * Extract ArcFace embeddings from a single image.
  * Calls Freco POST /get_image
@@ -119,4 +138,4 @@ export async function registerPerson(opts: {
   return data
 }
 
-export default { extractEmbeddings, matchFace, massMatch, registerPerson }
+export default { extractEmbeddings, matchFace, massMatch, registerPerson, recognizeFace, recognizeFaces }

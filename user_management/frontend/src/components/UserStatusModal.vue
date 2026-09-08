@@ -6,7 +6,7 @@ import { X, Loader2, ShieldOff, ShieldCheck, UserX, AlertTriangle } from 'lucide
 
 const props = defineProps<{
   user: User
-  action: 'suspend' | 'activate' | 'deactivate'
+  action: 'suspend' | 'activate' | 'deactivate' | 'delete'
 }>()
 const emit = defineEmits<{ close: []; done: [] }>()
 
@@ -41,8 +41,7 @@ const config = computed(() => {
       '⚠️ RFID access must be re-issued separately if revoked',
     ]
   }
-  // deactivate
-  return {
+  if (props.action === 'deactivate') return {
     icon: UserX,
     title: 'Permanently Deactivate',
     verb: 'Deactivate',
@@ -56,6 +55,16 @@ const config = computed(() => {
       '⚠️ Cannot be reversed without admin intervention',
     ]
   }
+  return {
+    icon: UserX, title: 'Delete User Permanently', verb: 'Delete', color: 'red',
+    bgClass: 'bg-red-50 border-red-200 text-red-800', btnClass: 'btn-danger',
+    consequences: [
+      '❌ The user profile and related RFID assignments will be deleted',
+      '🧬 Face enrollment and stored embeddings will be deleted',
+      '🗄️ Audit events are retained without the deleted user record',
+      '⚠️ This action cannot be undone',
+    ]
+  }
 })
 
 async function confirm() {
@@ -64,7 +73,8 @@ async function confirm() {
   try {
     if (props.action === 'suspend') await userService.suspend(props.user.id)
     else if (props.action === 'activate') await userService.activate(props.user.id)
-    else await userService.deactivate(props.user.id)
+    else if (props.action === 'deactivate') await userService.deactivate(props.user.id)
+    else await userService.remove(props.user.id)
     emit('done')
     emit('close')
   } catch (e: any) {

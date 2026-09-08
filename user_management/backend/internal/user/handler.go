@@ -144,6 +144,29 @@ func (h *Handler) Deactivate(w http.ResponseWriter, r *http.Request) {
 	}, "DEACTIVATE_FAILED")
 }
 
+// Delete handles DELETE /api/v1/users/:id. Unlike deactivation, this is a
+// confirmed permanent deletion and relies on database cascades for related data.
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+	actorID := ""
+	if claims := auth.ClaimsFromContext(r.Context()); claims != nil {
+		actorID = claims.Sub
+	}
+	if err := h.svc.Delete(r.Context(), actorID, id, r.RemoteAddr); err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			status = http.StatusNotFound
+		}
+		writeError(w, status, "DELETE_FAILED", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) ListDepartments(w http.ResponseWriter, r *http.Request) {
 	deps, err := h.svc.ListDepartments(r.Context())
 	if err != nil {

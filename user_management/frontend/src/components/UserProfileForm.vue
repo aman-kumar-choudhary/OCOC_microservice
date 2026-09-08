@@ -141,21 +141,21 @@ function onHostelFlagChange() {
           <label class="form-label">Full Name <span class="text-red-500">*</span></label>
           <div class="relative">
             <UserRound :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.profile.full_name" type="text" required class="form-input pl-9" placeholder="e.g. Arjun Sharma" />
+            <input v-model="modelValue.profile.full_name" type="text" required class="form-input pl-9" placeholder="Enter Student Name" />
           </div>
         </div>
         <div class="form-group !mb-0 md:col-span-2 lg:col-span-1">
           <label class="form-label">Email Address <span class="text-red-500">*</span></label>
           <div class="relative">
             <Mail :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.email" type="email" required :disabled="isEdit" class="form-input pl-9 disabled:opacity-50" placeholder="arjun@dsvv.ac.in" />
+            <input v-model="modelValue.email" type="email" required :disabled="isEdit" class="form-input pl-9 disabled:opacity-50" placeholder="Enter Email Address" />
           </div>
         </div>
         <div class="form-group !mb-0 md:col-span-2">
           <label class="form-label">Phone Number</label>
           <div class="relative">
             <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-            <input v-model="modelValue.phone" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
+            <input v-model="modelValue.phone" type="tel" class="form-input pl-9" placeholder="Enter Phone Number" />
           </div>
         </div>
       </div>
@@ -172,14 +172,14 @@ function onHostelFlagChange() {
             <label class="form-label">Roll Number <span class="text-red-500">*</span></label>
             <div class="relative">
               <Hash :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-              <input v-model="modelValue.profile.roll_number" type="text" required class="form-input pl-9" placeholder="CS24001" />
+              <input v-model="modelValue.profile.roll_number" type="text" required class="form-input pl-9" placeholder="Enter Scholar Number" />
             </div>
           </div>
           <div class="form-group !mb-0">
             <label class="form-label">Guardian Contact</label>
             <div class="relative">
               <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-              <input v-model="modelValue.profile.guardian_contact" type="tel" class="form-input pl-9" placeholder="+91 9876543210" />
+              <input v-model="modelValue.profile.guardian_contact" type="tel" class="form-input pl-9" placeholder="Enter Guardian Contact" />
             </div>
           </div>
         </div>
@@ -298,7 +298,10 @@ function onHostelFlagChange() {
             <label class="form-label">Department <span class="text-red-500">*</span></label>
             <div class="relative">
               <Building2 :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-              <input v-model="modelValue.profile.department" type="text" required class="form-input pl-9" placeholder="e.g. Department of Computer Sciences" />
+              <select v-model="modelValue.profile.department" @change="onDeptChange" required class="form-input form-select pl-9 pr-9 appearance-none">
+                <option value="">Select Department…</option>
+                <option v-for="dept in dbDepartments" :key="dept.id" :value="dept.name">{{ dept.name }}</option>
+              </select>
             </div>
           </div>
         </div>

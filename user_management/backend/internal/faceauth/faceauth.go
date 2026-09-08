@@ -49,12 +49,18 @@ type ListResult struct {
 
 // Service stores and queries face auth events.
 type Service struct {
-	db *sql.DB
+	db    *sql.DB
+	audit AuditLogger
+}
+
+// AuditLogger keeps this package independent from the audit implementation.
+type AuditLogger interface {
+	Log(ctx context.Context, actorID, operation, entityType, entityID string, before, after interface{}, ip string) error
 }
 
 // NewService creates a face auth service.
-func NewService(db *sql.DB) *Service {
-	return &Service{db: db}
+func NewService(db *sql.DB, audit AuditLogger) *Service {
+	return &Service{db: db, audit: audit}
 }
 
 // Log stores a face auth event.
@@ -62,8 +68,14 @@ func (s *Service) Log(ctx context.Context, req LogRequest, ip string) (*LogEntry
 	if req.Result == "" {
 		return nil, fmt.Errorf("result is required")
 	}
+	if _, ok := map[string]bool{"success": true, "failed": true, "liveness_failed": true, "unknown": true}[req.Result]; !ok {
+		return nil, fmt.Errorf("invalid result")
+	}
 	if req.AuthType == "" {
 		req.AuthType = "single"
+	}
+	if req.AuthType != "single" && req.AuthType != "mass" {
+		return nil, fmt.Errorf("invalid auth_type")
 	}
 	entry := &LogEntry{
 		ID:               uuid.New(),
@@ -86,6 +98,12 @@ func (s *Service) Log(ctx context.Context, req LogRequest, ip string) (*LogEntry
 		nullStr(entry.Reason), entry.AuthType, nullStr(entry.IPAddress), entry.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert face auth log: %w", err)
+	}
+	if s.audit != nil {
+		op := "FACE_AUTH_FAILED"
+		if entry.Result == "success" { op = "FACE_AUTH_SUCCESS" }
+		if entry.Result == "liveness_failed" { op = "FACE_AUTH_LIVENESS_FAILED" }
+		_ = s.audit.Log(ctx, "", op, "face_auth", entry.ID.String(), nil, entry, ip)
 	}
 	return entry, nil
 }

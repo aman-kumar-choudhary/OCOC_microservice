@@ -150,6 +150,9 @@ class RecognitionResult(BaseModel):
 
 class MultiRecognitionFaceResult(BaseModel):
     faceIndex: int
+    bbox: list[float] = Field(min_length=4, max_length=4)
+    detection_score: float = 0.0
+    liveness_score: Optional[float] = None
     recognized: bool
     userId: Optional[UUID] = None
     name: Optional[str] = None

@@ -207,6 +207,32 @@ func (s *Service) Deactivate(ctx context.Context, actorID string, id uuid.UUID, 
 	return s.changeStatus(ctx, actorID, id, StatusDeactivated, "DEACTIVATE_USER", ip)
 }
 
+// Delete permanently removes a user and every cascade-owned profile, RFID
+// assignment, FreCo person, and face embedding. Audit entries are retained by
+// their ON DELETE SET NULL/soft entity reference design.
+func (s *Service) Delete(ctx context.Context, actorID string, id uuid.UUID, ip string) error {
+	before, err := s.repo.GetByID(ctx, id)
+	if err != nil || before == nil {
+		return fmt.Errorf("user not found")
+	}
+	// Record the evidence while the user still exists (audit.actor_id has an FK).
+	_ = s.audit.Log(ctx, actorID, "DELETE_USER", "user", id.String(), before, nil, ip)
+	if err := withTx(ctx, s.db, func(tx *sql.Tx) error { return s.repo.Delete(ctx, tx, id) }); err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	if s.redis != nil {
+		_ = s.redis.InvalidatePermissions(ctx, id.String())
+	}
+	// The database deletion is authoritative. Disable the linked identity as a
+	// best-effort safety measure; it is intentionally not allowed to prevent
+	// cleanup of personal/biometric data if Keycloak is temporarily unavailable.
+	if before.KeycloakUserID != "" {
+		_ = s.kc.DisableUser(ctx, before.KeycloakUserID)
+		_ = s.kc.LogoutAllSessions(ctx, before.KeycloakUserID)
+	}
+	return nil
+}
+
 func (s *Service) changeStatus(ctx context.Context, actorID string, id uuid.UUID, newStatus UserStatus, op, ip string) error {
 	before, err := s.repo.GetByID(ctx, id)
 	if err != nil || before == nil {

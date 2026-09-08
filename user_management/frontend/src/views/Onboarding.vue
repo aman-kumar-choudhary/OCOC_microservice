@@ -138,9 +138,11 @@ const userForm = ref({
     roll_number: '',
     school: '',
     department: '',
+    department_id: null as string | null,
     course: '',
     semester: '',
     hostel: false,
+    hostel_id: null as string | null,
     guardian_contact: '',
     // Faculty
     employee_id: '',
@@ -179,15 +181,18 @@ async function handleCreateUser() {
         roll_number: p.roll_number,
         school: p.school,
         department: p.department,
+		department_id: p.department_id,
         course: p.course,
         semester: p.semester,
         hostel: p.hostel,
+		hostel_id: p.hostel_id,
         guardian_contact: p.guardian_contact,
       })
     } else if (persona.value === 'faculty') {
       Object.assign(profilePayload, {
         employee_id: p.employee_id,
         department: p.department,
+		department_id: p.department_id,
         designation: p.designation,
       })
     } else if (persona.value === 'worker') {
@@ -267,8 +272,8 @@ function resetForm() {
   userForm.value = {
     email: '', phone: '', password: 'Welcome@123!',
     profile: {
-      full_name: '', photo_reference: '', roll_number: '', school: '', department: '', course: '',
-      semester: '', hostel: false, guardian_contact: '', employee_id: '',
+      full_name: '', photo_reference: '', roll_number: '', school: '', department: '', department_id: null,
+      course: '', semester: '', hostel: false, hostel_id: null, guardian_contact: '', employee_id: '',
       designation: '', worker_role: '', gov_id_type: '', gov_id_number: '',
       visit_purpose: '', host_contact: '',
     }

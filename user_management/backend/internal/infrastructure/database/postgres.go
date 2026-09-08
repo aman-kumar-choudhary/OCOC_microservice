@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -40,7 +43,36 @@ func OpenFromEnv() (*DB, error) {
 	return &DB{db}, nil
 }
 
-// RunMigration executes a SQL migration file.
+// RunMigrations applies each numbered SQL file exactly once.  A migration and
+// its history record are committed together; failures abort startup instead of
+// being misreported as an "already applied" warning.
+func RunMigrations(ctx context.Context, db *DB, dir string) error {
+	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version TEXT PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	)`); err != nil { return fmt.Errorf("create schema_migrations: %w", err) }
+	paths, err := filepath.Glob(filepath.Join(dir, "[0-9][0-9][0-9]_*.sql"))
+	if err != nil { return fmt.Errorf("discover migrations: %w", err) }
+	sort.Strings(paths)
+	for _, path := range paths {
+		version := strings.SplitN(filepath.Base(path), "_", 2)[0]
+		var applied bool
+		if err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, version).Scan(&applied); err != nil { return fmt.Errorf("check migration %s: %w", version, err) }
+		if applied { continue }
+		data, err := os.ReadFile(path)
+		if err != nil { return fmt.Errorf("read migration %s: %w", path, err) }
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil { return fmt.Errorf("begin migration %s: %w", filepath.Base(path), err) }
+		if _, err = tx.ExecContext(ctx, string(data)); err == nil {
+			_, err = tx.ExecContext(ctx, `INSERT INTO schema_migrations (version, name) VALUES ($1, $2)`, version, filepath.Base(path))
+		}
+		if err != nil { _ = tx.Rollback(); return fmt.Errorf("migration %s failed: %w", filepath.Base(path), err) }
+		if err = tx.Commit(); err != nil { return fmt.Errorf("commit migration %s: %w", filepath.Base(path), err) }
+	}
+	return nil
+}
+
+// RunMigration remains available to small tools. Application startup must use
+// RunMigrations so execution is tracked.
 func RunMigration(db *DB, path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {

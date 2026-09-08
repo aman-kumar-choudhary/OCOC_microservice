@@ -79,6 +79,8 @@ const poses = ref<PoseCapture[]>([
   { key: 'center', label: 'Center',    hint: 'Look straight at the camera', file: null, preview: null },
   { key: 'left',   label: 'Left',      hint: 'Turn slightly to the left',   file: null, preview: null },
   { key: 'right',  label: 'Right',     hint: 'Turn slightly to the right',  file: null, preview: null },
+  { key: 'chin_up', label: 'Chin Up', hint: 'Tilt your chin slightly up', file: null, preview: null },
+  { key: 'chin_down', label: 'Chin Down', hint: 'Tilt your chin slightly down', file: null, preview: null },
 ])
 const currentPoseIdx = ref(0)
 const currentPose    = computed(() => poses.value[currentPoseIdx.value])
@@ -108,7 +110,7 @@ function retakePose(idx: number) {
 
 async function enrollFace() {
   const captured = poses.value.filter(p => p.file !== null)
-  if (captured.length === 0) { faceError.value = 'Capture at least one pose'; return }
+  if (captured.length !== poses.value.length) { faceError.value = 'Capture all 5 required poses before enrollment'; return }
   faceError.value   = ''
   isFaceLoading.value = true
   try {

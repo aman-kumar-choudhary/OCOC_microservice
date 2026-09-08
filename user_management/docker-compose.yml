@@ -2,7 +2,9 @@ version: "3.9"
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # Includes pgvector so migration 004 can create the required extension on
+    # an empty development database without a manual superuser step.
+    image: pgvector/pgvector:pg16
     container_name: ococ-user-postgres
     restart: unless-stopped
     environment:
@@ -40,7 +42,7 @@ services:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/ococ_users
       KC_DB_USERNAME: ococ
-      KC_DB_PASSWORD: ococ_secret
+      KC_DB_PASSWORD: root
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_PORT: 8180
       KEYCLOAK_ADMIN: admin

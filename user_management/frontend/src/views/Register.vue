@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
+import userService from '@/services/userService'
 import { 
   User, Mail, Phone, Hash, Building, Briefcase, FileText, UserCheck, 
   MapPin, ArrowRight, Loader2, CheckCircle, Lock, Eye, EyeOff
@@ -19,7 +20,10 @@ const showPassword = ref(false)
 
 // Student specific
 const rollNumber = ref('')
-const department = ref('')
+const departmentId = ref('')
+const departments = ref<Array<{ id: string; name: string }>>([])
+const hostelId = ref('')
+const hostels = ref<Array<{ id: string; name: string }>>([])
 
 // Faculty / Worker specific
 const employeeId = ref('')
@@ -37,6 +41,12 @@ const formReady = ref(false)
 
 onMounted(() => {
   nextTick(() => { formReady.value = true })
+  Promise.all([userService.getDepartments(), userService.getHostels()]).then(([departmentItems, hostelItems]) => {
+    departments.value = departmentItems
+    hostels.value = hostelItems
+  }).catch(() => {
+    error.value = 'Unable to load department options. Please try again.'
+  })
 })
 
 const isStudent = computed(() => role.value === 'student')
@@ -70,10 +80,11 @@ async function handleRegister() {
 
   if (isStudent.value) {
     payload.roll_number = rollNumber.value
-    payload.department = department.value
+    payload.department_id = departmentId.value
+    if (hostelId.value) payload.hostel_id = hostelId.value
   } else if (isFaculty.value) {
     payload.employee_id = employeeId.value
-    payload.department = department.value
+    payload.department_id = departmentId.value
   } else if (isWorker.value) {
     payload.employee_id = employeeId.value
   } else if (isVisitor.value) {
@@ -221,7 +232,20 @@ async function handleRegister() {
               <label class="form-label">Department</label>
               <div class="relative">
                 <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Building :size="18" /></div>
-                <input v-model="department" type="text" required class="form-input pl-9" placeholder="e.g. Computer Science" :disabled="isLoading" />
+                <select v-model="departmentId" required class="form-input pl-9" :disabled="isLoading || !departments.length">
+                  <option value="">Select department…</option>
+                  <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hostel</label>
+              <div class="relative">
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><MapPin :size="18" /></div>
+                <select v-model="hostelId" class="form-input pl-9" :disabled="isLoading || !hostels.length">
+                  <option value="">Day scholar / no hostel</option>
+                  <option v-for="item in hostels" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
               </div>
             </div>
           </template>
@@ -239,7 +263,10 @@ async function handleRegister() {
               <label class="form-label">Department</label>
               <div class="relative">
                 <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"><Building :size="18" /></div>
-                <input v-model="department" type="text" required class="form-input pl-9" placeholder="e.g. Computer Science" :disabled="isLoading" />
+                <select v-model="departmentId" required class="form-input pl-9" :disabled="isLoading || !departments.length">
+                  <option value="">Select department…</option>
+                  <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
               </div>
             </div>
           </template>
