@@ -21,6 +21,9 @@ export function useLiveFaceInference(
   const error = ref<string | null>(null)
   const wsError = ref<string | null>(null)
   const faces = ref<FaceInferenceResult[]>([])
+  // Dimensions of the exact resized frame sent to the inference service.
+  // Bounding boxes returned by the service use this coordinate space.
+  const frameSize = ref({ width: 640, height: 360 })
   
   let stream: MediaStream | null = null
   let ws: WebSocket | null = null
@@ -99,6 +102,7 @@ export function useLiveFaceInference(
     
     canvas.width = width
     canvas.height = height
+    frameSize.value = { width, height }
     
     ctx?.drawImage(video, 0, 0, width, height)
     
@@ -155,14 +159,33 @@ export function useLiveFaceInference(
     stopWebSocket()
   }
   
-  function captureHighQualityImage(): File | null {
+  function captureHighQualityImage(options: { aspectRatio?: number } = {}): File | null {
     if (!videoElementRef.value || !isStreaming.value) return null
     const video = videoElementRef.value
+    const sourceWidth = video.videoWidth
+    const sourceHeight = video.videoHeight
+    const aspectRatio = options.aspectRatio
+    let cropWidth = sourceWidth
+    let cropHeight = sourceHeight
+    let cropX = 0
+    let cropY = 0
+
+    // Match the portrait guide's object-cover crop. The detector validates
+    // against this same centered crop, so the saved file contains exactly
+    // the area the user was asked to fit into.
+    if (aspectRatio && sourceWidth / sourceHeight > aspectRatio) {
+      cropWidth = Math.round(sourceHeight * aspectRatio)
+      cropX = Math.round((sourceWidth - cropWidth) / 2)
+    } else if (aspectRatio && sourceWidth / sourceHeight < aspectRatio) {
+      cropHeight = Math.round(sourceWidth / aspectRatio)
+      cropY = Math.round((sourceHeight - cropHeight) / 2)
+    }
+
     const hdCanvas = document.createElement('canvas')
-    hdCanvas.width = video.videoWidth
-    hdCanvas.height = video.videoHeight
+    hdCanvas.width = cropWidth
+    hdCanvas.height = cropHeight
     const hdCtx = hdCanvas.getContext('2d')
-    hdCtx?.drawImage(video, 0, 0)
+    hdCtx?.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
     
     const dataUrl = hdCanvas.toDataURL('image/jpeg', 0.9)
     const byteString = atob(dataUrl.split(',')[1])
@@ -184,6 +207,7 @@ export function useLiveFaceInference(
     error,
     wsError,
     faces,
+    frameSize,
     startStream,
     stopStream,
     captureHighQualityImage

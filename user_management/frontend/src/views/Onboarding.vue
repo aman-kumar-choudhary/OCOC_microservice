@@ -291,8 +291,8 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       <div class="flex items-center gap-0">
         <template v-for="(s, i) in [
           { n: 1, label: 'Select Type' },
-          { n: 2, label: 'Face Capture' },
-          { n: 3, label: 'User Details' },
+          { n: 2, label: 'User Details' },
+          { n: 3, label: 'Face Capture' },
           { n: 4, label: 'RFID Card' },
           { n: 5, label: 'Complete' }
         ]" :key="s.n">
@@ -389,7 +389,6 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
       </div>
     </div>
 
-    <!-- ─── STEP 2: skipped (now part of step 1 flow) — placeholder ─── -->
 
     <!-- ─── STEP 3: Face Registration (5-pose Freco) ─── -->
     <div v-else-if="step === 3" class="animate-fade-in">
@@ -412,8 +411,7 @@ const selectedCard = computed(() => personaCards.find((c) => c.id === persona.va
         <!-- Pose strip -->
         <div class="flex gap-3 justify-center flex-wrap mb-8">
           <div v-for="(pose, idx) in POSES" :key="pose.key"
-            @click="currentPoseIdx = idx"
-            :class="['cursor-pointer flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all w-28',
+            :class="['flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all w-28',
               idx === currentPoseIdx ? 'border-primary bg-primary/5 scale-105' :
               poseCaptures[pose.key]?.captured ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-[var(--border-light)] hover:border-primary/40']">
             <div :class="['w-14 h-14 rounded-xl overflow-hidden border-2 flex items-center justify-center text-2xl',

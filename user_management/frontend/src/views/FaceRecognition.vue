@@ -23,24 +23,75 @@ const singleResult = ref<MatchResult | null>(null)
 const singleLoading = ref(false)
 const singleError = ref('')
 
-const singleIsActive = computed(() => activeTab.value === 'single')
+const FACE_POSES = [
+  { key: 'center', label: 'Center', hint: 'Look straight at the camera', emoji: '●' },
+  { key: 'left', label: 'Turn Left', hint: 'Turn your head slightly left', emoji: '←' },
+  { key: 'right', label: 'Turn Right', hint: 'Turn your head slightly right', emoji: '→' },
+  { key: 'chin_up', label: 'Chin Up', hint: 'Tilt your chin slightly up', emoji: '↑' },
+  { key: 'chin_down', label: 'Chin Down', hint: 'Tilt your chin slightly down', emoji: '↓' },
+] as const
+type FacePoseKey = typeof FACE_POSES[number]['key']
+const currentPoseIndex = ref(0)
+const poseCaptures = ref<Record<FacePoseKey, { file: File | null; url: string | null }>>(
+  Object.fromEntries(FACE_POSES.map(pose => [pose.key, { file: null, url: null }])) as Record<FacePoseKey, { file: File | null; url: string | null }>
+)
+const currentPose = computed(() => FACE_POSES[currentPoseIndex.value])
+const capturedPoseCount = computed(() => FACE_POSES.filter(pose => poseCaptures.value[pose.key].file).length)
+const allPosesCaptured = computed(() => capturedPoseCount.value === FACE_POSES.length)
+const poseReady = ref(false)
+const cameraRef = ref<{ captureIfReady: () => boolean } | null>(null)
+const captureMessage = ref('')
+
+const singleIsActive = computed(() => activeTab.value === 'single' && !singleImgUrl.value)
 const wideCameraRef = ref<any>(null)
 
-function captureFrame(file: File) {
-  singleImg.value = file
-  singleImgUrl.value = URL.createObjectURL(file)
+function capturePose(file: File) {
+  captureMessage.value = ''
+  poseReady.value = false
+  const pose = currentPose.value
+  const previousUrl = poseCaptures.value[pose.key].url
+  if (previousUrl) URL.revokeObjectURL(previousUrl)
+  poseCaptures.value[pose.key] = { file, url: URL.createObjectURL(file) }
+
+  if (!allPosesCaptured.value) {
+    currentPoseIndex.value += 1
+    return
+  }
+
+  // The existing verification endpoint accepts one image. Use the validated
+  // center image after all five guided captures have been completed.
+  const centerCapture = poseCaptures.value.center.file
+  if (!centerCapture) return
+  singleImg.value = centerCapture
+  singleImgUrl.value = poseCaptures.value.center.url
   singleResult.value = null
   singleError.value = ''
-  
-  // Auto-run verification
+
   runSingleMatch()
 }
 
+function confirmPoseCapture() {
+  if (!poseReady.value) {
+    captureMessage.value = 'The frame is not green yet. Position the face correctly, then try again.'
+    return
+  }
+  if (!cameraRef.value?.captureIfReady()) {
+    captureMessage.value = 'Please retake this image when the frame turns green.'
+  }
+}
+
 function clearCapture() {
+  Object.values(poseCaptures.value).forEach(pose => {
+    if (pose.url) URL.revokeObjectURL(pose.url)
+  })
+  poseCaptures.value = Object.fromEntries(FACE_POSES.map(pose => [pose.key, { file: null, url: null }])) as Record<FacePoseKey, { file: File | null; url: string | null }>
+  currentPoseIndex.value = 0
   singleImg.value = null
   singleImgUrl.value = null
   singleResult.value = null
   singleError.value = ''
+  poseReady.value = false
+  captureMessage.value = ''
 }
 
 async function loadCandidateEmbeddings() {
@@ -186,17 +237,48 @@ function faceStatus(f: FaceBboxResult) {
     <div v-if="activeTab === 'single'" class="grid md:grid-cols-2 gap-6">
       <!-- Left: Input -->
       <div class="glass-panel p-5 space-y-4">
-        <h2 class="font-bold flex items-center gap-2"><ScanFace :size="18" /> Upload Test Image</h2>
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold flex items-center gap-2"><ScanFace :size="18" /> Capture Face Images</h2>
+          <span class="text-xs font-bold text-muted">{{ capturedPoseCount }}/{{ FACE_POSES.length }}</span>
+        </div>
+
+        <div v-if="!singleImgUrl" class="grid grid-cols-5 gap-1.5">
+          <div v-for="(pose, index) in FACE_POSES" :key="pose.key"
+            :class="['rounded-lg border p-1.5 text-center transition-colors',
+              poseCaptures[pose.key].file ? 'border-emerald-500 bg-emerald-500/10' :
+              index === currentPoseIndex ? 'border-primary bg-primary/10' : 'border-[var(--border-light)]']">
+            <div class="text-sm font-extrabold">{{ poseCaptures[pose.key].file ? '✓' : pose.emoji }}</div>
+            <div class="text-[10px] font-semibold leading-tight">{{ pose.label }}</div>
+          </div>
+        </div>
 
         <!-- Live Camera Stream or Captured Image -->
         <div class="relative rounded-xl border border-[var(--border-light)] overflow-hidden bg-[var(--bg-main)]">
           <template v-if="!singleImgUrl">
             <div class="py-4">
               <FaceOvalCamera 
+                ref="cameraRef"
                 mode="single_recognition" 
+                :targetPose="currentPose.key"
+                manualCapture
                 :isActive="singleIsActive" 
-                @capture="captureFrame"
+                @capture="capturePose"
+                @ready="poseReady = $event"
               />
+              <div class="mt-3 text-center">
+                <p class="font-bold text-sm">{{ currentPose.label }}</p>
+                <p class="text-xs text-muted">{{ currentPose.hint }} · Hold still when the frame turns green</p>
+              </div>
+              <button
+                @click="confirmPoseCapture"
+                :disabled="!poseReady"
+                class="btn btn-primary w-full max-w-xs mx-auto mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                id="capture-pose-btn"
+              >
+                {{ poseReady ? `Capture ${currentPose.label} & Continue` : 'Position face inside frame' }}
+              </button>
+              <p v-if="captureMessage" class="mt-2 text-xs font-semibold text-red-500">{{ captureMessage }}</p>
+              <p v-else-if="!poseReady" class="mt-2 text-xs font-semibold text-red-500">Red frame: retake or reposition your face inside the frame.</p>
             </div>
           </template>
           <template v-else>
@@ -205,6 +287,10 @@ function faceStatus(f: FaceBboxResult) {
               <RefreshCw :size="16" />
             </button>
           </template>
+        </div>
+
+        <div v-if="allPosesCaptured" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold text-center">
+          ✓ All five poses captured. The center image will be used for verification.
         </div>
 
         <!-- Person ID for embeddings -->
