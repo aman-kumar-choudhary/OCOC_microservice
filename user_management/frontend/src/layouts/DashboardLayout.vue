@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDark, useToggle } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth'
+import dsvvLogo from '@/assets/Dsvv.png'
 import {
-  Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu, Moon,
-  ShieldCheck, ShieldAlert, Sun, UserPlus, Users, X, ScanFace,
+  Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu,
+  ShieldAlert, UserPlus, Users, X, ScanFace, ChevronDown, Mail,
 } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const isDark = useDark({ selector: 'html', attribute: 'data-theme', valueDark: 'dark', valueLight: 'light' })
-const toggleDark = useToggle(isDark)
 const isMobileMenuOpen = ref(false)
+const isProfileMenuOpen = ref(false)
 const userInitial = computed(() => authStore.email?.charAt(0).toUpperCase() || 'A')
+const userRoles = computed(() => authStore.roles.filter((role) => !role.startsWith('default-')).slice(0, 2))
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -29,9 +29,18 @@ const navItems = [
 const filteredNavItems = navItems.filter((item) => !item.permission || authStore.hasRole('SUPER_ADMIN') || authStore.hasRole(item.permission) || true)
 
 async function handleLogout() {
+  isProfileMenuOpen.value = false
   await authStore.logout()
   router.push('/login')
 }
+
+function closeProfileMenu(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (!target.closest('[data-profile-menu]')) isProfileMenuOpen.value = false
+}
+
+onMounted(() => document.addEventListener('click', closeProfileMenu))
+onBeforeUnmount(() => document.removeEventListener('click', closeProfileMenu))
 </script>
 
 <template>
@@ -44,15 +53,9 @@ async function handleLogout() {
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
       ]"
     >
-      <div class="flex h-20 items-center justify-between border-b border-white/10 px-5">
-        <router-link to="/dashboard" class="flex items-center gap-3 text-white no-underline" @click="isMobileMenuOpen = false">
-          <div class="grid h-10 w-10 place-items-center rounded-xl bg-primary text-navy shadow-lg shadow-primary/20">
-            <ShieldCheck :size="24" stroke-width="2.5" />
-          </div>
-          <div>
-            <p class="font-display text-lg font-extrabold leading-none">OCOC</p>
-            <p class="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Campus operations</p>
-          </div>
+      <div class="flex h-24 items-center justify-center border-b border-white/10 px-5">
+        <router-link to="/dashboard" class="flex items-center justify-center text-white no-underline" aria-label="DSVV dashboard" @click="isMobileMenuOpen = false">
+          <img :src="dsvvLogo" alt="Dev Sanskriti Vishwavidyalaya" class="h-[78px] w-[78px] object-contain" />
         </router-link>
         <button class="rounded-md p-2 text-slate-300 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close navigation" @click="isMobileMenuOpen = false">
           <X :size="20" />
@@ -73,19 +76,6 @@ async function handleLogout() {
           {{ item.name }}
         </router-link>
       </nav>
-
-      <div class="m-3 rounded-xl border border-white/10 bg-white/5 p-3">
-        <div class="flex min-w-0 items-center gap-3">
-          <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary font-bold text-navy">{{ userInitial }}</div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-bold text-white">{{ authStore.email || 'Administrator' }}</p>
-            <p class="mt-0.5 text-xs text-slate-400">Secure session</p>
-          </div>
-        </div>
-        <button class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 hover:text-white" @click="handleLogout">
-          <LogOut :size="15" /> Sign out
-        </button>
-      </div>
     </aside>
 
     <main class="min-w-0 flex-1">
@@ -95,19 +85,47 @@ async function handleLogout() {
             <Menu :size="21" />
           </button>
           <div>
-            <p class="hidden text-xs font-bold uppercase tracking-[0.12em] text-muted sm:block">University identity platform</p>
-            <h2 class="font-display text-lg font-extrabold text-[var(--text-main)]">{{ $route.name }}</h2>
+            <p class="text-[16px] font-extrabold uppercase tracking-[0.18em] text-primary sm:text-xs">OCOC</p>
+            <h2 class="font-display text-base font-extrabold text-[var(--text-main)] sm:text-lg">University Identity Platform</h2>
           </div>
         </div>
         <div class="flex items-center gap-2 sm:gap-3">
-          <div class="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 md:flex">
-            <span class="h-2 w-2 rounded-full bg-emerald-500" /> System online
+          <div class="relative" data-profile-menu>
+            <button
+              class="flex items-center gap-2 rounded-full border border-[var(--border-light)] bg-[var(--bg-card)] p-1 pr-2 text-navy shadow-sm transition hover:border-primary hover:shadow-md"
+              :aria-expanded="isProfileMenuOpen"
+              aria-haspopup="menu"
+              aria-label="Open account menu"
+              @click.stop="isProfileMenuOpen = !isProfileMenuOpen"
+            >
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-navy text-sm font-bold text-primary">{{ userInitial }}</span>
+              <ChevronDown :size="15" class="hidden text-muted sm:block" :class="{ 'rotate-180': isProfileMenuOpen }" />
+            </button>
+
+            <div v-if="isProfileMenuOpen" class="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-72 overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[var(--bg-card)] p-2 text-[var(--text-main)] shadow-[0_18px_48px_rgb(10_35_66/0.18)]" role="menu">
+              <div class="rounded-xl bg-navy px-4 py-4 text-white">
+                <div class="flex items-center gap-3">
+                  <span class="grid h-10 w-10 place-items-center rounded-full bg-primary font-bold text-navy">{{ userInitial }}</span>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-bold">{{ authStore.email || 'Administrator' }}</p>
+                    <p class="mt-0.5 text-xs text-slate-300">Secure session</p>
+                  </div>
+                </div>
+              </div>
+              <div class="px-3 py-3">
+                <div class="flex items-center gap-2 text-xs font-semibold text-muted">
+                  <Mail :size="14" /> Account information
+                </div>
+                <p class="mt-2 break-all text-sm font-semibold">{{ authStore.email || 'Administrator' }}</p>
+                <div v-if="userRoles.length" class="mt-2 flex flex-wrap gap-1.5">
+                  <span v-for="role in userRoles" :key="role" class="rounded-full bg-primary/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#7b5600]">{{ role.replaceAll('_', ' ') }}</span>
+                </div>
+              </div>
+              <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-700 transition hover:bg-red-50" role="menuitem" @click="handleLogout">
+                <LogOut :size="16" /> Sign out
+              </button>
+            </div>
           </div>
-          <button class="grid h-10 w-10 place-items-center rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] text-muted transition hover:border-primary hover:text-navy" :aria-label="isDark ? 'Use light theme' : 'Use dark theme'" @click="toggleDark()">
-            <Sun v-if="isDark" :size="18" />
-            <Moon v-else :size="18" />
-          </button>
-          <div class="grid h-10 w-10 place-items-center rounded-full bg-navy text-sm font-bold text-primary">{{ userInitial }}</div>
         </div>
       </header>
 

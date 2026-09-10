@@ -155,7 +155,8 @@ onMounted(loadOverview)
             <div class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-primary">
               <ShieldCheck :size="16" /> Campus access command centre
             </div>
-            <h1 class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Identity operations, made clear.</h1>
+            <p class="text-sm font-bold uppercase tracking-[0.2em] text-white/65">OCOC · University Identity Platform</p>
+            <h1 class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Identity operations, made clear.</h1>
             <p class="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">Monitor people, credentials, and access status from one secure workspace built for day-to-day university operations.</p>
           </div>
           <div class="flex flex-wrap gap-3">

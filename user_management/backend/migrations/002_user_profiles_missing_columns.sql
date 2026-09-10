@@ -1,20 +1,28 @@
 -- ============================================================
--- Migration 002: Add missing columns to user_profiles
+-- Migration 002: Ensure profile columns exist
 --
--- The live user_profiles table was created without these 6 columns
--- that the Go repository reads and writes. This migration adds them
--- safely using IF NOT EXISTS, preserving all existing rows.
+-- user_profiles is a VIEW, not a physical table.
+-- Therefore columns must exist on the underlying profile tables.
 -- ============================================================
 
-ALTER TABLE user_profiles
-    ADD COLUMN IF NOT EXISTS department  TEXT,
-    ADD COLUMN IF NOT EXISTS school      TEXT,
-    ADD COLUMN IF NOT EXISTS course      TEXT,
-    ADD COLUMN IF NOT EXISTS semester    TEXT,
-    ADD COLUMN IF NOT EXISTS designation TEXT,
+-- Student profile fields
+ALTER TABLE student_profiles
+    ADD COLUMN IF NOT EXISTS department TEXT,
+    ADD COLUMN IF NOT EXISTS school TEXT,
+    ADD COLUMN IF NOT EXISTS course TEXT,
+    ADD COLUMN IF NOT EXISTS semester TEXT,
     ADD COLUMN IF NOT EXISTS hostel_flag BOOLEAN NOT NULL DEFAULT FALSE;
 
--- Add an index on semester for the AdvanceSemesters admin operation
--- which filters on user_type='student' and needs to iterate.
-CREATE INDEX IF NOT EXISTS idx_profiles_semester ON user_profiles (semester)
+-- Faculty profile fields
+ALTER TABLE faculty_profiles
+    ADD COLUMN IF NOT EXISTS designation TEXT;
+
+-- Worker profile fields
+ALTER TABLE worker_profiles
+    ADD COLUMN IF NOT EXISTS designation TEXT;
+
+-- Semester queries should use the physical student_profiles table,
+-- not the user_profiles view.
+CREATE INDEX IF NOT EXISTS idx_profiles_semester
+    ON student_profiles (semester)
     WHERE semester IS NOT NULL;

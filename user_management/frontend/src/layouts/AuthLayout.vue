@@ -21,17 +21,17 @@ const toggleDark = useToggle(isDark)
     <div class="dsvv-fixed" id="dsvv-logo-fixed">
       <img :src="dsvvLogo" alt="DSVV Logo" class="dsvv-fixed-logo" />
       <div class="dsvv-fixed-text">
-        <span>Dev Sanskriti</span>
-        <span>Vishwavidyalaya</span>
+        <!-- <span>Dev Sanskriti Vishwavidyalaya </span> -->
+        <!-- <span></span> -->
       </div>
     </div>
 
     <!-- Theme Toggle — Fixed Top-Right -->
-    <button id="theme-toggle" @click="toggleDark()" class="auth-theme-toggle"
+    <!-- <button id="theme-toggle" @click="toggleDark()" class="auth-theme-toggle"
       :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
       <Sun v-if="isDark" :size="18" />
       <Moon v-else :size="18" />
-    </button>
+    </button> -->
 
     <!-- ═══ Main Content ═══ -->
     <div class="auth-main">
@@ -67,7 +67,6 @@ const toggleDark = useToggle(isDark)
         <div class="auth-card animate-fade-in">
           <slot />
         </div>
-        <div class="auth-version">v1.0</div>
       </div>
     </div>
 
@@ -125,18 +124,18 @@ const toggleDark = useToggle(isDark)
 /* ─── DSVV Logo Fixed Top-Left ─── */
 .dsvv-fixed {
   position: fixed;
-  top: 1.25rem;
-  left: 1.5rem;
-  z-index: 20;
+  top: 15px;
+  left: 25px;
+  z-index: 1000;
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  align-items: flex-start;
 }
 
 .dsvv-fixed-logo {
-  width: 100px;
-  height: 100px;
+  width: 420px;
+  height: auto;
   object-fit: contain;
+  display: block;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
@@ -274,8 +273,8 @@ const toggleDark = useToggle(isDark)
 
 /* Gurudev */
 .brand-gurudev {
-  width: 200px;
-  height: 150px;
+  width: 280px;
+  height: 200px;
   border-radius: 1rem;
   overflow: hidden;
   border: 2px solid rgba(245, 189, 25, 0.2);
