@@ -118,7 +118,18 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ── Health Check ────────────────────────────────────────────────────────────
+# ── Root & Health Check ─────────────────────────────────────────────────────
+@app.get("/", tags=["root"])
+async def root():
+    return {
+        "name": "OCOC User Management API",
+        "version": "1.0.0",
+        "status": "running",
+        "docs_url": "/docs",
+        "health_url": "/health",
+    }
+
+
 @app.get("/health", tags=["health"])
 async def health():
     return {"status": "ok"}
