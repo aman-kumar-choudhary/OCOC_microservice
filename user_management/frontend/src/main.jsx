@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import App from './App'
 import './style.css'
+import './auth.css'
 
 const container = document.getElementById('root') || document.getElementById('app')
 if (!container) {
