@@ -1,19 +1,19 @@
 # OCOC User Management Microservice
 
-A small microservice for user management used in the OCOC platform. This repository contains a Go backend and a Vite + TypeScript frontend, along with Docker compose and infrastructure helpers.
+A microservice for user identity and access management in the OCOC platform. This repository contains a modern **Python (FastAPI)** backend and a **Vite + React (JSX)** frontend, along with Docker compose and infrastructure helpers.
 
 ## Repository structure
 
-- `backend/` — Go service, API entrypoint: `cmd/api/main.go`, internal packages under `internal/` (auth, user, rfid, role, audit, dashboard, infrastructure).
-- `frontend/` — Vite + TypeScript UI for auth, dashboard and user pages.
+- `backend/` — Python FastAPI service, entrypoint: `app/main.py`, structured into `app/routers/`, `app/services/`, `app/core/`, and `app/schemas/`.
+- `frontend/` — Vite + React (JSX) UI for auth, dashboard, onboarding wizard, and user directory.
 - `migrations/` — SQL migrations (e.g. `001_initial_schema.sql`).
 - `scripts/` — helper scripts (e.g. `setup-keycloak.sh`).
 - `docker-compose.yml` — local development stack (Postgres, Redis, Keycloak, services).
 
 ## Prerequisites
 
-- Go 1.20+ (or the version required by `go.mod`)
-- Node.js 18+ and npm/yarn (for frontend)
+- Python 3.9+ (Python 3.11 recommended)
+- Node.js 18+ and npm (for frontend)
 - Docker & Docker Compose (for local stack)
 
 ## Quick start (recommended)
@@ -29,18 +29,20 @@ This will bring up the database, Keycloak (for auth), Redis, and services define
 
 ## Backend (development)
 
-From the repository root:
+From the `backend` directory:
 
 ```bash
 cd backend
-go run ./cmd/api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 Run backend tests:
 
 ```bash
-cd backend
-go test ./internal/...
+pytest -v tests/
 ```
 
 ## Frontend (development)
@@ -80,5 +82,5 @@ Add your license here (e.g., MIT). If you want, I can add a `LICENSE` file.
 
 -  keyclock command :  bin/kc.sh start-dev --http-port=8180
 -  user management frontend command : npm install && npm run dev
--  user management backend command : go run ./cmd/api/main.go
+-  user management backend command : uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 -  facerecognition command : uvicorn app.main:app

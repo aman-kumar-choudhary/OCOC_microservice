@@ -1,0 +1,684 @@
+from __future__ import annotations
+
+import csv
+import io
+import logging
+from typing import Any, Dict, List, Optional, Tuple
+import uuid
+import asyncpg
+
+from app.core.keycloak_client import keycloak_client
+from app.schemas.user import (
+    CreateUserRequest,
+    Department,
+    Hostel,
+    Profile,
+    ProfileRequest,
+    Stats,
+    UpdateUserRequest,
+    User,
+    UserListResult,
+)
+from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
+
+
+class UserService:
+    async def list_users(
+        self,
+        conn: asyncpg.Connection,
+        search: Optional[str] = None,
+        user_type: Optional[str] = None,
+        status: Optional[str] = None,
+        school: Optional[str] = None,
+        department: Optional[str] = None,
+        course: Optional[str] = None,
+        semester: Optional[str] = None,
+        hostel_id: Optional[str] = None,
+        hostel_status: Optional[str] = None,
+        role: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> UserListResult:
+        page = max(1, page)
+        limit = min(max(1, limit), 200)
+        offset = (page - 1) * limit
+
+        clauses = []
+        args = []
+        idx = 1
+
+        if user_type:
+            clauses.append(f"u.user_type = ${idx}")
+            args.append(user_type.lower())
+            idx += 1
+        if status:
+            clauses.append(f"u.status = ${idx}")
+            args.append(status.lower())
+            idx += 1
+        if school:
+            clauses.append(f"d.school = ${idx}")
+            args.append(school)
+            idx += 1
+        if department:
+            clauses.append(f"d.name = ${idx}")
+            args.append(department)
+            idx += 1
+        if course:
+            clauses.append(f"sp.course = ${idx}")
+            args.append(course)
+            idx += 1
+        if semester:
+            clauses.append(f"sp.semester = ${idx}")
+            args.append(semester)
+            idx += 1
+        if hostel_id:
+            try:
+                h_uuid = uuid.UUID(hostel_id)
+                clauses.append(f"sp.hostel_id = ${idx}")
+                args.append(h_uuid)
+                idx += 1
+            except Exception:
+                pass
+        if hostel_status == "hosteller":
+            clauses.append("sp.hostel_id IS NOT NULL")
+        elif hostel_status == "day_scholar":
+            clauses.append("sp.hostel_id IS NULL")
+
+        if search:
+            s_pat = f"%{search.strip()}%"
+            clauses.append(
+                f"(u.email ILIKE ${idx} OR u.phone ILIKE ${idx} OR "
+                f"sp.full_name ILIKE ${idx} OR fp.full_name ILIKE ${idx} OR "
+                f"wp.full_name ILIKE ${idx} OR vp.full_name ILIKE ${idx} OR "
+                f"sp.roll_number ILIKE ${idx} OR fp.employee_id ILIKE ${idx} OR "
+                f"wp.employee_id ILIKE ${idx})"
+            )
+            args.append(s_pat)
+            idx += 1
+
+        if role:
+            clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = ${idx})")
+            args.append(role)
+            idx += 1
+
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        base_from = f"""
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
+            LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+            LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
+            LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
+            LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id, wp.department_id)
+            {where_sql}
+        """
+
+        total = await conn.fetchval(f"SELECT COUNT(*) {base_from}", *args)
+
+        query = f"""
+            SELECT u.id, u.keycloak_user_id, u.user_type, u.status, u.email, u.phone, u.created_at, u.updated_at,
+                COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name,
+                sp.roll_number,
+                COALESCE(fp.employee_id, wp.employee_id) as employee_id,
+                COALESCE(sp.department_id, fp.department_id, wp.department_id) as department_id,
+                sp.hostel_id,
+                d.name as department,
+                d.school as school,
+                sp.course,
+                sp.semester,
+                COALESCE(fp.designation, wp.designation) as designation,
+                CASE WHEN sp.hostel_id IS NOT NULL THEN TRUE ELSE FALSE END as hostel_flag,
+                COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
+                sp.guardian_contact,
+                COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
+                vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact,
+                vp.visit_start, vp.visit_duration_days,
+                COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
+                (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
+                 WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
+                EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id::text) AS has_face_auth
+            {base_from}
+            ORDER BY u.created_at DESC
+            LIMIT ${idx} OFFSET ${idx + 1}
+        """
+        rows = await conn.fetch(query, *args, limit, offset)
+
+        users = [self._row_to_user(r) for r in rows]
+        total_pages = (total + limit - 1) // limit if total > 0 else 1
+        return UserListResult(users=users, total=total, page=page, limit=limit, total_pages=total_pages)
+
+    async def get_by_id(self, conn: asyncpg.Connection, user_id: uuid.UUID) -> Optional[User]:
+        query = """
+            SELECT u.id, u.keycloak_user_id, u.user_type, u.status, u.email, u.phone, u.created_at, u.updated_at,
+                COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name,
+                sp.roll_number,
+                COALESCE(fp.employee_id, wp.employee_id) as employee_id,
+                COALESCE(sp.department_id, fp.department_id, wp.department_id) as department_id,
+                sp.hostel_id,
+                d.name as department,
+                d.school as school,
+                sp.course,
+                sp.semester,
+                COALESCE(fp.designation, wp.designation) as designation,
+                CASE WHEN sp.hostel_id IS NOT NULL THEN TRUE ELSE FALSE END as hostel_flag,
+                COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
+                sp.guardian_contact,
+                COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
+                vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact,
+                vp.visit_start, vp.visit_duration_days,
+                COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
+                (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
+                 WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
+                EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id::text) AS has_face_auth
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
+            LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+            LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
+            LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
+            LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id, wp.department_id)
+            WHERE u.id = $1
+        """
+        row = await conn.fetchrow(query, user_id)
+        if not row:
+            return None
+
+        # Fetch roles
+        role_rows = await conn.fetch(
+            "SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = $1",
+            user_id,
+        )
+        user = self._row_to_user(row)
+        user.roles = [r["name"] for r in role_rows]
+        return user
+
+    async def create_user(
+        self,
+        conn: asyncpg.Connection,
+        actor_id: Optional[str],
+        req: CreateUserRequest,
+    ) -> User:
+        # Check email uniqueness
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER($1))",
+            req.email,
+        )
+        if exists:
+            raise ValueError("Email already registered")
+
+        if req.phone:
+            phone_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE phone = $1)",
+                req.phone,
+            )
+            if phone_exists:
+                raise ValueError("Phone number already registered")
+
+        user_id = uuid.uuid4()
+        user_type = req.user_type.lower()
+
+        # Department & hostel UUID validation
+        dept_uuid = None
+        if req.profile.department_id:
+            try:
+                dept_uuid = uuid.UUID(str(req.profile.department_id))
+            except Exception:
+                pass
+
+        hostel_uuid = None
+        if req.profile.hostel_id:
+            try:
+                hostel_uuid = uuid.UUID(str(req.profile.hostel_id))
+            except Exception:
+                pass
+
+        # 1. Insert user and profile inside transaction
+        async with conn.transaction():
+            await conn.execute(
+                """
+                INSERT INTO users (id, user_type, status, email, phone, created_at, updated_at)
+                VALUES ($1, $2, 'active', $3, $4, now(), now())
+                """,
+                user_id,
+                user_type,
+                req.email.lower(),
+                req.phone,
+            )
+
+            if user_type == "student":
+                await conn.execute(
+                    """
+                    INSERT INTO student_profiles (
+                        user_id, full_name, roll_number, department_id, course, semester,
+                        hostel_id, emergency_contact, guardian_contact, photo_reference, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+                    """,
+                    user_id,
+                    req.profile.full_name,
+                    req.profile.roll_number,
+                    dept_uuid,
+                    req.profile.course,
+                    req.profile.semester,
+                    hostel_uuid,
+                    req.profile.emergency_contact,
+                    req.profile.guardian_contact,
+                    req.profile.photo_reference,
+                )
+            elif user_type == "faculty":
+                await conn.execute(
+                    """
+                    INSERT INTO faculty_profiles (
+                        user_id, full_name, employee_id, department_id, designation,
+                        emergency_contact, photo_reference, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+                    """,
+                    user_id,
+                    req.profile.full_name,
+                    req.profile.employee_id,
+                    dept_uuid,
+                    req.profile.designation,
+                    req.profile.emergency_contact,
+                    req.profile.photo_reference,
+                )
+            elif user_type == "worker":
+                await conn.execute(
+                    """
+                    INSERT INTO worker_profiles (
+                        user_id, full_name, employee_id, department_id, designation,
+                        emergency_contact, photo_reference, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+                    """,
+                    user_id,
+                    req.profile.full_name,
+                    req.profile.employee_id,
+                    dept_uuid,
+                    req.profile.designation,
+                    req.profile.emergency_contact,
+                    req.profile.photo_reference,
+                )
+            elif user_type == "visitor":
+                await conn.execute(
+                    """
+                    INSERT INTO visitor_profiles (
+                        user_id, full_name, gov_id_type, gov_id_number, visit_purpose,
+                        host_contact, visit_duration_days, photo_reference, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                    """,
+                    user_id,
+                    req.profile.full_name,
+                    req.profile.gov_id_type,
+                    req.profile.gov_id_number,
+                    req.profile.visit_purpose,
+                    req.profile.host_contact,
+                    req.profile.visit_duration_days,
+                    req.profile.photo_reference,
+                )
+
+        # 2. Sync to Keycloak
+        first_name, last_name = req.profile.full_name, ""
+        if " " in req.profile.full_name:
+            first_name, last_name = req.profile.full_name.split(" ", 1)
+
+        kc_id = None
+        try:
+            kc_id = await keycloak_client.create_user(
+                username=req.email.lower(),
+                email=req.email.lower(),
+                first_name=first_name,
+                last_name=last_name,
+                password=req.password if req.password else None,
+                attributes={"user_type": [user_type], "user_id": [str(user_id)]},
+            )
+            await conn.execute("UPDATE users SET keycloak_user_id=$1 WHERE id=$2", kc_id, user_id)
+        except Exception as e:
+            logger.warning("Keycloak user sync failed (continuing in dev/test): %s", e)
+
+        created_user = await self.get_by_id(conn, user_id)
+        if not created_user:
+            raise RuntimeError("User created but could not be retrieved")
+
+        await audit_service.log(
+            conn=conn,
+            actor_id=actor_id,
+            operation="USER_CREATED",
+            entity_type="user",
+            entity_id=str(user_id),
+            after_state=created_user.model_dump(),
+        )
+
+        return created_user
+
+    async def update_user(
+        self,
+        conn: asyncpg.Connection,
+        actor_id: Optional[str],
+        user_id: uuid.UUID,
+        req: UpdateUserRequest,
+    ) -> User:
+        current_user = await self.get_by_id(conn, user_id)
+        if not current_user:
+            raise ValueError("User not found")
+
+        user_type = current_user.user_type.lower()
+
+        async with conn.transaction():
+            if req.phone is not None:
+                await conn.execute(
+                    "UPDATE users SET phone=$1, updated_at=now() WHERE id=$2",
+                    req.phone,
+                    user_id,
+                )
+
+            if req.profile:
+                p = req.profile
+                dept_uuid = uuid.UUID(str(p.department_id)) if p.department_id else None
+                hostel_uuid = uuid.UUID(str(p.hostel_id)) if p.hostel_id else None
+
+                if user_type == "student":
+                    await conn.execute(
+                        """
+                        UPDATE student_profiles SET
+                            full_name = COALESCE($2, full_name),
+                            roll_number = COALESCE($3, roll_number),
+                            department_id = COALESCE($4, department_id),
+                            course = COALESCE($5, course),
+                            semester = COALESCE($6, semester),
+                            hostel_id = COALESCE($7, hostel_id),
+                            emergency_contact = COALESCE($8, emergency_contact),
+                            guardian_contact = COALESCE($9, guardian_contact),
+                            photo_reference = COALESCE($10, photo_reference),
+                            updated_at = now()
+                        WHERE user_id = $1
+                        """,
+                        user_id,
+                        p.full_name,
+                        p.roll_number,
+                        dept_uuid,
+                        p.course,
+                        p.semester,
+                        hostel_uuid,
+                        p.emergency_contact,
+                        p.guardian_contact,
+                        p.photo_reference,
+                    )
+                elif user_type == "faculty":
+                    await conn.execute(
+                        """
+                        UPDATE faculty_profiles SET
+                            full_name = COALESCE($2, full_name),
+                            employee_id = COALESCE($3, employee_id),
+                            department_id = COALESCE($4, department_id),
+                            designation = COALESCE($5, designation),
+                            emergency_contact = COALESCE($6, emergency_contact),
+                            photo_reference = COALESCE($7, photo_reference),
+                            updated_at = now()
+                        WHERE user_id = $1
+                        """,
+                        user_id,
+                        p.full_name,
+                        p.employee_id,
+                        dept_uuid,
+                        p.designation,
+                        p.emergency_contact,
+                        p.photo_reference,
+                    )
+                elif user_type == "worker":
+                    await conn.execute(
+                        """
+                        UPDATE worker_profiles SET
+                            full_name = COALESCE($2, full_name),
+                            employee_id = COALESCE($3, employee_id),
+                            department_id = COALESCE($4, department_id),
+                            designation = COALESCE($5, designation),
+                            emergency_contact = COALESCE($6, emergency_contact),
+                            photo_reference = COALESCE($7, photo_reference),
+                            updated_at = now()
+                        WHERE user_id = $1
+                        """,
+                        user_id,
+                        p.full_name,
+                        p.employee_id,
+                        dept_uuid,
+                        p.designation,
+                        p.emergency_contact,
+                        p.photo_reference,
+                    )
+                elif user_type == "visitor":
+                    await conn.execute(
+                        """
+                        UPDATE visitor_profiles SET
+                            full_name = COALESCE($2, full_name),
+                            gov_id_type = COALESCE($3, gov_id_type),
+                            gov_id_number = COALESCE($4, gov_id_number),
+                            visit_purpose = COALESCE($5, visit_purpose),
+                            host_contact = COALESCE($6, host_contact),
+                            visit_duration_days = COALESCE($7, visit_duration_days),
+                            photo_reference = COALESCE($8, photo_reference),
+                            updated_at = now()
+                        WHERE user_id = $1
+                        """,
+                        user_id,
+                        p.full_name,
+                        p.gov_id_type,
+                        p.gov_id_number,
+                        p.visit_purpose,
+                        p.host_contact,
+                        p.visit_duration_days,
+                        p.photo_reference,
+                    )
+
+        updated_user = await self.get_by_id(conn, user_id)
+        await audit_service.log(
+            conn=conn,
+            actor_id=actor_id,
+            operation="USER_UPDATED",
+            entity_type="user",
+            entity_id=str(user_id),
+            before_state=current_user.model_dump(),
+            after_state=updated_user.model_dump() if updated_user else None,
+        )
+        return updated_user or current_user
+
+    async def update_status(
+        self,
+        conn: asyncpg.Connection,
+        actor_id: Optional[str],
+        user_id: uuid.UUID,
+        new_status: str,
+        reason: str = "",
+    ) -> None:
+        valid_statuses = {"active", "suspended", "deactivated"}
+        if new_status not in valid_statuses:
+            raise ValueError(f"Invalid status: {new_status}")
+
+        current_user = await self.get_by_id(conn, user_id)
+        if not current_user:
+            raise ValueError("User not found")
+
+        is_active = new_status == "active"
+
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE users SET status=$1, updated_at=now() WHERE id=$2",
+                new_status,
+                user_id,
+            )
+            # Sync freco
+            await conn.execute(
+                "UPDATE freco_people SET active=$1, updated_at=now() WHERE external_id=$2",
+                is_active,
+                str(user_id),
+            )
+            # If deactivating or suspending, unassign or deactivate user RFID
+            if not is_active:
+                await conn.execute(
+                    """
+                    UPDATE rfid_cards SET status='inactive', updated_at=now()
+                    WHERE id IN (
+                        SELECT rfid_card_id FROM user_rfid_cards
+                        WHERE user_id=$1 AND unassigned_at IS NULL
+                    )
+                    """,
+                    user_id,
+                )
+
+        # Sync Keycloak enabled status
+        if current_user.keycloak_user_id:
+            try:
+                await keycloak_client.set_user_enabled(current_user.keycloak_user_id, is_active)
+            except Exception as e:
+                logger.warning("Keycloak status sync failed: %s", e)
+
+        await audit_service.log(
+            conn=conn,
+            actor_id=actor_id,
+            operation=f"USER_{new_status.upper()}",
+            entity_type="user",
+            entity_id=str(user_id),
+            before_state={"status": current_user.status},
+            after_state={"status": new_status, "reason": reason},
+        )
+
+    async def delete_user(self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID) -> None:
+        current_user = await self.get_by_id(conn, user_id)
+        if not current_user:
+            raise ValueError("User not found")
+
+        # Delete from Keycloak if linked
+        if current_user.keycloak_user_id:
+            try:
+                await keycloak_client.delete_user(current_user.keycloak_user_id)
+            except Exception as e:
+                logger.warning("Keycloak user deletion failed: %s", e)
+
+        # Delete in DB (cascades)
+        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
+
+        await audit_service.log(
+            conn=conn,
+            actor_id=actor_id,
+            operation="USER_DELETED",
+            entity_type="user",
+            entity_id=str(user_id),
+            before_state=current_user.model_dump(),
+        )
+
+    async def advance_semesters(self, conn: asyncpg.Connection, actor_id: Optional[str]) -> int:
+        result = await self.list_users(conn, user_type="student", status="active", limit=10000)
+        updated_count = 0
+
+        for u in result.users:
+            if not u.profile or not u.profile.semester:
+                continue
+
+            try:
+                sem_int = int(u.profile.semester.strip())
+            except ValueError:
+                continue
+
+            user_uuid = uuid.UUID(u.id)
+            if 1 <= sem_int < 8:
+                new_sem = str(sem_int + 1)
+                req = UpdateUserRequest(profile=ProfileRequest(full_name=u.profile.full_name, semester=new_sem))
+                await self.update_user(conn, actor_id, user_uuid, req)
+                updated_count += 1
+            elif sem_int >= 8:
+                await self.update_status(conn, actor_id, user_uuid, "deactivated", "semester_advance_graduation")
+                updated_count += 1
+
+        return updated_count
+
+    async def list_departments(self, conn: asyncpg.Connection) -> List[Department]:
+        rows = await conn.fetch("SELECT id, name, code, school FROM departments ORDER BY name")
+        return [
+            Department(
+                id=str(r["id"]),
+                name=r["name"],
+                code=r["code"],
+                school=r["school"],
+            )
+            for r in rows
+        ]
+
+    async def list_hostels(self, conn: asyncpg.Connection) -> List[Hostel]:
+        rows = await conn.fetch("SELECT id, name, code, capacity FROM hostels ORDER BY name")
+        return [
+            Hostel(
+                id=str(r["id"]),
+                name=r["name"],
+                code=r["code"],
+                capacity=r["capacity"],
+            )
+            for r in rows
+        ]
+
+    async def get_stats(self, conn: asyncpg.Connection) -> Stats:
+        row = await conn.fetchrow(
+            """
+            SELECT
+                COUNT(*) as total_users,
+                COUNT(*) FILTER (WHERE status='active') as active_users,
+                COUNT(*) FILTER (WHERE status='suspended') as suspended_users,
+                COUNT(*) FILTER (WHERE status='deactivated') as deactivated_users,
+                COUNT(*) FILTER (WHERE user_type='student') as students,
+                COUNT(*) FILTER (WHERE user_type='faculty') as faculty,
+                COUNT(*) FILTER (WHERE user_type='worker') as workers,
+                COUNT(*) FILTER (WHERE user_type='visitor') as visitors
+            FROM users
+            """
+        )
+        return Stats(
+            total_users=row["total_users"],
+            active_users=row["active_users"],
+            suspended_users=row["suspended_users"],
+            deactivated_users=row["deactivated_users"],
+            students=row["students"],
+            faculty=row["faculty"],
+            workers=row["workers"],
+            visitors=row["visitors"],
+        )
+
+    def _row_to_user(self, r: Any) -> User:
+        p = Profile(
+            user_id=str(r["id"]),
+            full_name=r["full_name"] or "",
+            roll_number=r["roll_number"],
+            employee_id=r["employee_id"],
+            department_id=str(r["department_id"]) if r["department_id"] else None,
+            department=r["department"],
+            school=r["school"],
+            course=r["course"],
+            semester=r["semester"],
+            designation=r["designation"],
+            hostel_flag=r["hostel_flag"] or False,
+            hostel_id=str(r["hostel_id"]) if r["hostel_id"] else None,
+            emergency_contact=r["emergency_contact"],
+            guardian_contact=r["guardian_contact"],
+            photo_reference=r["photo_reference"],
+            gov_id_type=r["gov_id_type"],
+            gov_id_number=r["gov_id_number"],
+            visit_purpose=r["visit_purpose"],
+            host_contact=r["host_contact"],
+            visit_start=r["visit_start"].isoformat() if r["visit_start"] else None,
+            visit_duration_days=r["visit_duration_days"],
+            updated_at=r["p_updated_at"].isoformat() if r["p_updated_at"] else None,
+        )
+
+        return User(
+            id=str(r["id"]),
+            keycloak_user_id=r["keycloak_user_id"],
+            user_type=r["user_type"],
+            status=r["status"],
+            email=r["email"],
+            phone=r["phone"],
+            created_at=r["created_at"].isoformat() if r["created_at"] else "",
+            updated_at=r["updated_at"].isoformat() if r["updated_at"] else "",
+            profile=p,
+            roles=[],
+            active_rfid=r["active_rfid"],
+            has_face_auth=r["has_face_auth"] or False,
+        )
+
+
+user_service = UserService()

@@ -1,14 +1,20 @@
-FROM golang:1.22-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/api
+FROM python:3.11-slim
 
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates
 WORKDIR /app
-COPY --from=builder /server .
-COPY --from=builder /app/migrations ./migrations
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code and migrations
+COPY app/ ./app/
+COPY migrations/ ./migrations/
+
 EXPOSE 8080
-CMD ["./server"]
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
