@@ -109,10 +109,6 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_profiles_department  ON user_profiles (department_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_roll_number ON user_profiles (roll_number);
-CREATE INDEX IF NOT EXISTS idx_profiles_employee_id ON user_profiles (employee_id);
-
 -- ── RFID cards ───────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS rfid_cards (
