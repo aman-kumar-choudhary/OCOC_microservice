@@ -4,7 +4,8 @@ import { useAuth } from '@/context/AuthContext'
 import dsvvLogo from '@/assets/Dsvv.png'
 import {
   Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu,
-  ShieldAlert, UserPlus, Users, X, ScanFace, ChevronDown, Mail
+  ShieldAlert, UserPlus, Users, X, ScanFace, ChevronDown, Mail, Lock,
+  Shield, Home, Server
 } from 'lucide-react'
 
 export const DashboardLayout = ({ children }) => {
@@ -24,6 +25,10 @@ export const DashboardLayout = ({ children }) => {
     { name: 'RFID Cards', path: '/rfid', icon: CreditCard, permission: 'rfid:read' },
     { name: 'Face Lab', path: '/face-recognition', icon: ScanFace },
     { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert },
+    { name: 'Access Control', path: '/access', icon: Lock },
+    { name: 'Guard Console', path: '/guard', icon: Shield },
+    { name: 'Hostel Monitors', path: '/hostel', icon: Home },
+    { name: 'Device Registry', path: '/devices', icon: Server },
     { name: 'Audit Log', path: '/audit', icon: Activity, permission: 'audit:read' },
   ]
 

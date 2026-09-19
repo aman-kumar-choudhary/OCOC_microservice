@@ -32,7 +32,7 @@ const schoolDepartments = {
 }
 
 const departmentCourses = {
-  'Department of Computer Sciences': ['B.Sc. IT', 'BCA', 'M.Sc. Data Science', 'MCA'],
+  'Department of Computer Sciences': ['B.Sc. IT', 'BCA', 'MCA'],
   'Department of Tourism Management': ['BBA Tourism', 'MBA Tourism'],
   'Department of Journalism & Mass Communication': ['B.A. Mass Comm', 'M.A. Mass Comm'],
   'Department of Animation and Visual Effects': ['B.Sc. Animation', 'M.Sc. Animation'],
@@ -141,7 +141,7 @@ export const UserProfileForm = ({
                 value={profile.full_name || ''}
                 onChange={(e) => updateField('full_name', e.target.value)}
                 className="form-input"
-                placeholder="e.g. Anand Sharma"
+                placeholder="Enter name"
               />
             </div>
           </div>
@@ -157,7 +157,7 @@ export const UserProfileForm = ({
                 value={formData.email || ''}
                 onChange={(e) => updateField('email', e.target.value)}
                 className="form-input pl-9"
-                placeholder="anand@dsvv.ac.in"
+                placeholder="Enter email"
               />
             </div>
           </div>
@@ -172,7 +172,7 @@ export const UserProfileForm = ({
                 value={formData.phone || ''}
                 onChange={(e) => updateField('phone', e.target.value)}
                 className="form-input pl-9"
-                placeholder="e.g. +91 9876543210"
+                placeholder="Enter phone no."
               />
             </div>
           </div>
@@ -199,7 +199,7 @@ export const UserProfileForm = ({
                   value={profile.roll_number || ''}
                   onChange={(e) => updateField('roll_number', e.target.value)}
                   className="form-input pl-9 font-mono"
-                  placeholder="e.g. 23BCS041"
+                  placeholder="Enter Scholar id"
                 />
               </div>
             </div>
@@ -286,7 +286,7 @@ export const UserProfileForm = ({
                   value={profile.guardian_contact || ''}
                   onChange={(e) => updateField('guardian_contact', e.target.value)}
                   className="form-input pl-9"
-                  placeholder="e.g. +91 9876543210"
+                  placeholder="Enter Guardian contact no"
                 />
               </div>
             </div>
@@ -355,7 +355,7 @@ export const UserProfileForm = ({
                   value={profile.employee_id || ''}
                   onChange={(e) => updateField('employee_id', e.target.value)}
                   className="form-input pl-9 font-mono"
-                  placeholder="e.g. EMP1029"
+                  placeholder="Enter employee id"
                 />
               </div>
             </div>
@@ -370,7 +370,7 @@ export const UserProfileForm = ({
                   value={profile.designation || ''}
                   onChange={(e) => updateField('designation', e.target.value)}
                   className="form-input pl-9"
-                  placeholder="e.g. Associate Professor"
+                  placeholder="Enter designation"
                 />
               </div>
             </div>
@@ -417,7 +417,7 @@ export const UserProfileForm = ({
                   value={profile.employee_id || ''}
                   onChange={(e) => updateField('employee_id', e.target.value)}
                   className="form-input pl-9 font-mono"
-                  placeholder="e.g. STF0082"
+                  placeholder="Enter worker id"
                 />
               </div>
             </div>
@@ -433,7 +433,7 @@ export const UserProfileForm = ({
                   updateField('designation', e.target.value)
                 }}
                 className="form-input"
-                placeholder="e.g. Electrician, Security Officer, Lab Tech"
+                placeholder="Enter worker role"
               />
             </div>
           </div>
@@ -483,19 +483,18 @@ export const UserProfileForm = ({
                 value={profile.visit_purpose || ''}
                 onChange={(e) => updateField('visit_purpose', e.target.value)}
                 className="form-input"
-                placeholder="e.g. Academic seminar, Guest lecture, Parent meeting"
+                placeholder="Enter purpose of visit"
               />
             </div>
 
             <div className="form-group sm:col-span-2">
-              <label className="form-label">Host Contact / Department *</label>
+              <label className="form-label">Host Contact / Department(Optional)</label>
               <input
                 type="text"
-                required
                 value={profile.host_contact || ''}
                 onChange={(e) => updateField('host_contact', e.target.value)}
                 className="form-input"
-                placeholder="e.g. Dr. Verma (Computer Science Dept) / 9876543210"
+                placeholder="Enter host /contact"
               />
             </div>
           </div>

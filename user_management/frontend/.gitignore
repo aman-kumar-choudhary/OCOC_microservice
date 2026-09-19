@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Environment & secrets
+.env
+.env.*
+*.env
+
+# Keycloak
+keycloak.json
+keycloak-*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

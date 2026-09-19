@@ -8,8 +8,7 @@ import asyncpg
 from app.core.database import get_db
 from app.core.security import Claims, require_permission
 from app.schemas.common import error_response, success_response
-from app.schemas.onboarding import OnboardingRequest, RFIDEnrollRequest
-from app.schemas.user import CreateUserRequest
+from app.schemas.onboarding import OnboardingRequest, RFIDEnrollRequest, WrappedUserRequest
 from app.services.onboarding_service import onboarding_service
 
 logger = logging.getLogger(__name__)
@@ -33,42 +32,62 @@ async def onboard_generic(
 
 @router.post("/student")
 async def onboard_student(
-    user_req: CreateUserRequest,
+    req: WrappedUserRequest,
     conn: asyncpg.Connection = Depends(get_db),
     claims: Claims = Depends(require_permission("user:create")),
 ):
-    req = OnboardingRequest(persona="student", user=user_req)
-    return await onboard_generic(req, conn, claims)
+    try:
+        onboarding_req = OnboardingRequest(persona="student", user=req.user)
+        res = await onboarding_service.onboard(conn, actor_id=claims.sub, req=onboarding_req)
+        return success_response(data=res.model_dump(), status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error("Student onboarding failed for actor %s: %s", claims.sub, e)
+        return error_response("ONBOARDING_FAILED", str(e), status_code=400)
 
 
 @router.post("/faculty")
 async def onboard_faculty(
-    user_req: CreateUserRequest,
+    req: WrappedUserRequest,
     conn: asyncpg.Connection = Depends(get_db),
     claims: Claims = Depends(require_permission("user:create")),
 ):
-    req = OnboardingRequest(persona="faculty", user=user_req)
-    return await onboard_generic(req, conn, claims)
+    try:
+        onboarding_req = OnboardingRequest(persona="faculty", user=req.user)
+        res = await onboarding_service.onboard(conn, actor_id=claims.sub, req=onboarding_req)
+        return success_response(data=res.model_dump(), status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error("Faculty onboarding failed for actor %s: %s", claims.sub, e)
+        return error_response("ONBOARDING_FAILED", str(e), status_code=400)
 
 
 @router.post("/worker")
 async def onboard_worker(
-    user_req: CreateUserRequest,
+    req: WrappedUserRequest,
     conn: asyncpg.Connection = Depends(get_db),
     claims: Claims = Depends(require_permission("user:create")),
 ):
-    req = OnboardingRequest(persona="worker", user=user_req)
-    return await onboard_generic(req, conn, claims)
+    try:
+        onboarding_req = OnboardingRequest(persona="worker", user=req.user)
+        res = await onboarding_service.onboard(conn, actor_id=claims.sub, req=onboarding_req)
+        return success_response(data=res.model_dump(), status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error("Worker onboarding failed for actor %s: %s", claims.sub, e)
+        return error_response("ONBOARDING_FAILED", str(e), status_code=400)
 
 
 @router.post("/visitor")
 async def onboard_visitor(
-    user_req: CreateUserRequest,
+    req: WrappedUserRequest,
     conn: asyncpg.Connection = Depends(get_db),
     claims: Claims = Depends(require_permission("user:create")),
 ):
-    req = OnboardingRequest(persona="visitor", user=user_req)
-    return await onboard_generic(req, conn, claims)
+    try:
+        onboarding_req = OnboardingRequest(persona="visitor", user=req.user)
+        res = await onboarding_service.onboard(conn, actor_id=claims.sub, req=onboarding_req)
+        return success_response(data=res.model_dump(), status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error("Visitor onboarding failed for actor %s: %s", claims.sub, e)
+        return error_response("ONBOARDING_FAILED", str(e), status_code=400)
 
 
 @router.post("/{user_id}/rfid")

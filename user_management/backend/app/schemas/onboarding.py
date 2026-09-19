@@ -20,3 +20,13 @@ class OnboardingResult(BaseModel):
 
 class RFIDEnrollRequest(BaseModel):
     uid: str
+
+
+class WrappedUserRequest(BaseModel):
+    """
+    The shape the frontend Onboarding form sends for persona-specific routes.
+    Wraps CreateUserRequest so user_type is NOT required in the body —
+    it is injected server-side from the URL path (/onboarding/student etc.).
+    """
+    user: CreateUserRequest
+

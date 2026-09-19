@@ -3,7 +3,7 @@ import api from '@/services/api'
 import { formatDateTime, timeAgo } from '@/utils/date'
 import {
   ShieldCheck, ShieldX, Activity, RefreshCw, Search,
-  ChevronLeft, ChevronRight, Loader2
+  ChevronLeft, ChevronRight, Loader2, Calendar, X
 } from 'lucide-react'
 
 export const FaceAuthLog = () => {
@@ -14,6 +14,7 @@ export const FaceAuthLog = () => {
   const [limit] = useState(25)
   const [totalPages, setTotalPages] = useState(1)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [showDateRange, setShowDateRange] = useState(false)
 
   const [filters, setFilters] = useState({ result: '', auth_type: '', from: '', to: '' })
   const [searchPerson, setSearchPerson] = useState('')
@@ -21,11 +22,7 @@ export const FaceAuthLog = () => {
   const fetchLogs = useCallback(async (customPage) => {
     setIsLoading(true)
     try {
-      const params = {
-        page: customPage || page,
-        limit,
-        ...filters,
-      }
+      const params = { page: customPage || page, limit, ...filters }
       if (searchPerson) params.person_id = searchPerson
       const { data } = await api.get('/face-auth/logs', { params })
       setLogs(data.data?.logs || [])
@@ -38,20 +35,12 @@ export const FaceAuthLog = () => {
     }
   }, [page, limit, filters, searchPerson])
 
-  useEffect(() => {
-    fetchLogs(1)
-  }, [filters.result, filters.auth_type, filters.from, filters.to])
+  useEffect(() => { fetchLogs(1) }, [filters.result, filters.auth_type, filters.from, filters.to])
 
   useEffect(() => {
-    let interval
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchLogs()
-      }, 10000)
-    }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
+    if (!autoRefresh) return
+    const interval = setInterval(() => fetchLogs(), 10000)
+    return () => clearInterval(interval)
   }, [autoRefresh, fetchLogs])
 
   const todayStats = useMemo(() => {
@@ -65,12 +54,8 @@ export const FaceAuthLog = () => {
   }, [logs])
 
   const resultStyle = (result) => {
-    if (result === 'success') {
-      return { pill: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25', isSuccess: true }
-    }
-    if (result === 'liveness_failed') {
-      return { pill: 'bg-orange-500/10 text-orange-600 border-orange-500/25', isSuccess: false }
-    }
+    if (result === 'success') return { pill: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25', isSuccess: true }
+    if (result === 'liveness_failed') return { pill: 'bg-orange-500/10 text-orange-600 border-orange-500/25', isSuccess: false }
     return { pill: 'bg-red-500/10 text-red-600 border-red-500/25', isSuccess: false }
   }
 
@@ -82,153 +67,198 @@ export const FaceAuthLog = () => {
   }
 
   const confColor = (score) => {
-    if (!score) return 'bg-gray-600'
+    if (!score) return 'bg-slate-400'
     if (score >= 0.75) return 'bg-emerald-500'
     if (score >= 0.55) return 'bg-yellow-500'
     return 'bg-red-500'
   }
 
+  const hasDateFilter = filters.from || filters.to
+  const clearDates = () => setFilters((f) => ({ ...f, from: '', to: '' }))
+
+  /* ── Result filter buttons ── */
+  const resultOptions = [
+    { value: '', label: 'All' },
+    { value: 'success', label: '✓ Auth' },
+    { value: 'failed', label: '✗ Rejected' },
+    { value: 'liveness_failed', label: 'Liveness' },
+  ]
+  const typeOptions = [
+    { value: '', label: 'All Types' },
+    { value: 'single', label: '👤 Single' },
+    { value: 'mass', label: '👥 Mass' },
+  ]
+
+  const chipBtn = (active) =>
+    `h-8 px-3 rounded-lg border text-xs font-semibold transition cursor-pointer ${active
+      ? 'bg-[#0a2342] text-[#f5bd19] border-[#0a2342]'
+      : 'border-[var(--border-light)] text-[var(--text-muted)] hover:border-slate-300 hover:text-[var(--text-main)] bg-white'}`
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-5">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Auth Monitor</h1>
-          <p className="text-muted text-sm mt-1">Real-time face authentication event log</p>
+          <h1 className="text-2xl font-bold text-[var(--text-main)]">Auth Monitor</h1>
+          <p className="text-sm text-[var(--text-muted)] mt-0.5">Real-time face authentication event log</p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Auto-refresh toggle */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${
-              autoRefresh
-                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25'
-                : 'border-[var(--border-light)] text-muted'
-            }`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${autoRefresh
+              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25'
+              : 'border-[var(--border-light)] text-[var(--text-muted)] bg-white'}`}
           >
-            <span
-              className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-500 animate-pulse' : 'bg-gray-500'}`}
-            ></span>
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
             {autoRefresh ? 'Live' : 'Paused'}
           </button>
-          <button onClick={() => fetchLogs()} className="btn btn-outline py-1.5 px-3" id="refresh-auth-log-btn">
-            <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+          <button
+            onClick={() => fetchLogs()}
+            id="refresh-auth-log-btn"
+            className="h-8 w-8 grid place-items-center rounded-lg border border-[var(--border-light)] bg-white hover:bg-slate-50 transition text-[var(--text-muted)]"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="glass-panel p-4 flex flex-col gap-1">
-          <span className="text-xs text-muted font-semibold uppercase tracking-wide">Total Events</span>
-          <span className="text-3xl font-extrabold">{total.toLocaleString()}</span>
-        </div>
-        <div className="glass-panel p-4 flex flex-col gap-1">
-          <span className="text-xs text-muted font-semibold uppercase tracking-wide">Pass Rate</span>
-          <div className="flex items-end gap-1">
-            <span className={`text-3xl font-extrabold ${todayStats.passRate >= 80 ? 'text-emerald-600' : 'text-red-500'}`}>
-              {todayStats.passRate}
-            </span>
-            <span className="text-muted pb-1">%</span>
+      {/* ── KPI Strip ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Events', value: total.toLocaleString(), color: '' },
+          { label: 'Authenticated', value: todayStats.success, color: 'text-emerald-600' },
+          { label: 'Rejected', value: todayStats.failed, color: 'text-red-500' },
+          { label: 'Pass Rate', value: `${todayStats.passRate}%`, color: todayStats.passRate >= 80 ? 'text-emerald-600' : 'text-red-500' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-white border border-[var(--border-light)] rounded-xl p-4 shadow-sm flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)]">{label}</span>
+            <span className={`text-2xl font-extrabold ${color}`}>{value}</span>
+            {label === 'Pass Rate' && (
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div className={`h-full rounded-full transition-all ${todayStats.passRate >= 80 ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${todayStats.passRate}%` }} />
+              </div>
+            )}
           </div>
-          <div className="h-1.5 rounded-full bg-[var(--border-light)] overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${todayStats.passRate >= 80 ? 'bg-emerald-500' : 'bg-red-500'}`}
-              style={{ width: `${todayStats.passRate}%` }}
+        ))}
+      </div>
+
+      {/* ── Compact Filter Bar ── */}
+      <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm px-4 py-3 space-y-2">
+
+        {/* Row 1 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Person search */}
+          <div className="relative w-44">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              value={searchPerson}
+              onChange={(e) => setSearchPerson(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') fetchLogs(1) }}
+              placeholder="Person ID…"
+              className="h-8 w-full rounded-lg border border-[var(--border-light)] bg-white pl-7 pr-3 text-xs text-[var(--text-main)] placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
             />
           </div>
+
+          {/* Separator */}
+          <div className="w-px h-6 bg-[var(--border-light)]" />
+
+          {/* Result chips */}
+          <div className="flex items-center gap-1">
+            {resultOptions.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilters((f) => ({ ...f, result: value }))}
+                className={chipBtn(filters.result === value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Separator */}
+          <div className="w-px h-6 bg-[var(--border-light)]" />
+
+          {/* Auth type chips */}
+          <div className="flex items-center gap-1">
+            {typeOptions.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilters((f) => ({ ...f, auth_type: value }))}
+                className={chipBtn(filters.auth_type === value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1" />
+
+          {/* Date range toggle */}
+          <button
+            onClick={() => setShowDateRange(!showDateRange)}
+            className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-semibold transition ${showDateRange || hasDateFilter
+              ? 'bg-[#0a2342] text-[#f5bd19] border-[#0a2342]'
+              : 'border-[var(--border-light)] text-[var(--text-muted)] bg-white hover:border-slate-300'}`}
+          >
+            <Calendar size={12} />
+            {hasDateFilter ? 'Dates set' : 'Date range'}
+          </button>
         </div>
-        <div className="glass-panel p-4 flex flex-col gap-1">
-          <span className="text-xs text-muted font-semibold uppercase tracking-wide">Authenticated</span>
-          <span className="text-3xl font-extrabold text-emerald-600">{todayStats.success}</span>
-        </div>
-        <div className="glass-panel p-4 flex flex-col gap-1">
-          <span className="text-xs text-muted font-semibold uppercase tracking-wide">Rejected</span>
-          <span className="text-3xl font-extrabold text-red-500">{todayStats.failed}</span>
-        </div>
+
+        {/* Row 2 — Date range (collapsible) */}
+        {showDateRange && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--border-light)] animate-fade-in">
+            <label className="text-xs font-semibold text-[var(--text-muted)] w-8">From</label>
+            <input
+              value={filters.from}
+              onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+              type="date"
+              className="h-8 rounded-lg border border-[var(--border-light)] bg-white px-2.5 text-xs text-[var(--text-main)] focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
+            />
+            <label className="text-xs font-semibold text-[var(--text-muted)]">To</label>
+            <input
+              value={filters.to}
+              onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+              type="date"
+              className="h-8 rounded-lg border border-[var(--border-light)] bg-white px-2.5 text-xs text-[var(--text-main)] focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
+            />
+            {hasDateFilter && (
+              <button onClick={clearDates} className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-red-200 text-xs font-semibold text-red-500 hover:bg-red-50 transition">
+                <X size={11} /> Clear dates
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Filters */}
-      <div className="glass-panel p-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={searchPerson}
-            onChange={(e) => setSearchPerson(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') fetchLogs(1)
-            }}
-            placeholder="Person ID or name…"
-            className="form-input pl-8 text-sm"
-          />
-        </div>
-        <select
-          value={filters.result}
-          onChange={(e) => setFilters({ ...filters, result: e.target.value })}
-          className="form-input form-select min-w-[145px] text-sm"
-        >
-          <option value="">All Results</option>
-          <option value="success">Authenticated</option>
-          <option value="failed">Rejected</option>
-          <option value="liveness_failed">Liveness Failed</option>
-          <option value="unknown">Unknown</option>
-        </select>
-        <select
-          value={filters.auth_type}
-          onChange={(e) => setFilters({ ...filters, auth_type: e.target.value })}
-          className="form-input form-select min-w-[130px] text-sm"
-        >
-          <option value="">All Types</option>
-          <option value="single">Single</option>
-          <option value="mass">Mass</option>
-        </select>
-        <input
-          value={filters.from}
-          onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-          type="date"
-          className="form-input text-sm"
-          title="From date"
-        />
-        <input
-          value={filters.to}
-          onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-          type="date"
-          className="form-input text-sm"
-          title="To date"
-        />
-      </div>
-
-      {/* Log Table */}
-      <div className="glass-panel overflow-hidden relative">
+      {/* ── Log Table ── */}
+      <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-[var(--bg-card)]/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={32} />
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center">
+            <Loader2 className="animate-spin text-[#f5bd19]" size={28} />
           </div>
         )}
 
         {logs.length === 0 && !isLoading ? (
           <div className="py-20 text-center">
-            <Activity size={48} className="mx-auto text-muted opacity-30 mb-4" />
-            <p className="font-semibold text-muted">No authentication events found.</p>
-            <p className="text-xs text-muted mt-1">Run a face match from Face Lab to see events here.</p>
+            <Activity size={40} className="mx-auto text-slate-300 mb-3" />
+            <p className="font-semibold text-[var(--text-muted)]">No authentication events found.</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Run a face match from Face Lab to see events here.</p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--border-light)]">
             {logs.map((log) => {
               const style = resultStyle(log.result)
               return (
-                <div
-                  key={log.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 hover:bg-[rgba(148,163,184,0.04)] transition-colors group"
-                >
-                  {/* Result Pill */}
+                <div key={log.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-3.5 hover:bg-slate-50/70 transition-colors group">
+
+                  {/* Result */}
                   <div className="flex items-center gap-2 w-44 shrink-0">
-                    {style.isSuccess ? (
-                      <ShieldCheck size={20} className="text-emerald-500" />
-                    ) : (
-                      <ShieldX size={20} className="text-red-500" />
-                    )}
-                    <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full border tracking-wider ${style.pill}`}>
+                    {style.isSuccess
+                      ? <ShieldCheck size={18} className="text-emerald-500 shrink-0" />
+                      : <ShieldX size={18} className="text-red-500 shrink-0" />}
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border tracking-wider ${style.pill}`}>
                       {resultLabel(log.result)}
                     </span>
                   </div>
@@ -236,50 +266,39 @@ export const FaceAuthLog = () => {
                   {/* Time */}
                   <div className="w-36 shrink-0">
                     <div className="text-sm font-semibold font-mono">{formatDateTime(log.created_at)}</div>
-                    <div className="text-xs text-muted">{timeAgo(log.created_at)}</div>
+                    <div className="text-xs text-[var(--text-muted)]">{timeAgo(log.created_at)}</div>
                   </div>
 
                   {/* Person */}
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm truncate">{log.person_name || 'Unknown Person'}</div>
-                    <div className="text-xs text-muted font-mono truncate">{log.person_external_id || '—'}</div>
+                    <div className="text-xs text-[var(--text-muted)] font-mono truncate">{log.person_external_id || '—'}</div>
                   </div>
 
-                  {/* Type badge */}
+                  {/* Auth type */}
                   <div className="shrink-0">
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        log.auth_type === 'mass'
-                          ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
-                          : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                      }`}
-                    >
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${log.auth_type === 'mass'
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                       {log.auth_type === 'mass' ? '👥 Mass' : '👤 Single'}
                     </span>
                   </div>
 
-                  {/* Confidence bar */}
+                  {/* Confidence */}
                   {log.similarity_score != null && (
-                    <div className="w-28 shrink-0">
-                      <div className="text-xs text-muted mb-1">Confidence</div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-[var(--border-light)] overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${confColor(log.similarity_score)}`}
-                            style={{ width: `${Math.round(log.similarity_score * 100)}%` }}
-                          />
+                    <div className="w-24 shrink-0">
+                      <div className="text-[10px] text-[var(--text-muted)] mb-1">Confidence</div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${confColor(log.similarity_score)}`} style={{ width: `${Math.round(log.similarity_score * 100)}%` }} />
                         </div>
-                        <span className="text-xs font-bold w-8 text-right">
-                          {Math.round((log.similarity_score ?? 0) * 100)}%
-                        </span>
+                        <span className="text-xs font-bold w-8 text-right">{Math.round((log.similarity_score ?? 0) * 100)}%</span>
                       </div>
                     </div>
                   )}
 
                   {/* Reason */}
-                  <div className="shrink-0 text-xs text-muted w-36 truncate" title={log.reason}>
-                    {log.reason || '—'}
-                  </div>
+                  <div className="shrink-0 text-xs text-[var(--text-muted)] w-32 truncate" title={log.reason}>{log.reason || '—'}</div>
                 </div>
               )
             })}
@@ -288,32 +307,24 @@ export const FaceAuthLog = () => {
 
         {/* Pagination */}
         {logs.length > 0 && (
-          <div className="p-4 border-t border-[var(--border-light)] flex justify-between items-center text-sm">
-            <span className="text-muted">
+          <div className="px-4 py-3 border-t border-[var(--border-light)] flex justify-between items-center text-sm bg-slate-50/60">
+            <span className="text-[var(--text-muted)]">
               {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
             </span>
             <div className="flex items-center gap-1">
               <button
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted hover:border-[#f5bd19] disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 disabled:opacity-40 transition"
                 disabled={page <= 1}
-                onClick={() => {
-                  const prev = page - 1
-                  setPage(prev)
-                  fetchLogs(prev)
-                }}
+                onClick={() => { const p = page - 1; setPage(p); fetchLogs(p) }}
               >
-                <ChevronLeft size={15} />
+                <ChevronLeft size={14} />
               </button>
               <button
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted hover:border-[#f5bd19] disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 disabled:opacity-40 transition"
                 disabled={page >= totalPages}
-                onClick={() => {
-                  const next = page + 1
-                  setPage(next)
-                  fetchLogs(next)
-                }}
+                onClick={() => { const p = page + 1; setPage(p); fetchLogs(p) }}
               >
-                <ChevronRight size={15} />
+                <ChevronRight size={14} />
               </button>
             </div>
           </div>

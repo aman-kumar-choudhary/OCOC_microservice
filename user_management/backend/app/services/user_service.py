@@ -49,44 +49,44 @@ class UserService:
         args = []
         idx = 1
 
-        if user_type:
+        if user_type and user_type.strip():
             clauses.append(f"u.user_type = ${idx}")
-            args.append(user_type.lower())
+            args.append(user_type.strip().lower())
             idx += 1
-        if status:
+        if status and status.strip():
             clauses.append(f"u.status = ${idx}")
-            args.append(status.lower())
+            args.append(status.strip().lower())
             idx += 1
-        if school:
+        if school and school.strip():
             clauses.append(f"d.school = ${idx}")
-            args.append(school)
+            args.append(school.strip())
             idx += 1
-        if department:
+        if department and department.strip():
             clauses.append(f"d.name = ${idx}")
-            args.append(department)
+            args.append(department.strip())
             idx += 1
-        if course:
+        if course and course.strip():
             clauses.append(f"sp.course = ${idx}")
-            args.append(course)
+            args.append(course.strip())
             idx += 1
-        if semester:
+        if semester and semester.strip():
             clauses.append(f"sp.semester = ${idx}")
-            args.append(semester)
+            args.append(semester.strip())
             idx += 1
-        if hostel_id:
+        if hostel_id and hostel_id.strip():
             try:
-                h_uuid = uuid.UUID(hostel_id)
+                h_uuid = uuid.UUID(hostel_id.strip())
                 clauses.append(f"sp.hostel_id = ${idx}")
                 args.append(h_uuid)
                 idx += 1
             except Exception:
                 pass
-        if hostel_status == "hosteller":
+        if hostel_status and hostel_status.strip() == "hosteller":
             clauses.append("sp.hostel_id IS NOT NULL")
-        elif hostel_status == "day_scholar":
+        elif hostel_status and hostel_status.strip() == "day_scholar":
             clauses.append("sp.hostel_id IS NULL")
 
-        if search:
+        if search and search.strip():
             s_pat = f"%{search.strip()}%"
             clauses.append(
                 f"(u.email ILIKE ${idx} OR u.phone ILIKE ${idx} OR "
@@ -98,9 +98,9 @@ class UserService:
             args.append(s_pat)
             idx += 1
 
-        if role:
+        if role and role.strip():
             clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = ${idx})")
-            args.append(role)
+            args.append(role.strip())
             idx += 1
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
@@ -138,7 +138,7 @@ class UserService:
                 COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
                  WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
-                EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id::text) AS has_face_auth
+                EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id) AS has_face_auth
             {base_from}
             ORDER BY u.created_at DESC
             LIMIT ${idx} OFFSET ${idx + 1}
@@ -171,7 +171,7 @@ class UserService:
                 COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
                  WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
-                EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id::text) AS has_face_auth
+                EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id) AS has_face_auth
             FROM users u
             LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
             LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
@@ -199,6 +199,9 @@ class UserService:
         actor_id: Optional[str],
         req: CreateUserRequest,
     ) -> User:
+        if not req.user_type:
+            raise ValueError("user_type is required to create a user")
+
         # Check email uniqueness
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER($1))",
@@ -217,6 +220,7 @@ class UserService:
 
         user_id = uuid.uuid4()
         user_type = req.user_type.lower()
+
 
         # Department & hostel UUID validation
         dept_uuid = None
@@ -508,13 +512,25 @@ class UserService:
             await conn.execute(
                 "UPDATE freco_people SET active=$1, updated_at=now() WHERE external_id=$2",
                 is_active,
-                str(user_id),
+                user_id,  # external_id is UUID type, pass UUID object directly
             )
             # If deactivating or suspending, unassign or deactivate user RFID
             if not is_active:
                 await conn.execute(
                     """
                     UPDATE rfid_cards SET status='inactive', updated_at=now()
+                    WHERE id IN (
+                        SELECT rfid_card_id FROM user_rfid_cards
+                        WHERE user_id=$1 AND unassigned_at IS NULL
+                    )
+                    """,
+                    user_id,
+                )
+            else:
+                # Reactivate currently assigned RFID card if user is activated
+                await conn.execute(
+                    """
+                    UPDATE rfid_cards SET status='active', updated_at=now()
                     WHERE id IN (
                         SELECT rfid_card_id FROM user_rfid_cards
                         WHERE user_id=$1 AND unassigned_at IS NULL
@@ -539,6 +555,36 @@ class UserService:
             before_state={"status": current_user.status},
             after_state={"status": new_status, "reason": reason},
         )
+
+    async def bulk_transfer_hostel(
+        self,
+        conn: asyncpg.Connection,
+        actor_id: Optional[str],
+        user_ids: List[uuid.UUID],
+        new_hostel_id: uuid.UUID
+    ) -> None:
+        if not user_ids:
+            return
+            
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE student_profiles SET hostel_id = $1, updated_at = now() WHERE user_id = ANY($2::uuid[])",
+                new_hostel_id,
+                user_ids
+            )
+            
+            # Log audit for each
+            for uid in user_ids:
+                await audit_service.log(
+                    conn=conn,
+                    actor_id=actor_id,
+                    operation="USER_UPDATED",
+                    entity_type="user",
+                    entity_id=str(uid),
+                    before_state={"bulk_transfer": True},
+                    after_state={"hostel_id": str(new_hostel_id)}
+                )
+
 
     async def delete_user(self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID) -> None:
         current_user = await self.get_by_id(conn, user_id)

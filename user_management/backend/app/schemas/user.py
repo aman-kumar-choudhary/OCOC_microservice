@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+import uuid
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -33,7 +34,7 @@ class Profile(ProfileRequest):
 
 
 class CreateUserRequest(BaseModel):
-    user_type: str = Field(..., pattern="^(student|faculty|worker|visitor)$")
+    user_type: Optional[str] = Field(None, pattern="^(student|faculty|worker|visitor)$")
     email: EmailStr
     phone: Optional[str] = None
     password: Optional[str] = ""
@@ -43,6 +44,11 @@ class CreateUserRequest(BaseModel):
 class UpdateUserRequest(BaseModel):
     phone: Optional[str] = None
     profile: Optional[ProfileRequest] = None
+
+
+class BulkTransferRequest(BaseModel):
+    user_ids: List[uuid.UUID]
+    new_hostel_id: uuid.UUID
 
 
 class User(BaseModel):

@@ -23,6 +23,11 @@ from app.routers import (
     rfid,
     roles,
     users,
+    access,
+    ws,
+    devices,
+    reports,
+    hostel,
 )
 
 logging.basicConfig(
@@ -79,6 +84,25 @@ app.add_middleware(
 )
 
 
+# ── Request Logging Middleware ──────────────────────────────────────────────
+import time
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "[%s] %s %s → %d (%.1fms)",
+        request.method,
+        request.url.path,
+        request.url.query or "-",
+        response.status_code,
+        duration_ms,
+    )
+    return response
+
+
 # ── Global Error Handlers ───────────────────────────────────────────────────
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -99,13 +123,32 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
-    first_msg = errors[0]["msg"] if errors else "Invalid request body"
-    field = ".".join(str(x) for x in errors[0]["loc"]) if errors else ""
-    message = f"{field}: {first_msg}" if field else first_msg
+    # Build a human-readable summary of all validation errors
+    error_details = []
+    for e in errors:
+        field = ".".join(str(x) for x in e["loc"] if x not in ("body",))
+        msg = e["msg"]
+        error_details.append(f"{field}: {msg}" if field else msg)
+
+    # Primary message is the first error; full list in the error code value
+    message = error_details[0] if error_details else "Invalid request body"
+    logger.warning(
+        "Validation error on %s %s: %s",
+        request.method,
+        request.url.path,
+        "; ".join(error_details),
+    )
 
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"success": False, "error": {"code": "VALIDATION_ERROR", "message": message}},
+        content={
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": message,
+                "details": error_details,
+            },
+        },
     )
 
 
@@ -116,6 +159,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"success": False, "error": {"code": "INTERNAL_SERVER_ERROR", "message": str(exc)}},
     )
+
 
 
 # ── Root & Health Check ─────────────────────────────────────────────────────
@@ -146,3 +190,8 @@ app.include_router(dashboard.router)
 app.include_router(audit.router)
 app.include_router(faceauth.router)
 app.include_router(reference.router)
+app.include_router(access.router)
+app.include_router(ws.router)
+app.include_router(devices.router)
+app.include_router(reports.router)
+app.include_router(hostel.router)

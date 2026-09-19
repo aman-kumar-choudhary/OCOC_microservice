@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import secrets
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 import uuid
 import asyncpg
 
@@ -70,11 +70,11 @@ class RFIDService:
         args = []
         idx = 1
 
-        if status:
+        if status and status.strip():
             clauses.append(f"rc.status = ${idx}")
-            args.append(status.lower())
+            args.append(status.strip().lower())
             idx += 1
-        if user_id:
+        if user_id and user_id.strip():
             try:
                 u_uuid = uuid.UUID(user_id)
                 clauses.append(f"urc.user_id = ${idx}")
@@ -143,7 +143,8 @@ class RFIDService:
         return self._row_to_card(row)
 
     async def assign(self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID, uid: str) -> Card:
-        clean_uid = uid.strip().upper()
+        # Normalize UID the same way validate_uid_format does
+        clean_uid = uid.strip().replace(":", "").replace("-", "").upper()
         valid, reason = self.validate_uid_format(clean_uid)
         if not valid:
             raise ValueError(reason)

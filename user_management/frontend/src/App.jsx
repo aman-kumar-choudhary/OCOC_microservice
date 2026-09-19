@@ -16,6 +16,10 @@ import RFIDView from '@/views/RFID'
 import FaceRecognition from '@/views/FaceRecognition'
 import FaceAuthLog from '@/views/FaceAuthLog'
 import AuditView from '@/views/Audit'
+import AccessManagement from '@/views/AccessManagement'
+import GuardDashboard from '@/views/GuardDashboard'
+import HostelDashboard from '@/views/HostelDashboard'
+import DeviceRegistry from '@/views/DeviceRegistry'
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isInitializing } = useAuth()
@@ -139,6 +143,38 @@ export const App = () => {
         element={
           <ProtectedRoute>
             <AuditView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/access"
+        element={
+          <ProtectedRoute>
+            <AccessManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/guard"
+        element={
+          <ProtectedRoute>
+            <GuardDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hostel"
+        element={
+          <ProtectedRoute>
+            <HostelDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/devices"
+        element={
+          <ProtectedRoute>
+            <DeviceRegistry />
           </ProtectedRoute>
         }
       />

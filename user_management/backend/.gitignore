@@ -1,19 +1,42 @@
-# Environment variables
+# ── Environment & secrets ──────────────────────────────────────────────────────
 .env
 .env.*
+*.env
 
-# Keep the example environment file
-.env.example
+# ── Keycloak ───────────────────────────────────────────────────────────────────
 keycloak.json
-# Keycloak
-../keycloak-26.7.3/
+keycloak-*.json
+../keycloak-*/
 
-# Python
+# ── Python ─────────────────────────────────────────────────────────────────────
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Testing & coverage ─────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+
+# ── Migration backups (never commit these) ─────────────────────────────────────
+migrations/*.bak
+migrations/*.backup
+migrations/*.save
+
+# ── Uploads & generated files ──────────────────────────────────────────────────
+uploads/
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo

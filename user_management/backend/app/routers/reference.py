@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter, Depends, status
 import asyncpg
+import uuid
 
 from app.core.database import get_db
 from app.core.security import Claims, require_permission
@@ -32,6 +33,33 @@ async def list_hostels(conn: asyncpg.Connection = Depends(get_db)):
     except Exception as e:
         logger.error("List hostels failed: %s", e)
         return error_response("HOSTELS_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/api/v1/hostels/{hostel_id}/occupancy")
+async def get_hostel_occupancy(hostel_id: uuid.UUID, conn: asyncpg.Connection = Depends(get_db)):
+    try:
+        total = await conn.fetchval("""
+            SELECT COUNT(*) FROM student_profiles 
+            WHERE hostel_id = $1
+        """, hostel_id)
+        
+        inside = await conn.fetchval("""
+            SELECT COUNT(u.id) 
+            FROM user_last_locations ul
+            JOIN users u ON ul.user_id = u.id
+            JOIN student_profiles sp ON u.id = sp.user_id
+            WHERE sp.hostel_id = $1
+              AND ul.location_id = $1 AND ul.last_action = 'ENTRY'
+        """, hostel_id)
+        
+        inside = inside or 0
+        total = total or 0
+        outside = max(0, total - inside)
+        
+        return success_response(data={"inside": inside, "outside": outside, "total": total})
+    except Exception as e:
+        logger.error("Occupancy failed: %s", e)
+        return error_response("OCCUPANCY_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.post("/api/admin/semester/advance")

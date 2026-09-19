@@ -48,9 +48,10 @@ export default {
   },
 
   async importCsv(file) {
-    const text = await file.text()
-    const { data } = await api.post('/users/import', text, {
-      headers: { 'Content-Type': 'text/csv' }
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post('/users/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
     return data.data
   },

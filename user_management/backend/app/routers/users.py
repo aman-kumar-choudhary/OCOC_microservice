@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.security import Claims, require_permission
 from app.schemas.common import error_response, success_response
 from app.schemas.role import AssignRoleRequest
-from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest
+from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest, BulkTransferRequest
 from app.services.role_service import role_service
 from app.services.user_service import user_service
 
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["users"])
 async def list_users(
     search: Optional[str] = Query(None),
     user_type: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
+    user_status: Optional[str] = Query(None, alias="status"),
     school: Optional[str] = Query(None),
     department: Optional[str] = Query(None),
     course: Optional[str] = Query(None),
@@ -35,7 +35,7 @@ async def list_users(
     hostel_status: Optional[str] = Query(None),
     role: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=200),
+    limit: int = Query(20, ge=1, le=2000),
     claims: Claims = Depends(require_permission("user:read")),
     conn: asyncpg.Connection = Depends(get_db),
 ):
@@ -44,7 +44,7 @@ async def list_users(
             conn=conn,
             search=search,
             user_type=user_type,
-            status=status,
+            status=user_status,
             school=school,
             department=department,
             course=course,
@@ -247,6 +247,18 @@ async def suspend_user(
         return success_response(message="user suspended")
     except Exception as e:
         return error_response("SUSPEND_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@router.post("/bulk/transfer-hostel")
+async def bulk_transfer_hostel(
+    req: BulkTransferRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_permission("user:update")),
+):
+    try:
+        await user_service.bulk_transfer_hostel(conn, actor_id=claims.sub, user_ids=req.user_ids, new_hostel_id=req.new_hostel_id)
+        return success_response(message="students transferred successfully")
+    except Exception as e:
+        return error_response("TRANSFER_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.patch("/{user_id}/activate")
