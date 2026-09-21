@@ -226,5 +226,48 @@ class KeycloakClient:
         if resp.status_code not in (200, 204):
             raise KeycloakError(f"Failed to reset password: {resp.text}")
 
+    async def get_user_roles(self, keycloak_id: str) -> List[Dict[str, Any]]:
+        """Return direct realm roles assigned to a Keycloak user."""
+        token = await self.get_admin_token()
+        url = f"{self.base_url}/admin/realms/{self.realm}/users/{keycloak_id}/role-mappings/realm"
+        resp = await self.client.get(url, headers={"Authorization": f"Bearer {token}"})
+        if resp.status_code != 200:
+            raise KeycloakError(f"Failed to get Keycloak user roles: {resp.text}")
+        return resp.json()
+
+    async def get_realm_role(self, role_name: str) -> Dict[str, Any]:
+        token = await self.get_admin_token()
+        url = f"{self.base_url}/admin/realms/{self.realm}/roles/{role_name}"
+        resp = await self.client.get(url, headers={"Authorization": f"Bearer {token}"})
+        if resp.status_code != 200:
+            raise KeycloakError(f"Keycloak realm role {role_name!r} was not found: {resp.text}")
+        return resp.json()
+
+    async def assign_role(self, keycloak_id: str, role_name: str) -> None:
+        role = await self.get_realm_role(role_name)
+        token = await self.get_admin_token()
+        url = f"{self.base_url}/admin/realms/{self.realm}/users/{keycloak_id}/role-mappings/realm"
+        resp = await self.client.post(url, json=[role], headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        if resp.status_code not in (200, 204):
+            raise KeycloakError(f"Failed to assign Keycloak role {role_name!r}: {resp.text}")
+
+    async def remove_role(self, keycloak_id: str, role_name: str) -> None:
+        role = await self.get_realm_role(role_name)
+        token = await self.get_admin_token()
+        url = f"{self.base_url}/admin/realms/{self.realm}/users/{keycloak_id}/role-mappings/realm"
+        resp = await self.client.request("DELETE", url, json=[role], headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        if resp.status_code not in (200, 204):
+            raise KeycloakError(f"Failed to remove Keycloak role {role_name!r}: {resp.text}")
+
+    async def update_user_roles(self, keycloak_id: str, selected_roles: List[str], managed_roles: List[str]) -> None:
+        """Synchronize only OCOC operational roles, preserving unrelated mappings."""
+        current = {str(role.get("name", "")).upper() for role in await self.get_user_roles(keycloak_id)}
+        selected = {role.upper() for role in selected_roles}
+        managed = {role.upper() for role in managed_roles}
+        for role in sorted((current & managed) - selected):
+            await self.remove_role(keycloak_id, role)
+        for role in sorted(selected - current):
+            await self.assign_role(keycloak_id, role)
+
 
 keycloak_client = KeycloakClient()

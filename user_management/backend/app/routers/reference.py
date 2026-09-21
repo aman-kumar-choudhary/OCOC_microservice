@@ -6,7 +6,7 @@ import asyncpg
 import uuid
 
 from app.core.database import get_db
-from app.core.security import Claims, require_permission
+from app.core.security import Claims, require_permission, require_role, resolve_warden_hostel_scope
 from app.schemas.common import error_response, success_response
 from app.services.user_service import user_service
 
@@ -26,18 +26,32 @@ async def list_departments(conn: asyncpg.Connection = Depends(get_db)):
 
 
 @router.get("/api/v1/hostels")
-async def list_hostels(conn: asyncpg.Connection = Depends(get_db)):
+async def list_hostels(
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN")),
+):
     try:
-        hostels = await user_service.list_hostels(conn)
-        return success_response(data=[h.model_dump() for h in hostels])
+        scope = await resolve_warden_hostel_scope(conn, claims)
+        if scope is None:
+            hostels = await user_service.list_hostels(conn)
+            data = [h.model_dump() for h in hostels]
+        else:
+            rows = await conn.fetch("SELECT id, name, code, capacity FROM hostels WHERE id = ANY($1::uuid[]) ORDER BY name", scope)
+            data = [dict(row) for row in rows]
+        return success_response(data=data)
     except Exception as e:
         logger.error("List hostels failed: %s", e)
         return error_response("HOSTELS_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.get("/api/v1/hostels/{hostel_id}/occupancy")
-async def get_hostel_occupancy(hostel_id: uuid.UUID, conn: asyncpg.Connection = Depends(get_db)):
+async def get_hostel_occupancy(
+    hostel_id: uuid.UUID,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN")),
+):
     try:
+        await resolve_warden_hostel_scope(conn, claims, hostel_id)
         total = await conn.fetchval("""
             SELECT COUNT(*) FROM student_profiles 
             WHERE hostel_id = $1

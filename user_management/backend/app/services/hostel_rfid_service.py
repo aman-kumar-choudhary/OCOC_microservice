@@ -3,8 +3,10 @@ from typing import Optional
 import uuid
 import asyncpg
 import logging
+import asyncio
 
 from app.schemas.hostel import ScanResponse
+from app.routers.ws import manager
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,10 @@ class HostelRFIDService:
         
         # 2. Identify Student from RFID
         card = await conn.fetchrow("""
-            SELECT id, user_id, status 
-            FROM rfid_cards 
-            WHERE uid = $1
+            SELECT rc.id, urc.user_id, rc.status
+            FROM rfid_cards rc
+            LEFT JOIN user_rfid_cards urc ON urc.rfid_card_id = rc.id AND urc.unassigned_at IS NULL
+            WHERE UPPER(rc.uid) = $1
         """, uid.strip().replace(":", "").replace("-", "").upper())
         
         if not card or card['status'] != 'active':
@@ -158,14 +161,31 @@ class HostelRFIDService:
                     active_permission_id = EXCLUDED.active_permission_id,
                     updated_at = EXCLUDED.updated_at
             """, user_id, new_status, movement_id, now, perm_id, now)
+            asyncio.create_task(manager.broadcast({
+                "type": "HOSTEL_STATUS_UPDATED",
+                "data": {
+                    "student_id": str(user_id), "student_name": student_name,
+                    "hostel_id": str(student['hostel_id']) if student['hostel_id'] else None,
+                    "hostel_name": student['hostel_name'], "status": new_status,
+                    "direction": direction, "event_time": now.isoformat()
+                }
+            }))
 
         # 8. Trigger Alerts
         if alert_type:
             desc = f"Student attempted to exit at {now.strftime('%H:%M')} without active permission." if alert_type == "UNAUTHORIZED_EXIT_ATTEMPT" else f"Student returned late."
-            await conn.execute("""
+            alert = await conn.fetchrow("""
                 INSERT INTO hostel_alerts (student_id, alert_type, description, severity)
                 VALUES ($1, $2, $3, $4)
+                RETURNING id, created_at
             """, user_id, alert_type, desc, "HIGH" if alert_type == "UNAUTHORIZED_EXIT_ATTEMPT" else "WARNING")
+            asyncio.create_task(manager.broadcast({
+                "type": "HOSTEL_CURFEW_ALERT" if alert_type == "LATE_RETURN" else "HOSTEL_ALERT",
+                "data": {"id": str(alert['id']), "alert_type": alert_type, "message": desc,
+                         "student_id": str(user_id), "student_name": student_name,
+                         "hostel_id": str(student['hostel_id']) if student['hostel_id'] else None,
+                         "created_at": alert['created_at'].isoformat()}
+            }))
 
         if access_granted:
             return ScanResponse(

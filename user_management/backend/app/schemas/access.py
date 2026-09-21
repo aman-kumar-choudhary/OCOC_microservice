@@ -19,6 +19,18 @@ class CreateLocationRequest(BaseModel):
     type: str
     parent_id: Optional[uuid.UUID] = None
 
+class AccessGroup(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: Optional[str] = None
+
+class CreateAccessGroupRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class AddAccessGroupMemberRequest(BaseModel):
+    user_id: uuid.UUID
+
 # ── Access Rules ────────────────────────────────────────────────────────────
 
 class AccessRule(BaseModel):
@@ -28,6 +40,7 @@ class AccessRule(BaseModel):
     subject_type: str
     subject_id: str
     location_id: Optional[uuid.UUID] = None
+    device_id: Optional[uuid.UUID] = None
     schedule_days: List[int] = Field(default_factory=lambda: [1,2,3,4,5,6,7])
     schedule_start_time: Optional[datetime.time] = None
     schedule_end_time: Optional[datetime.time] = None
@@ -45,6 +58,7 @@ class CreateAccessRuleRequest(BaseModel):
     subject_type: str
     subject_id: str
     location_id: Optional[uuid.UUID] = None
+    device_id: Optional[uuid.UUID] = None
     schedule_days: List[int] = Field(default_factory=lambda: [1,2,3,4,5,6,7])
     schedule_start_time: Optional[datetime.time] = None
     schedule_end_time: Optional[datetime.time] = None
@@ -79,8 +93,8 @@ class CreateTemporaryAccessRequest(BaseModel):
 
 class AccessEvent(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
-    location_id: uuid.UUID
+    user_id: Optional[uuid.UUID] = None
+    location_id: Optional[uuid.UUID] = None
     action: str
     status: str
     reason: Optional[str] = None
@@ -90,8 +104,36 @@ class AccessEvent(BaseModel):
     user_name: Optional[str] = None
     user_identifier: Optional[str] = None
     location_name: Optional[str] = None
+    rfid_uid: Optional[str] = None
+    reader_id: Optional[uuid.UUID] = None
+    device_id: Optional[uuid.UUID] = None
+    face_confidence: Optional[float] = None
+    verification_id: Optional[uuid.UUID] = None
 
 class EvaluateAccessRequest(BaseModel):
     user_id: uuid.UUID
     location_id: uuid.UUID
     action: str = "ENTRY"
+    reader_id: Optional[uuid.UUID] = None
+    device_id: Optional[uuid.UUID] = None
+    face_confidence: Optional[float] = None
+
+class RFIDAccessScanRequest(BaseModel):
+    uid: str
+    location_id: Optional[uuid.UUID] = None
+    action: str = "ENTRY"
+    reader_id: Optional[uuid.UUID] = None
+    device_id: Optional[uuid.UUID] = None
+    face_confidence: Optional[float] = None
+
+class FaceVerificationRequest(BaseModel):
+    verification_id: uuid.UUID
+    user_id: uuid.UUID
+    matched: bool
+    face_confidence: Optional[float] = None
+    reason: Optional[str] = None
+
+
+class UpdateUserAccessRequest(BaseModel):
+    roles: List[str] = Field(default_factory=list)
+    hostel_ids: List[uuid.UUID] = Field(default_factory=list)

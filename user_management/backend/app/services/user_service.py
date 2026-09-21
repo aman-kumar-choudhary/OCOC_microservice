@@ -133,7 +133,9 @@ class UserService:
                 COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
                 sp.guardian_contact,
                 COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
-                vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact,
+                sp.nationality, COALESCE(sp.gov_id_type, vp.gov_id_type) AS gov_id_type,
+                COALESCE(sp.gov_id_number, vp.gov_id_number) AS gov_id_number,
+                vp.visit_purpose, vp.host_contact,
                 vp.visit_start, vp.visit_duration_days,
                 COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
@@ -166,7 +168,9 @@ class UserService:
                 COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
                 sp.guardian_contact,
                 COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
-                vp.gov_id_type, vp.gov_id_number, vp.visit_purpose, vp.host_contact,
+                sp.nationality, COALESCE(sp.gov_id_type, vp.gov_id_type) AS gov_id_type,
+                COALESCE(sp.gov_id_number, vp.gov_id_number) AS gov_id_number,
+                vp.visit_purpose, vp.host_contact,
                 vp.visit_start, vp.visit_duration_days,
                 COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
@@ -255,8 +259,9 @@ class UserService:
                     """
                     INSERT INTO student_profiles (
                         user_id, full_name, roll_number, department_id, course, semester,
-                        hostel_id, emergency_contact, guardian_contact, photo_reference, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+                        hostel_id, emergency_contact, guardian_contact, photo_reference,
+                        nationality, gov_id_type, gov_id_number, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
                     """,
                     user_id,
                     req.profile.full_name,
@@ -268,6 +273,9 @@ class UserService:
                     req.profile.emergency_contact,
                     req.profile.guardian_contact,
                     req.profile.photo_reference,
+                    req.profile.nationality,
+                    req.profile.gov_id_type,
+                    req.profile.gov_id_number,
                 )
             elif user_type == "faculty":
                 await conn.execute(
@@ -319,24 +327,27 @@ class UserService:
                     req.profile.photo_reference,
                 )
 
-        # 2. Sync to Keycloak
+        # 2. Public registration supplies its own password and continues to
+        # create a Keycloak account here.  Admin onboarding normally omits a
+        # password; its Keycloak account is then provisioned from Access
+        # Management together with the operational role and temporary password.
         first_name, last_name = req.profile.full_name, ""
         if " " in req.profile.full_name:
             first_name, last_name = req.profile.full_name.split(" ", 1)
 
-        kc_id = None
-        try:
-            kc_id = await keycloak_client.create_user(
-                username=req.email.lower(),
-                email=req.email.lower(),
-                first_name=first_name,
-                last_name=last_name,
-                password=req.password if req.password else None,
-                attributes={"user_type": [user_type], "user_id": [str(user_id)]},
-            )
-            await conn.execute("UPDATE users SET keycloak_user_id=$1 WHERE id=$2", kc_id, user_id)
-        except Exception as e:
-            logger.warning("Keycloak user sync failed (continuing in dev/test): %s", e)
+        if req.password:
+            try:
+                kc_id = await keycloak_client.create_user(
+                    username=req.email.lower(),
+                    email=req.email.lower(),
+                    first_name=first_name,
+                    last_name=last_name,
+                    password=req.password,
+                    attributes={"user_type": [user_type], "user_id": [str(user_id)]},
+                )
+                await conn.execute("UPDATE users SET keycloak_user_id=$1 WHERE id=$2", kc_id, user_id)
+            except Exception as e:
+                logger.warning("Keycloak user sync failed (continuing in dev/test): %s", e)
 
         created_user = await self.get_by_id(conn, user_id)
         if not created_user:
@@ -392,6 +403,9 @@ class UserService:
                             emergency_contact = COALESCE($8, emergency_contact),
                             guardian_contact = COALESCE($9, guardian_contact),
                             photo_reference = COALESCE($10, photo_reference),
+                            nationality = COALESCE($11, nationality),
+                            gov_id_type = COALESCE($12, gov_id_type),
+                            gov_id_number = COALESCE($13, gov_id_number),
                             updated_at = now()
                         WHERE user_id = $1
                         """,
@@ -405,6 +419,9 @@ class UserService:
                         p.emergency_contact,
                         p.guardian_contact,
                         p.photo_reference,
+                        p.nationality,
+                        p.gov_id_type,
+                        p.gov_id_number,
                     )
                 elif user_type == "faculty":
                     await conn.execute(
@@ -702,6 +719,7 @@ class UserService:
             emergency_contact=r["emergency_contact"],
             guardian_contact=r["guardian_contact"],
             photo_reference=r["photo_reference"],
+            nationality=r["nationality"],
             gov_id_type=r["gov_id_type"],
             gov_id_number=r["gov_id_number"],
             visit_purpose=r["visit_purpose"],

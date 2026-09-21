@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Generic, Optional, TypeVar
 from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 T = TypeVar("T")
@@ -25,7 +26,7 @@ def success_response(data: Any = None, message: Optional[str] = None, status_cod
         content["data"] = data
     if message is not None:
         content["message"] = message
-    return JSONResponse(status_code=status_code, content=content)
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(content))
 
 
 def error_response(code: str, message: str, status_code: int = 400) -> JSONResponse:

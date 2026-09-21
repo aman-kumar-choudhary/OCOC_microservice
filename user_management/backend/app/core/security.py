@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
+import uuid
+import asyncpg
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import httpx
@@ -35,7 +37,15 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "role:manage": ["SUPER_ADMIN"],
     "audit:read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
     "user:manage": ["SUPER_ADMIN", "ADMIN"],
+    "access.rule.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER", "GUARD"],
+    "access.rule.manage": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
+    "access.grant.temporary": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
+    "access.occupancy.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
+    "gate.review.manual": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"],
+    "guard.console.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"],
 }
+
+ADMIN_ROLES = ("SUPER_ADMIN", "ADMIN")
 
 
 class Claims:
@@ -121,8 +131,14 @@ async def get_current_claims(
         except Exception as e:
             logger.debug("JWKS validation failed: %s; falling back to unverified decode in dev", e)
 
-    # Fallback in local development if Keycloak JWKS is not yet populated
+    # Local-only fallback keeps first-run development usable.  A deployed API
+    # must never authorize roles from an unverified token.
     if payload is None:
+        if settings.ENVIRONMENT.lower() not in {"development", "dev", "test"}:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "INVALID_TOKEN", "message": "token signature could not be validated"},
+            )
         try:
             payload = jwt.decode(raw_token, options={"verify_signature": False})
             # Check expiry even in unverified mode
@@ -178,3 +194,25 @@ def require_role(*roles: str) -> Callable:
         return claims
 
     return role_dependency
+
+
+async def resolve_warden_hostel_scope(
+    conn: asyncpg.Connection, claims: Claims, requested_hostel_id: Optional[uuid.UUID] = None,
+) -> Optional[List[uuid.UUID]]:
+    """Return a WARDEN's allowed hostels, or ``None`` for administrative access.
+
+    Scope is always derived from the validated token subject and PostgreSQL;
+    callers must never supply a user id to this function.
+    """
+    if claims.has_any_role(*ADMIN_ROLES):
+        return None
+    if not claims.has_any_role("WARDEN"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "warden role required"})
+
+    user_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id = $1", claims.sub)
+    if user_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "no local user record for token subject"})
+    hostel_ids = list(await conn.fetchval("SELECT COALESCE(array_agg(hostel_id), ARRAY[]::uuid[]) FROM warden_hostels WHERE user_id = $1", user_id))
+    if requested_hostel_id is not None and requested_hostel_id not in hostel_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "HOSTEL_SCOPE_FORBIDDEN", "message": "hostel is not assigned to this warden"})
+    return hostel_ids

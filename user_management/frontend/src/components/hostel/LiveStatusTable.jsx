@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, UserCircle } from 'lucide-react';
 import { hostelService } from '../../services/hostelService';
 
-const LiveStatusTable = ({ hostelId }) => {
+const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,7 +23,7 @@ const LiveStatusTable = ({ hostelId }) => {
     fetchLiveStatus();
     const interval = setInterval(fetchLiveStatus, 15000); // refresh every 15s
     return () => clearInterval(interval);
-  }, [hostelId]);
+  }, [hostelId, liveVersion]);
 
   const filteredStudents = students.filter(s => {
     if (statusFilter && s.current_status !== statusFilter) return false;

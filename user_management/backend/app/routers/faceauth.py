@@ -10,6 +10,8 @@ from app.core.security import Claims, require_permission
 from app.schemas.common import error_response, success_response
 from app.schemas.faceauth import LogRequest
 from app.services.faceauth_service import faceauth_service
+from app.services.access_service import access_service
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,16 @@ async def create_log(
     try:
         ip = request.client.host if request.client else None
         entry = await faceauth_service.create_log(conn, req, ip_address=ip)
+        if req.access_verification_id:
+            try:
+                person_id = uuid.UUID(req.person_external_id)
+            except ValueError:
+                return error_response("FACE_AUTH_LOG_FAILED", "person_external_id must be a user UUID for gate verification", status_code=status.HTTP_400_BAD_REQUEST)
+            gate_event = await access_service.verify_face(
+                conn, req.access_verification_id, person_id,
+                req.result == "success", req.similarity_score, req.reason,
+            )
+            return success_response(data={"face_log": entry.model_dump(), "access_event": gate_event.model_dump(mode="json")}, status_code=status.HTTP_201_CREATED)
         return success_response(data=entry.model_dump(), status_code=status.HTTP_201_CREATED)
     except Exception as e:
         logger.error("Create face auth log failed: %s", e)

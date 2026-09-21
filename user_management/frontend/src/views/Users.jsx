@@ -75,7 +75,7 @@ export const UsersView = () => {
 
   const [filters, setFilters] = useState({
     search: '',
-    user_type: 'student',
+    user_type: '',
     status: '',
     school: '',
     department: '',
@@ -145,12 +145,12 @@ export const UsersView = () => {
   }
 
   const clearFilters = () => {
-    setFilters({ search: '', user_type: 'student', status: '', school: '', department: '', course: '', semester: '', hostel_id: '', hostel_status: '' })
+    setFilters({ search: '', user_type: '', status: '', school: '', department: '', course: '', semester: '', hostel_id: '', hostel_status: '' })
     setPage(1)
   }
 
   const hasActiveFilters =
-    filters.search || filters.user_type !== 'student' || filters.status ||
+    filters.search || filters.user_type || filters.status ||
     filters.school || filters.department || filters.course || filters.semester ||
     filters.hostel_id || filters.hostel_status
 
@@ -455,8 +455,10 @@ export const UsersView = () => {
                       {/* User */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#0a2342]/10 flex items-center justify-center text-sm font-bold text-[#0a2342] shrink-0 select-none">
-                            {getUserName(user).charAt(0).toUpperCase()}
+                          <div className="w-8 h-8 rounded-full bg-[#0a2342]/10 flex items-center justify-center text-sm font-bold text-[#0a2342] shrink-0 select-none overflow-hidden">
+                            {user.profile?.photo_reference
+                              ? <img src={user.profile.photo_reference} alt="" className="h-full w-full object-cover" />
+                              : getUserName(user).charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold truncate max-w-[140px] text-[var(--text-main)]">{getUserName(user)}</p>
@@ -521,13 +523,9 @@ export const UsersView = () => {
 
                       {/* Photo */}
                       <td className="px-4 py-3 text-center">
-                        {user.has_face_auth ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700">
-                            <Camera size={11} /> Enrolled
-                          </span>
-                        ) : (
-                          <span className="text-xs text-[var(--text-muted)]">—</span>
-                        )}
+                        {user.profile?.photo_reference ? (
+                          <img src={user.profile.photo_reference} alt={`${getUserName(user)} passport photo`} className="h-9 w-7 mx-auto rounded border border-slate-200 object-cover" />
+                        ) : <span className="text-xs text-[var(--text-muted)]">—</span>}
                       </td>
 
                       {/* Joined */}
@@ -622,8 +620,10 @@ export const UsersView = () => {
             {/* Drawer Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[var(--border-light)] shrink-0 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-[#0a2342]/10 flex items-center justify-center text-base font-bold text-[#0a2342] shrink-0">
-                  {getUserName(viewTarget).charAt(0).toUpperCase()}
+                <div className="w-11 h-11 rounded-full bg-[#0a2342]/10 flex items-center justify-center text-base font-bold text-[#0a2342] shrink-0 overflow-hidden">
+                  {viewTarget.profile?.photo_reference
+                    ? <img src={viewTarget.profile.photo_reference} alt={`${getUserName(viewTarget)} passport photo`} className="h-full w-full object-cover" />
+                    : getUserName(viewTarget).charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-[var(--text-main)] leading-tight">{getUserName(viewTarget)}</h2>
@@ -699,6 +699,15 @@ export const UsersView = () => {
                     <div className="col-span-2">
                       <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">Guardian Contact</p>
                       <p className="text-sm">{viewTarget.profile?.guardian_contact || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">Nationality</p>
+                      <p className="text-sm capitalize">{viewTarget.profile?.nationality || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">Government ID</p>
+                      <p className="text-sm">{viewTarget.profile?.gov_id_type || '—'}</p>
+                      <p className="text-xs text-[var(--text-muted)] font-mono">{viewTarget.profile?.gov_id_number || ''}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">Hostel</p>

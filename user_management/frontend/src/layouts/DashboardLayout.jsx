@@ -19,22 +19,20 @@ export const DashboardLayout = ({ children }) => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'User Directory', path: '/users', icon: Users, permission: 'user:read' },
-    { name: 'Onboard Person', path: '/onboarding', icon: UserPlus, permission: 'user:create' },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'RFID Cards', path: '/rfid', icon: CreditCard, permission: 'rfid:read' },
-    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace },
-    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert },
-    { name: 'Access Control', path: '/access', icon: Lock },
-    { name: 'Guard Console', path: '/guard', icon: Shield },
-    { name: 'Hostel Monitors', path: '/hostel', icon: Home },
-    { name: 'Device Registry', path: '/devices', icon: Server },
-    { name: 'Audit Log', path: '/audit', icon: Activity, permission: 'audit:read' },
+    { name: 'User Directory', path: '/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Onboard Person', path: '/onboarding', icon: UserPlus, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'VIEWER'] },
+    { name: 'RFID Cards', path: '/rfid', icon: CreditCard, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
+    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
+    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
+    { name: 'Access Control', path: '/access', icon: Lock, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Guard Console', path: '/guard', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
+    { name: 'Hostel Management', path: '/hostel', icon: Home, roles: ['SUPER_ADMIN', 'ADMIN', 'WARDEN'] },
+    { name: 'Device Registry', path: '/devices', icon: Server, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Audit Log', path: '/audit', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'VIEWER'] },
   ]
 
-  const filteredNavItems = navItems.filter((item) =>
-    !item.permission || hasRole('SUPER_ADMIN') || hasRole(item.permission) || true
-  )
+  const filteredNavItems = navItems.filter((item) => !item.roles || item.roles.some((role) => hasRole(role)))
 
   const handleLogout = async () => {
     setIsProfileMenuOpen(false)

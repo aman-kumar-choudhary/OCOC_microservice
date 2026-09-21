@@ -270,9 +270,14 @@ export const FaceAuthLog = () => {
                   </div>
 
                   {/* Person */}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{log.person_name || 'Unknown Person'}</div>
-                    <div className="text-xs text-[var(--text-muted)] font-mono truncate">{log.person_external_id || '—'}</div>
+                  <div className="flex flex-1 min-w-0 items-center gap-3">
+                    <div className="h-10 w-8 shrink-0 overflow-hidden rounded border border-slate-200 bg-slate-100 grid place-items-center text-xs font-bold text-slate-500">
+                      {log.photo_reference ? <img src={log.photo_reference} alt="Verified person" className="h-full w-full object-cover" /> : (log.person_name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">{log.person_name || 'Unknown Person'}</div>
+                      <div className="text-xs text-[var(--text-muted)] font-mono truncate">{log.person_external_id || '—'}</div>
+                    </div>
                   </div>
 
                   {/* Auth type */}

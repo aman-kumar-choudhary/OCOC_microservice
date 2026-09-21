@@ -9,6 +9,10 @@ class RegistrationRequest(BaseModel):
     full_name: str
     email: EmailStr
     phone: str
+    # The public registration form supplies this value.  Keeping it in the
+    # request schema ensures it reaches Keycloak instead of being silently
+    # discarded by Pydantic.
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
     roll_number: Optional[str] = None
     employee_id: Optional[str] = None
     department: Optional[str] = None

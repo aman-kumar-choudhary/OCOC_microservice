@@ -42,7 +42,7 @@ class RegistrationService:
             user_type=req.role.lower(),
             email=req.email,
             phone=req.phone,
-            password="",  # Self-registered users set password or get setup email
+            password=req.password or "",
             profile=p_req,
         )
 

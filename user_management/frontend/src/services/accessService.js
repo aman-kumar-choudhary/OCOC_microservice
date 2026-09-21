@@ -6,10 +6,34 @@ const accessService = {
     const { data } = await api.get('/access/locations')
     return data.data
   },
+  getUserAccess: async (userId) => {
+    const { data } = await api.get(`/access/users/${userId}/access`)
+    return data.data
+  },
+  updateUserAccess: async (userId, payload) => {
+    const { data } = await api.put(`/access/users/${userId}/access`, payload)
+    return data.data
+  },
+  getGroups: async () => {
+    const { data } = await api.get('/access/groups')
+    return data.data
+  },
 
   // ── Rules ──
   getRules: async () => {
     const { data } = await api.get('/access/rules')
+    return data.data
+  },
+  getRuleStats: async () => {
+    const { data } = await api.get('/access/rules/stats')
+    return data.data
+  },
+  getDevices: async () => {
+    const { data } = await api.get('/access/devices')
+    return data.data
+  },
+  getOccupancy: async (locationId) => {
+    const { data } = await api.get('/access/occupancy', { params: locationId ? { location_id: locationId } : {} })
     return data.data
   },
   
@@ -39,9 +63,21 @@ const accessService = {
     const { data } = await api.get('/access/events', { params })
     return data.data
   },
+  getGuardHostelLeaves: async () => {
+    const { data } = await api.get('/access/guard/hostel-leaves')
+    return data.data
+  },
   
   evaluateAccess: async (payload) => {
     const { data } = await api.post('/access/evaluate', payload)
+    return data.data
+  },
+  scan: async (payload) => {
+    const { data } = await api.post('/access/scan', payload)
+    return data.data
+  },
+  verifyFace: async (payload) => {
+    const { data } = await api.post('/access/verify-face', payload)
     return data.data
   }
 }

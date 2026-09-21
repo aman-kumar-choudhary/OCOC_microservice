@@ -89,6 +89,7 @@ export const Onboarding = () => {
       worker_role: '',
       gov_id_type: '',
       gov_id_number: '',
+      nationality: '',
       visit_purpose: '',
       host_contact: '',
     }
@@ -144,6 +145,10 @@ export const Onboarding = () => {
     setIsLoading(true)
     try {
       const p = userForm.profile
+      if (!p.photo_reference) throw new Error('A passport-size photo is required.')
+      if (persona === 'student' && (!p.nationality || !p.gov_id_type || !p.gov_id_number)) {
+        throw new Error('Nationality and government ID type and number are required for students.')
+      }
       const profilePayload = {
         full_name: p.full_name,
         photo_reference: p.photo_reference,
@@ -160,6 +165,9 @@ export const Onboarding = () => {
           hostel: p.hostel,
           hostel_id: p.hostel_id,
           guardian_contact: p.guardian_contact,
+          nationality: p.nationality,
+          gov_id_type: p.gov_id_type,
+          gov_id_number: p.gov_id_number,
         })
       } else if (persona === 'faculty') {
         Object.assign(profilePayload, {
@@ -194,7 +202,7 @@ export const Onboarding = () => {
       setCreatedUserId(result.user.id)
       setStep(3) // Face Capture
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Failed to create user')
+      setError(err.response?.data?.error?.message || err.message || 'Failed to create user')
     } finally {
       setIsLoading(false)
     }
@@ -297,6 +305,7 @@ export const Onboarding = () => {
         worker_role: '',
         gov_id_type: '',
         gov_id_number: '',
+        nationality: '',
         visit_purpose: '',
         host_contact: '',
       }
@@ -304,7 +313,7 @@ export const Onboarding = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-10">
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Onboarding</h1>

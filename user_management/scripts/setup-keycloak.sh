@@ -59,7 +59,7 @@ else
 fi
 
 # 3. Create Realm Roles
-ROLES=("SUPER_ADMIN" "ADMIN" "USER_MANAGER" "SECURITY_ADMIN" "VIEWER" "STUDENT" "FACULTY" "WORKER" "VISITOR")
+ROLES=("SUPER_ADMIN" "ADMIN" "USER_MANAGER" "GUARD" "WARDEN" "SECURITY_ADMIN" "VIEWER" "STUDENT" "FACULTY" "WORKER" "VISITOR")
 for r in "${ROLES[@]}"; do
   ROLE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${TOKEN}" "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/roles/${r}")
   if [ "$ROLE_STATUS" -ne 200 ]; then

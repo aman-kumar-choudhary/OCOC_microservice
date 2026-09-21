@@ -39,19 +39,7 @@ class FaceAuthService:
             ip_address,
         )
 
-        row = await conn.fetchrow("SELECT * FROM face_auth_logs WHERE id=$1", log_id)
-        entry = LogEntry(
-            id=str(row["id"]),
-            person_external_id=row["person_external_id"] or "",
-            person_name=row["person_name"],
-            result=row["result"],
-            similarity_score=row["similarity_score"],
-            liveness_score=row["liveness_score"],
-            reason=row["reason"],
-            auth_type=row["auth_type"],
-            ip_address=row["ip_address"],
-            created_at=row["created_at"].isoformat(),
-        )
+        entry = await self._row_to_entry(conn, log_id)
 
         await audit_service.log(
             conn=conn,
@@ -95,32 +83,51 @@ class FaceAuthService:
         total = await conn.fetchval(f"SELECT COUNT(*) FROM face_auth_logs {where_sql}", *args)
 
         query = f"""
-            SELECT id, person_external_id, person_name, result, similarity_score,
-                   liveness_score, reason, auth_type, ip_address, created_at
-            FROM face_auth_logs {where_sql}
+            SELECT fal.id, fal.person_external_id, fal.person_name, fal.result, fal.similarity_score,
+                   fal.liveness_score, fal.reason, fal.auth_type, fal.ip_address, fal.created_at,
+                   COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) AS photo_reference
+            FROM face_auth_logs fal
+            LEFT JOIN users u ON u.id::text = fal.person_external_id
+            LEFT JOIN student_profiles sp ON sp.user_id = u.id
+            LEFT JOIN faculty_profiles fp ON fp.user_id = u.id
+            LEFT JOIN worker_profiles wp ON wp.user_id = u.id
+            LEFT JOIN visitor_profiles vp ON vp.user_id = u.id
+            {where_sql}
             ORDER BY created_at DESC
             LIMIT ${idx} OFFSET ${idx + 1}
         """
         rows = await conn.fetch(query, *args, limit, offset)
 
-        logs = [
-            LogEntry(
-                id=str(r["id"]),
-                person_external_id=r["person_external_id"] or "",
-                person_name=r["person_name"],
-                result=r["result"],
-                similarity_score=r["similarity_score"],
-                liveness_score=r["liveness_score"],
-                reason=r["reason"],
-                auth_type=r["auth_type"],
-                ip_address=r["ip_address"],
-                created_at=r["created_at"].isoformat(),
-            )
-            for r in rows
-        ]
+        logs = [self._entry_from_row(r) for r in rows]
 
         total_pages = (total + limit - 1) // limit if total > 0 else 1
         return FaceAuthListResult(logs=logs, total=total, page=page, limit=limit, total_pages=total_pages)
+
+    async def _row_to_entry(self, conn: asyncpg.Connection, log_id: uuid.UUID) -> LogEntry:
+        row = await conn.fetchrow(
+            """
+            SELECT fal.*, COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) AS photo_reference
+            FROM face_auth_logs fal
+            LEFT JOIN users u ON u.id::text = fal.person_external_id
+            LEFT JOIN student_profiles sp ON sp.user_id = u.id
+            LEFT JOIN faculty_profiles fp ON fp.user_id = u.id
+            LEFT JOIN worker_profiles wp ON wp.user_id = u.id
+            LEFT JOIN visitor_profiles vp ON vp.user_id = u.id
+            WHERE fal.id=$1
+            """, log_id,
+        )
+        return self._entry_from_row(row)
+
+    @staticmethod
+    def _entry_from_row(row: asyncpg.Record) -> LogEntry:
+        return LogEntry(
+            id=str(row["id"]), person_external_id=row["person_external_id"] or "",
+            person_name=row["person_name"], photo_reference=row["photo_reference"],
+            result=row["result"], similarity_score=row["similarity_score"],
+            liveness_score=row["liveness_score"], reason=row["reason"],
+            auth_type=row["auth_type"], ip_address=row["ip_address"],
+            created_at=row["created_at"].isoformat(),
+        )
 
 
 faceauth_service = FaceAuthService()

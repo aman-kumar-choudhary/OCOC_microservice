@@ -13,6 +13,19 @@ logger = logging.getLogger(__name__)
 
 pool: Optional[asyncpg.Pool] = None
 
+# These migrations introduce a group of related tables.  A previous version of
+# the runner trusted only `schema_migrations`; consequently a restored or
+# partially-created database could say migration 011 was complete even though
+# its tables were absent.  Later migrations then failed with "relation does not
+# exist" and left the API running with a broken schema.
+_ACCESS_SCHEMA_TABLES = {
+    "locations",
+    "access_rules",
+    "temporary_access_grants",
+    "access_events",
+    "user_last_locations",
+}
+
 
 def normalize_dsn(dsn: str) -> str:
     """Normalize postgres DSN for asyncpg compatibility."""
@@ -80,6 +93,25 @@ async def run_migrations(migrations_dir: str) -> None:
         if not paths:
             logger.info("No migration files found in %s", migrations_dir)
             return
+
+        # Repair the known migration-history drift safely.  Only migration
+        # bookkeeping is removed; the SQL migrations themselves are
+        # idempotent, so any surviving tables/data are retained.
+        existing_access_tables = {
+            row["tablename"]
+            for row in await conn.fetch(
+                "SELECT tablename FROM pg_tables "
+                "WHERE schemaname = current_schema() AND tablename = ANY($1::text[])",
+                list(_ACCESS_SCHEMA_TABLES),
+            )
+        }
+        missing_tables = sorted(_ACCESS_SCHEMA_TABLES - existing_access_tables)
+        if missing_tables:
+            logger.warning(
+                "Access schema tables are missing: %s. Reapplying migrations 011 and later.",
+                ", ".join(missing_tables),
+            )
+            await conn.execute("DELETE FROM schema_migrations WHERE version >= '011'")
 
         for path in paths:
             filename = os.path.basename(path)

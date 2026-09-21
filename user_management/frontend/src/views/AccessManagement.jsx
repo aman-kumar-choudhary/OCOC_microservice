@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Activity, Plus, ShieldCheck, ShieldAlert, Clock, User, MapPin, Search, Loader2 } from 'lucide-react'
+import { Activity, Plus, ShieldCheck, ShieldAlert, Clock, User, MapPin, Search, Loader2, Save } from 'lucide-react'
 import accessService from '@/services/accessService'
 import userService from '@/services/userService'
+import { roleService } from '@/services/miscService'
 
 export const AccessManagement = () => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -11,13 +12,24 @@ export const AccessManagement = () => {
   const [rules, setRules] = useState([])
   const [grants, setGrants] = useState([])
   const [alerts, setAlerts] = useState([])
+  const [stats, setStats] = useState({ total: 0, enabled: 0, allow_count: 0, deny_count: 0 })
+  const [devices, setDevices] = useState([])
+  const [groups, setGroups] = useState([])
+  const [roles, setRoles] = useState([])
   
   const [users, setUsers] = useState([])
+  const [hostels, setHostels] = useState([])
+  const [selectedAccessUser, setSelectedAccessUser] = useState('')
+  const [selectedRoles, setSelectedRoles] = useState([])
+  const [selectedHostels, setSelectedHostels] = useState([])
+  const [accessMessage, setAccessMessage] = useState('')
+  const operationalRoles = ['GUARD', 'WARDEN', 'FACULTY']
 
   // Form states
   const [ruleForm, setRuleForm] = useState({
     name: '', description: '', subject_type: 'role', subject_id: 'student', 
-    location_id: '', effect: 'ALLOW', priority: 0
+    location_id: '', device_id: '', effect: 'ALLOW', priority: 0,
+    schedule_days: [1, 2, 3, 4, 5, 6, 7], schedule_start_time: '', schedule_end_time: '', valid_from: '', valid_to: ''
   })
   
   const [grantForm, setGrantForm] = useState({
@@ -31,23 +43,71 @@ export const AccessManagement = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [locs, r, g, a, uData] = await Promise.all([
+      const [locs, r, g, a, uData, ruleStats, readerDevices, groupData, roleData, hostelData] = await Promise.all([
         accessService.getLocations(),
         accessService.getRules(),
         accessService.getTemporaryGrants(),
         accessService.getEvents({ limit: 20, only_denied: true }),
-        userService.list({ limit: 1000 })
+        userService.list({ limit: 1000 }), accessService.getRuleStats(), accessService.getDevices(), accessService.getGroups(), roleService.list(), userService.getHostels()
       ])
       setLocations(locs)
       setRules(r)
       setGrants(g)
       setAlerts(a)
       setUsers(uData.users || [])
+      setStats(ruleStats)
+      setDevices(readerDevices)
+      setGroups(groupData)
+      setRoles(roleData)
+      setHostels(hostelData)
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadUserAccess = async (userId) => {
+    setSelectedAccessUser(userId)
+    setAccessMessage('')
+    if (!userId) {
+      setSelectedRoles([])
+      setSelectedHostels([])
+      return
+    }
+    setLoading(true)
+    try {
+      const access = await accessService.getUserAccess(userId)
+      setSelectedRoles(access.roles || [])
+      setSelectedHostels((access.hostels || []).map((hostel) => hostel.id))
+    } catch (e) {
+      setAccessMessage(e.response?.data?.error?.message || 'Could not load user access.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveUserAccess = async () => {
+    if (!selectedAccessUser) return
+    setLoading(true)
+    setAccessMessage('')
+    try {
+      const access = await accessService.updateUserAccess(selectedAccessUser, {
+        roles: selectedRoles,
+        hostel_ids: selectedRoles.includes('WARDEN') ? selectedHostels : []
+      })
+      setSelectedRoles(access.roles || [])
+      setSelectedHostels((access.hostels || []).map((hostel) => hostel.id))
+      setAccessMessage('Access configuration saved. New roles take effect when the user receives a refreshed Keycloak token.')
+    } catch (e) {
+      setAccessMessage(e.response?.data?.error?.message || 'Could not save access configuration.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleSelection = (value, values, setValues) => {
+    setValues(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
   }
 
   const handleRuleSubmit = async (e) => {
@@ -57,11 +117,16 @@ export const AccessManagement = () => {
       // Default to empty for UUID if 'all' or empty string
       const payload = { ...ruleForm }
       if (!payload.location_id) delete payload.location_id
+      if (!payload.device_id) delete payload.device_id
+      if (!payload.schedule_start_time) delete payload.schedule_start_time
+      if (!payload.schedule_end_time) delete payload.schedule_end_time
+      if (!payload.valid_from) delete payload.valid_from
+      if (!payload.valid_to) delete payload.valid_to
       
       await accessService.createRule(payload)
       const r = await accessService.getRules()
       setRules(r)
-      setRuleForm({ name: '', description: '', subject_type: 'role', subject_id: 'student', location_id: '', effect: 'ALLOW', priority: 0 })
+      setRuleForm({ name: '', description: '', subject_type: 'role', subject_id: 'student', location_id: '', device_id: '', effect: 'ALLOW', priority: 0, schedule_days: [1,2,3,4,5,6,7], schedule_start_time: '', schedule_end_time: '', valid_from: '', valid_to: '' })
       setActiveTab('dashboard')
     } catch (e) {
       console.error(e)
@@ -114,7 +179,7 @@ export const AccessManagement = () => {
       </div>
 
       <div className="flex border-b border-[var(--border-light)] gap-6">
-        {['dashboard', 'rule_builder', 'grants', 'alerts'].map(tab => (
+        {['dashboard', 'user_access', 'rule_builder', 'grants', 'alerts'].map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -134,6 +199,9 @@ export const AccessManagement = () => {
             <button onClick={() => setActiveTab('rule_builder')} className="btn btn-primary text-sm px-3 py-1.5 h-auto">
               <Plus size={16} /> New Rule
             </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[['Total', stats.total, 'text-slate-700'], ['Enabled', stats.enabled, 'text-blue-700'], ['Allow', stats.allow_count, 'text-emerald-700'], ['Deny', stats.deny_count, 'text-red-700']].map(([label, value, color]) => <div key={label} className="bg-white border border-[var(--border-light)] rounded-xl p-4"><p className="text-xs text-[var(--text-muted)] font-bold uppercase">{label}</p><p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p></div>)}
           </div>
           <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden">
             <table className="w-full text-left text-sm">
@@ -172,6 +240,38 @@ export const AccessManagement = () => {
         </div>
       )}
 
+      {!loading && activeTab === 'user_access' && (
+        <div className="max-w-3xl space-y-5 rounded-xl border border-[var(--border-light)] bg-white p-6 shadow-sm">
+          <div>
+            <h2 className="text-lg font-bold">User Role & Hostel Access</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">Operational roles are synchronized with Keycloak. Warden hostel scope remains in PostgreSQL.</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-[var(--text-muted)]">User</label>
+            <select value={selectedAccessUser} onChange={(event) => loadUserAccess(event.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm">
+              <option value="">Select user</option>
+              {users.map((user) => <option key={user.id} value={user.id}>{user.profile?.full_name || user.email} — {user.email}</option>)}
+            </select>
+          </div>
+          {selectedAccessUser && <>
+            <div>
+              <p className="mb-2 text-xs font-bold text-[var(--text-muted)]">Roles</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {operationalRoles.map((role) => <label key={role} className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm font-semibold hover:bg-slate-50"><input type="checkbox" checked={selectedRoles.includes(role)} onChange={() => toggleSelection(role, selectedRoles, setSelectedRoles)} />{role.replace(/_/g, ' ')}</label>)}
+              </div>
+            </div>
+            {selectedRoles.includes('WARDEN') && <div>
+              <p className="mb-2 text-xs font-bold text-[var(--text-muted)]">Warden Hostel Access</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {hostels.map((hostel) => <label key={hostel.id} className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm font-semibold hover:bg-slate-50"><input type="checkbox" checked={selectedHostels.includes(hostel.id)} onChange={() => toggleSelection(hostel.id, selectedHostels, setSelectedHostels)} />{hostel.name}</label>)}
+              </div>
+            </div>}
+            {accessMessage && <p className="rounded-lg bg-slate-50 p-3 text-sm text-[var(--text-main)]">{accessMessage}</p>}
+            <button onClick={saveUserAccess} className="btn btn-primary" disabled={loading}><Save size={16} /> Save Access</button>
+          </>}
+        </div>
+      )}
+
       {!loading && activeTab === 'rule_builder' && (
         <form onSubmit={handleRuleSubmit} className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm p-6 max-w-3xl space-y-5">
           <h2 className="text-lg font-bold border-b pb-3 mb-4">Rule Builder</h2>
@@ -190,15 +290,16 @@ export const AccessManagement = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Subject Type</label>
-              <select value={ruleForm.subject_type} onChange={e => setRuleForm({...ruleForm, subject_type: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm">
+              <select value={ruleForm.subject_type} onChange={e => { const subject_type = e.target.value; setRuleForm({...ruleForm, subject_type, subject_id: subject_type === 'role' ? 'student' : ''}) }} className="h-10 w-full rounded-lg border px-3 text-sm">
                 <option value="role">Role</option>
+                <option value="group">Group</option>
                 <option value="user">Specific User</option>
                 <option value="all">Everyone</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Subject Target</label>
-              <input required={ruleForm.subject_type !== 'all'} value={ruleForm.subject_id} onChange={e => setRuleForm({...ruleForm, subject_id: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm" placeholder="user_id or role name" disabled={ruleForm.subject_type === 'all'} />
+              {ruleForm.subject_type === 'role' ? <select required value={ruleForm.subject_id} onChange={e => setRuleForm({...ruleForm, subject_id: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm"><option value="">Select role</option>{['student', 'faculty', 'worker', 'visitor'].map(role => <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>)}{roles.filter(role => !['student', 'faculty', 'worker', 'visitor'].includes(role.name.toLowerCase())).map(role => <option key={role.id} value={role.name}>{role.name}</option>)}</select> : ruleForm.subject_type === 'group' ? <select required value={ruleForm.subject_id} onChange={e => setRuleForm({...ruleForm, subject_id: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm"><option value="">Select group</option>{groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select> : ruleForm.subject_type === 'user' ? <select required value={ruleForm.subject_id} onChange={e => setRuleForm({...ruleForm, subject_id: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm"><option value="">Select user</option>{users.map(user => <option key={user.id} value={user.id}>{user.profile?.full_name || user.email} — {user.email}</option>)}</select> : <input value="Everyone" className="h-10 w-full rounded-lg border px-3 text-sm bg-slate-50" disabled />}
             </div>
           </div>
 
@@ -209,6 +310,22 @@ export const AccessManagement = () => {
               {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.type})</option>)}
             </select>
           </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Reader (optional)</label>
+            <select value={ruleForm.device_id} onChange={e => setRuleForm({...ruleForm, device_id: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm">
+              <option value="">Any reader in this zone</option>
+              {devices.map(d => <option key={d.id} value={d.id}>{d.mac_address} — {d.location_name || 'Unassigned'} ({d.type})</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Start time</label><input type="time" value={ruleForm.schedule_start_time} onChange={e => setRuleForm({...ruleForm, schedule_start_time: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm" /></div>
+            <div><label className="block text-xs font-bold text-[var(--text-muted)] mb-1">End time</label><input type="time" value={ruleForm.schedule_end_time} onChange={e => setRuleForm({...ruleForm, schedule_end_time: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm" /></div>
+            <div><label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Valid from</label><input type="date" value={ruleForm.valid_from} onChange={e => setRuleForm({...ruleForm, valid_from: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm" /></div>
+            <div><label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Valid to</label><input type="date" value={ruleForm.valid_to} onChange={e => setRuleForm({...ruleForm, valid_to: e.target.value})} className="h-10 w-full rounded-lg border px-3 text-sm" /></div>
+          </div>
+          <div><label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Days</label><div className="flex flex-wrap gap-2">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day,index) => <label key={day} className="text-xs flex items-center gap-1"><input type="checkbox" checked={ruleForm.schedule_days.includes(index + 1)} onChange={() => setRuleForm({...ruleForm, schedule_days: ruleForm.schedule_days.includes(index + 1) ? ruleForm.schedule_days.filter(d => d !== index + 1) : [...ruleForm.schedule_days, index + 1]})} />{day}</label>)}</div></div>
 
           <div>
             <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Effect</label>

@@ -4,6 +4,13 @@ import {
   Award, Home, Briefcase, Users, Wrench
 } from 'lucide-react'
 import userService from '@/services/userService'
+import PassportPhotoCapture from '@/components/PassportPhotoCapture'
+
+const ID_OPTIONS = {
+  indian: ['Aadhaar card', 'Voter ID', 'Driving licence', 'PAN card', 'Passport'],
+  international: ['Passport', 'Student visa', 'National identity card'],
+  nri: ['Indian passport', 'OCI card', 'Overseas passport'],
+}
 
 const schoolDepartments = {
   'School of Technology, Communication and Management': [
@@ -119,6 +126,20 @@ export const UserProfileForm = ({
     })
   }
 
+  const handleNationalityChange = (nationality) => {
+    // Keep the nationality and the dependent ID selection in one state update.
+    // Two consecutive updateField calls use the same render snapshot and can
+    // otherwise restore the old nationality, leaving the ID dropdown disabled.
+    onChange({
+      ...formData,
+      profile: {
+        ...profile,
+        nationality,
+        gov_id_type: '',
+      },
+    })
+  }
+
   const availableDepartments = profile.school ? schoolDepartments[profile.school] || [] : []
   const availableCourses = profile.department ? departmentCourses[profile.department] || [] : []
 
@@ -131,7 +152,8 @@ export const UserProfileForm = ({
           <span>General Information</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-5 xl:items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="form-group col-span-1 sm:col-span-2">
             <label className="form-label">Full Name *</label>
             <div className="relative">
@@ -176,6 +198,10 @@ export const UserProfileForm = ({
               />
             </div>
           </div>
+          </div>
+          <div>
+          <PassportPhotoCapture value={profile.photo_reference || ''} onChange={(value) => updateField('photo_reference', value)} required={!isEdit} />
+          </div>
         </div>
       </div>
 
@@ -187,7 +213,7 @@ export const UserProfileForm = ({
             <span>Academic Programme & Enrollment</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="form-group">
               <label className="form-label">Roll Number *</label>
               <div className="relative">
@@ -202,6 +228,29 @@ export const UserProfileForm = ({
                   placeholder="Enter Scholar id"
                 />
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Nationality *</label>
+              <select required value={profile.nationality || ''} onChange={(e) => handleNationalityChange(e.target.value)} className="form-input form-select">
+                <option value="">Select nationality...</option>
+                <option value="indian">Indian</option>
+                <option value="international">International student</option>
+                <option value="nri">NRI</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Government ID type *</label>
+              <select required disabled={!profile.nationality} value={profile.gov_id_type || ''} onChange={(e) => updateField('gov_id_type', e.target.value)} className="form-input form-select">
+                <option value="">Select proof...</option>
+                {(ID_OPTIONS[profile.nationality] || []).map((id) => <option key={id} value={id}>{id}</option>)}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Government ID number *</label>
+              <input type="text" required value={profile.gov_id_number || ''} onChange={(e) => updateField('gov_id_number', e.target.value)} className="form-input" placeholder="Enter ID number" />
             </div>
 
             <div className="form-group">
@@ -292,7 +341,7 @@ export const UserProfileForm = ({
             </div>
 
             {/* Hostel Residence */}
-            <div className="form-group sm:col-span-2 p-4 rounded-xl border border-[var(--border-light)] bg-[var(--bg-main)]">
+            <div className="form-group sm:col-span-2 xl:col-span-3 p-4 rounded-xl border border-[var(--border-light)] bg-[var(--bg-main)]">
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -343,7 +392,7 @@ export const UserProfileForm = ({
             <span>Faculty & Appointment Details</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="form-group">
               <label className="form-label">Employee ID *</label>
               <div className="relative">
@@ -375,7 +424,7 @@ export const UserProfileForm = ({
               </div>
             </div>
 
-            <div className="form-group sm:col-span-2">
+            <div className="form-group sm:col-span-2 xl:col-span-3">
               <label className="form-label">Department *</label>
               <div className="relative">
                 <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
@@ -405,7 +454,7 @@ export const UserProfileForm = ({
             <span>Support & Staff Information</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="form-group">
               <label className="form-label">Worker ID *</label>
               <div className="relative">
@@ -447,7 +496,7 @@ export const UserProfileForm = ({
             <span>Visitor Pass Details</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="form-group">
               <label className="form-label">Government ID Type *</label>
               <select
@@ -475,7 +524,7 @@ export const UserProfileForm = ({
               />
             </div>
 
-            <div className="form-group sm:col-span-2">
+            <div className="form-group sm:col-span-2 xl:col-span-3">
               <label className="form-label">Purpose of Visit *</label>
               <input
                 type="text"
@@ -487,7 +536,7 @@ export const UserProfileForm = ({
               />
             </div>
 
-            <div className="form-group sm:col-span-2">
+            <div className="form-group sm:col-span-2 xl:col-span-3">
               <label className="form-label">Host Contact / Department(Optional)</label>
               <input
                 type="text"

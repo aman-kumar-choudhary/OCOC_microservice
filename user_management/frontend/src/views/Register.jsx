@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import api from '@/services/api'
 import userService from '@/services/userService'
+import registrationService from '@/services/registrationService'
 import {
   User, Mail, Phone, Hash, Building, Briefcase, FileText, UserCheck,
   MapPin, ArrowRight, Loader2, CheckCircle, Lock, Eye, EyeOff
@@ -100,7 +100,10 @@ export const Register = () => {
     }
 
     try {
-      await api.post('/register', payload)
+      // Registration is intentionally public.  The shared authenticated API
+      // client attempts token refreshes on a 401 and can redirect a new user
+      // to login before their registration error is shown.
+      await registrationService.register(payload)
       setSuccess(true)
       setTimeout(() => {
         navigate('/login')

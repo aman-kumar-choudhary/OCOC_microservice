@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Home, Users, AlertCircle, Clock, CheckCircle, Activity, Search, LogOut, LogIn, AlertTriangle, LifeBuoy } from 'lucide-react';
 import api from '../services/api';
 import { hostelService } from '../services/hostelService';
@@ -13,11 +13,13 @@ const HostelDashboard = () => {
   const [hostels, setHostels] = useState([]);
   const [selectedHostel, setSelectedHostel] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [liveVersion, setLiveVersion] = useState(0);
+  const socketRef = useRef(null);
 
   useEffect(() => {
     const fetchHostels = async () => {
       try {
-        const res = await api.get('/hostels');
+        const res = await api.get('/hostel/assigned-hostels');
         setHostels(res.data.data || []);
         if (res.data.data && res.data.data.length > 0) {
           setSelectedHostel(res.data.data[0].id);
@@ -27,6 +29,25 @@ const HostelDashboard = () => {
       }
     };
     fetchHostels();
+  }, []);
+
+  useEffect(() => {
+    let reconnectTimer;
+    const connect = () => {
+      const token = localStorage.getItem('access_token');
+      socketRef.current = new WebSocket(`ws://localhost:8080/api/v1/ws/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+      socketRef.current.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (['HOSTEL_STATUS_UPDATED', 'HOSTEL_CURFEW_ALERT', 'HOSTEL_ALERT'].includes(message.type)) {
+            setLiveVersion(version => version + 1);
+          }
+        } catch (error) { console.error('Hostel live update parsing failed', error); }
+      };
+      socketRef.current.onclose = () => { reconnectTimer = setTimeout(connect, 5000); };
+    };
+    connect();
+    return () => { clearTimeout(reconnectTimer); socketRef.current?.close(); };
   }, []);
 
   const tabs = [
@@ -86,9 +107,9 @@ const HostelDashboard = () => {
 
       {/* Content Area */}
       <div className="mt-6">
-        {activeTab === 'overview' && <HostelStatsCards hostelId={selectedHostel} />}
+        {activeTab === 'overview' && <HostelStatsCards hostelId={selectedHostel} liveVersion={liveVersion} />}
         {activeTab === 'directory' && <HostelStudentsList hostelId={selectedHostel} />}
-        {activeTab === 'live' && <LiveStatusTable hostelId={selectedHostel} />}
+        {activeTab === 'live' && <LiveStatusTable hostelId={selectedHostel} liveVersion={liveVersion} />}
         {activeTab === 'permissions' && <PermissionPanel hostelId={selectedHostel} />}
         {activeTab === 'history' && <MovementHistoryTable hostelId={selectedHostel} />}
         {activeTab === 'emergency' && <EmergencyMode hostelId={selectedHostel} />}

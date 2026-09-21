@@ -20,6 +20,7 @@ class ProfileRequest(BaseModel):
     emergency_contact: Optional[str] = None
     guardian_contact: Optional[str] = None
     photo_reference: Optional[str] = None
+    nationality: Optional[str] = None
     gov_id_type: Optional[str] = None
     gov_id_number: Optional[str] = None
     visit_purpose: Optional[str] = None

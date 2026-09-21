@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Home, AlertTriangle, LogOut, Clock, Activity, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { hostelService } from '../../services/hostelService';
 
-const HostelStatsCards = ({ hostelId }) => {
+const HostelStatsCards = ({ hostelId, liveVersion = 0 }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState([]);
@@ -26,7 +26,7 @@ const HostelStatsCards = ({ hostelId }) => {
     fetchStats();
     const interval = setInterval(fetchStats, 30000); // refresh every 30s
     return () => clearInterval(interval);
-  }, [hostelId]);
+  }, [hostelId, liveVersion]);
 
   if (loading && !stats) {
     return <div className="p-12 text-center text-gray-500">Loading Dashboard Stats...</div>;

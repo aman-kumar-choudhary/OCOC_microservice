@@ -21,8 +21,8 @@ import GuardDashboard from '@/views/GuardDashboard'
 import HostelDashboard from '@/views/HostelDashboard'
 import DeviceRegistry from '@/views/DeviceRegistry'
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isInitializing } = useAuth()
+const ProtectedRoute = ({ children, roles: requiredRoles }) => {
+  const { isAuthenticated, isInitializing, hasAnyRole } = useAuth()
 
   if (isInitializing) {
     return null
@@ -30,6 +30,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  if (requiredRoles && !hasAnyRole(requiredRoles)) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return <DashboardLayout>{children}</DashboardLayout>
@@ -93,7 +97,7 @@ export const App = () => {
       <Route
         path="/users"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
             <UsersView />
           </ProtectedRoute>
         }
@@ -101,7 +105,7 @@ export const App = () => {
       <Route
         path="/onboarding"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
             <Onboarding />
           </ProtectedRoute>
         }
@@ -109,7 +113,7 @@ export const App = () => {
       <Route
         path="/analytics"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'VIEWER']}>
             <Analytics />
           </ProtectedRoute>
         }
@@ -117,7 +121,7 @@ export const App = () => {
       <Route
         path="/rfid"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
             <RFIDView />
           </ProtectedRoute>
         }
@@ -125,7 +129,7 @@ export const App = () => {
       <Route
         path="/face-recognition"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
             <FaceRecognition />
           </ProtectedRoute>
         }
@@ -133,7 +137,7 @@ export const App = () => {
       <Route
         path="/face-auth-log"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
             <FaceAuthLog />
           </ProtectedRoute>
         }
@@ -141,7 +145,7 @@ export const App = () => {
       <Route
         path="/audit"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'VIEWER']}>
             <AuditView />
           </ProtectedRoute>
         }
@@ -149,7 +153,7 @@ export const App = () => {
       <Route
         path="/access"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
             <AccessManagement />
           </ProtectedRoute>
         }
@@ -157,7 +161,7 @@ export const App = () => {
       <Route
         path="/guard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
             <GuardDashboard />
           </ProtectedRoute>
         }
@@ -165,7 +169,7 @@ export const App = () => {
       <Route
         path="/hostel"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'WARDEN']}>
             <HostelDashboard />
           </ProtectedRoute>
         }
@@ -173,7 +177,7 @@ export const App = () => {
       <Route
         path="/devices"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
             <DeviceRegistry />
           </ProtectedRoute>
         }

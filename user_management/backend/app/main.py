@@ -50,6 +50,11 @@ async def lifespan(app: FastAPI):
             await run_migrations(migrations_dir)
     except Exception as e:
         logger.error("Database startup failed: %s", e)
+        # Do not expose endpoints with a partial schema.  It produces opaque
+        # 500 errors later and can make registrations look successful when
+        # their records cannot be read back.
+        await close_db()
+        raise
 
     # 2. Initialize Redis
     try:

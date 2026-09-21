@@ -13,15 +13,76 @@ logger = logging.getLogger(__name__)
 
 class HostelService:
 
-    async def get_dashboard_stats(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None) -> HostelDashboardStats:
+    async def get_guard_leave_monitor(self, conn: asyncpg.Connection) -> list[dict]:
+        """Return the leave information a gate guard needs to verify a student.
+
+        This deliberately includes both currently-approved passes and students who
+        are already outside/on leave, so a return scan can be checked against the
+        original authorisation.
+        """
+        rows = await conn.fetch("""
+            SELECT
+                u.id AS student_id,
+                sp.full_name AS student_name,
+                sp.roll_number AS student_roll,
+                u.phone AS student_phone,
+                h.name AS hostel_name,
+                COALESCE(shs.current_status, 'INSIDE') AS current_status,
+                shs.last_event_time,
+                hm.event_type AS last_movement_type,
+                hm.status AS last_movement_status,
+                hg.name AS last_gate_name,
+                hp.id AS permission_id,
+                hp.permission_type,
+                hp.start_time AS permission_start_time,
+                hp.end_time AS permission_end_time,
+                hp.reason AS permission_reason,
+                hp.status AS permission_status,
+                COALESCE(wp.full_name, fp.full_name, gp.full_name, 'Hostel Management') AS granted_by_name
+            FROM users u
+            JOIN student_profiles sp ON sp.user_id = u.id
+            LEFT JOIN hostels h ON h.id = sp.hostel_id
+            LEFT JOIN student_hostel_status shs ON shs.student_id = u.id
+            LEFT JOIN hostel_movement hm ON hm.id = shs.last_movement_id
+            LEFT JOIN hostel_gates hg ON hg.id = hm.gate_id
+            LEFT JOIN LATERAL (
+                SELECT p.*
+                FROM hostel_permissions p
+                WHERE p.student_id = u.id
+                  AND p.status = 'ACTIVE'
+                  AND p.end_time >= NOW()
+                ORDER BY p.end_time DESC
+                LIMIT 1
+            ) hp ON TRUE
+            LEFT JOIN users grantor ON grantor.id = hp.granted_by
+            LEFT JOIN worker_profiles wp ON wp.user_id = grantor.id
+            LEFT JOIN faculty_profiles fp ON fp.user_id = grantor.id
+            LEFT JOIN student_profiles gp ON gp.user_id = grantor.id
+            WHERE hp.id IS NOT NULL
+               OR COALESCE(shs.current_status, 'INSIDE') IN ('OUTSIDE', 'ON_LEAVE', 'UNAUTHORIZED', 'LATE_RETURN')
+               OR hm.event_time >= NOW() - INTERVAL '24 hours'
+            ORDER BY
+                CASE COALESCE(shs.current_status, 'INSIDE')
+                    WHEN 'ON_LEAVE' THEN 0 WHEN 'OUTSIDE' THEN 1 ELSE 2
+                END,
+                shs.last_event_time DESC NULLS LAST,
+                sp.full_name
+            LIMIT 500
+        """)
+        return [dict(row) for row in rows]
+
+    async def get_dashboard_stats(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None, hostel_ids: Optional[List[uuid.UUID]] = None) -> HostelDashboardStats:
         # Base where clause if hostel_id is provided
         # For simplicity, if not provided, aggregate across all
         
-        hostel_filter = ""
+        hostel_filter = "WHERE 1=1"
         args = []
         if hostel_id:
             hostel_filter = "WHERE sp.hostel_id = $1"
             args.append(hostel_id)
+        elif hostel_ids is not None:
+            hostel_filter = "WHERE sp.hostel_id = ANY($1::uuid[])"
+            args.append(hostel_ids)
             
         query_base = f"""
             FROM student_profiles sp
@@ -51,6 +112,8 @@ class HostelService:
         perm_filter = "WHERE p.status = 'ACTIVE' AND p.end_time > NOW()"
         if hostel_id:
             perm_filter += " AND p.student_id IN (SELECT user_id FROM student_profiles WHERE hostel_id = $1)"
+        elif hostel_ids is not None:
+            perm_filter += " AND p.student_id IN (SELECT user_id FROM student_profiles WHERE hostel_id = ANY($1::uuid[]))"
         active_permissions = await conn.fetchval(f"SELECT COUNT(*) FROM hostel_permissions p {perm_filter}", *args)
         
         # Attendance (today)
@@ -60,6 +123,9 @@ class HostelService:
         if hostel_id:
             att_filter += " AND hostel_id = $2"
             att_args.append(hostel_id)
+        elif hostel_ids is not None:
+            att_filter += " AND hostel_id = ANY($2::uuid[])"
+            att_args.append(hostel_ids)
             
         attendance_marked = await conn.fetchval(f"SELECT COUNT(*) FROM hostel_attendance {att_filter} AND status = 'PRESENT'", *att_args)
         attendance_missing = await conn.fetchval(f"SELECT COUNT(*) FROM hostel_attendance {att_filter} AND status = 'ABSENT'", *att_args)
@@ -76,12 +142,15 @@ class HostelService:
             active_permissions=active_permissions or 0
         )
 
-    async def get_live_status(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None) -> List[StudentHostelStatus]:
+    async def get_live_status(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None, hostel_ids: Optional[List[uuid.UUID]] = None) -> List[StudentHostelStatus]:
         hostel_filter = ""
         args = []
         if hostel_id:
             hostel_filter = "WHERE sp.hostel_id = $1"
             args.append(hostel_id)
+        elif hostel_ids is not None:
+            hostel_filter = "WHERE sp.hostel_id = ANY($1::uuid[])"
+            args.append(hostel_ids)
             
         rows = await conn.fetch(f"""
             SELECT 
@@ -137,7 +206,7 @@ class HostelService:
             UPDATE student_hostel_status SET active_permission_id = NULL WHERE active_permission_id = $1
         """, permission_id)
 
-    async def get_permissions(self, conn: asyncpg.Connection, student_id: Optional[uuid.UUID] = None, hostel_id: Optional[uuid.UUID] = None) -> List[HostelPermission]:
+    async def get_permissions(self, conn: asyncpg.Connection, student_id: Optional[uuid.UUID] = None, hostel_id: Optional[uuid.UUID] = None, hostel_ids: Optional[List[uuid.UUID]] = None) -> List[HostelPermission]:
         filter_sql = ""
         args = []
         if student_id:
@@ -146,6 +215,9 @@ class HostelService:
         elif hostel_id:
             filter_sql = "WHERE sp.hostel_id = $1"
             args.append(hostel_id)
+        elif hostel_ids is not None:
+            filter_sql = "WHERE sp.hostel_id = ANY($1::uuid[])"
+            args.append(hostel_ids)
             
         rows = await conn.fetch(f"""
             SELECT hp.*, 
@@ -165,12 +237,15 @@ class HostelService:
         
         return [HostelPermission(**dict(r)) for r in rows]
 
-    async def get_movement_history(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None) -> List[MovementHistory]:
+    async def get_movement_history(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None, hostel_ids: Optional[List[uuid.UUID]] = None) -> List[MovementHistory]:
         filter_sql = ""
         args = []
         if hostel_id:
             filter_sql = "WHERE sp.hostel_id = $1"
             args.append(hostel_id)
+        elif hostel_ids is not None:
+            filter_sql = "WHERE sp.hostel_id = ANY($1::uuid[])"
+            args.append(hostel_ids)
             
         rows = await conn.fetch(f"""
             SELECT hm.*, 
@@ -188,12 +263,15 @@ class HostelService:
         
         return [MovementHistory(**dict(r)) for r in rows]
 
-    async def get_alerts(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None) -> List[HostelAlert]:
+    async def get_alerts(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None, hostel_ids: Optional[List[uuid.UUID]] = None) -> List[HostelAlert]:
         filter_sql = ""
         args = []
         if hostel_id:
             filter_sql = "WHERE sp.hostel_id = $1"
             args.append(hostel_id)
+        elif hostel_ids is not None:
+            filter_sql = "WHERE sp.hostel_id = ANY($1::uuid[])"
+            args.append(hostel_ids)
             
         rows = await conn.fetch(f"""
             SELECT ha.*,
@@ -208,14 +286,17 @@ class HostelService:
         """, *args)
         return [HostelAlert(**dict(r)) for r in rows]
         
-    async def get_emergency_headcount(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None) -> EmergencyHeadcount:
-        stats = await self.get_dashboard_stats(conn, hostel_id)
+    async def get_emergency_headcount(self, conn: asyncpg.Connection, hostel_id: Optional[uuid.UUID] = None, hostel_ids: Optional[List[uuid.UUID]] = None) -> EmergencyHeadcount:
+        stats = await self.get_dashboard_stats(conn, hostel_id, hostel_ids)
         
         hostel_filter = ""
         args = []
         if hostel_id:
             hostel_filter = "WHERE sp.hostel_id = $1 AND shs.current_status IN ('UNAUTHORIZED', 'LATE_RETURN', 'OUTSIDE')"
             args.append(hostel_id)
+        elif hostel_ids is not None:
+            hostel_filter = "WHERE sp.hostel_id = ANY($1::uuid[]) AND shs.current_status IN ('UNAUTHORIZED', 'LATE_RETURN', 'OUTSIDE')"
+            args.append(hostel_ids)
         else:
             hostel_filter = "WHERE shs.current_status IN ('UNAUTHORIZED', 'LATE_RETURN', 'OUTSIDE')"
             
