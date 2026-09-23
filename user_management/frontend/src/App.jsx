@@ -153,7 +153,7 @@ export const App = () => {
       <Route
         path="/access"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN']}>
             <AccessManagement />
           </ProtectedRoute>
         }

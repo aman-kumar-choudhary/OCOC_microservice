@@ -3,6 +3,7 @@ import { Activity, Plus, ShieldCheck, ShieldAlert, Clock, User, MapPin, Search, 
 import accessService from '@/services/accessService'
 import userService from '@/services/userService'
 import { roleService } from '@/services/miscService'
+import UserAccessPanel from '@/components/access/UserAccessPanel'
 
 export const AccessManagement = () => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -241,35 +242,7 @@ export const AccessManagement = () => {
       )}
 
       {!loading && activeTab === 'user_access' && (
-        <div className="max-w-3xl space-y-5 rounded-xl border border-[var(--border-light)] bg-white p-6 shadow-sm">
-          <div>
-            <h2 className="text-lg font-bold">User Role & Hostel Access</h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">Operational roles are synchronized with Keycloak. Warden hostel scope remains in PostgreSQL.</p>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--text-muted)]">User</label>
-            <select value={selectedAccessUser} onChange={(event) => loadUserAccess(event.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm">
-              <option value="">Select user</option>
-              {users.map((user) => <option key={user.id} value={user.id}>{user.profile?.full_name || user.email} — {user.email}</option>)}
-            </select>
-          </div>
-          {selectedAccessUser && <>
-            <div>
-              <p className="mb-2 text-xs font-bold text-[var(--text-muted)]">Roles</p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {operationalRoles.map((role) => <label key={role} className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm font-semibold hover:bg-slate-50"><input type="checkbox" checked={selectedRoles.includes(role)} onChange={() => toggleSelection(role, selectedRoles, setSelectedRoles)} />{role.replace(/_/g, ' ')}</label>)}
-              </div>
-            </div>
-            {selectedRoles.includes('WARDEN') && <div>
-              <p className="mb-2 text-xs font-bold text-[var(--text-muted)]">Warden Hostel Access</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {hostels.map((hostel) => <label key={hostel.id} className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm font-semibold hover:bg-slate-50"><input type="checkbox" checked={selectedHostels.includes(hostel.id)} onChange={() => toggleSelection(hostel.id, selectedHostels, setSelectedHostels)} />{hostel.name}</label>)}
-              </div>
-            </div>}
-            {accessMessage && <p className="rounded-lg bg-slate-50 p-3 text-sm text-[var(--text-main)]">{accessMessage}</p>}
-            <button onClick={saveUserAccess} className="btn btn-primary" disabled={loading}><Save size={16} /> Save Access</button>
-          </>}
-        </div>
+        <UserAccessPanel />
       )}
 
       {!loading && activeTab === 'rule_builder' && (

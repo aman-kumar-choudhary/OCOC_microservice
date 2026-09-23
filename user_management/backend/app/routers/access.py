@@ -1,10 +1,13 @@
 from typing import List, Dict, Any, Optional
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.schemas.access import (
     AccessRule, CreateAccessRuleRequest, UpdateAccessRuleRequest,
     TemporaryAccessGrant, CreateTemporaryAccessRequest, AccessEvent,
-    EvaluateAccessRequest, Location, RFIDAccessScanRequest, FaceVerificationRequest, AccessGroup, CreateAccessGroupRequest, AddAccessGroupMemberRequest, UpdateUserAccessRequest
+    EvaluateAccessRequest, Location, RFIDAccessScanRequest, FaceVerificationRequest,
+    AccessGroup, CreateAccessGroupRequest, AddAccessGroupMemberRequest, UpdateUserAccessRequest,
+    # Enhanced schemas
+    CreateLocationGrantRequest, UpdateLocationGrantRequest,
 )
 from app.services.access_service import access_service
 from app.services.hostel_service import hostel_service
@@ -141,3 +144,150 @@ async def scan_access(req: RFIDAccessScanRequest, conn: asyncpg.Connection = Dep
 async def verify_gate_face(req: FaceVerificationRequest, conn: asyncpg.Connection = Depends(get_db), claims: Claims = Depends(require_permission("gate.review.manual"))):
     event = await access_service.verify_face(conn, req.verification_id, req.user_id, req.matched, req.face_confidence, req.reason)
     return {"success": True, "data": event}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Enhanced Access Management — User Search, Grants, Location Tree
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/manage/users", response_model=Dict[str, Any])
+async def search_access_users(
+    search: Optional[str] = Query(None, description="Search by name, email, ID, phone"),
+    user_type: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),
+    department: Optional[str] = Query(None),
+    course: Optional[str] = Query(None),
+    semester: Optional[str] = Query(None),
+    hostel: Optional[str] = Query(None),
+    campus: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    access_filter: Optional[str] = Query(None, description="no_access | partial | full"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=50),
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
+):
+    """Server-side paginated user search for the access management panel."""
+    result = await access_service.search_access_users(
+        conn, search=search, user_type=user_type, role=role,
+        department=department, course=course, semester=semester,
+        hostel=hostel, campus=campus, status=status,
+        access_filter=access_filter, page=page, page_size=page_size,
+    )
+    return {"success": True, "data": result}
+
+
+@router.get("/manage/users/{user_id}", response_model=Dict[str, Any])
+async def get_access_user_detail(
+    user_id: uuid.UUID,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
+):
+    """Detailed user info with roles, location grants, and temporary grants."""
+    try:
+        detail = await access_service.get_user_access_detail(conn, user_id)
+        return {"success": True, "data": detail}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/manage/users/{user_id}/permissions", response_model=Dict[str, Any])
+async def get_user_effective_permissions(
+    user_id: uuid.UUID,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
+):
+    """Compute effective permissions including hierarchy inheritance."""
+    perms = await access_service.get_user_effective_permissions(conn, user_id)
+    return {"success": True, "data": perms}
+
+
+@router.get("/locations/tree", response_model=Dict[str, Any])
+async def get_location_tree(
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(get_current_claims),
+):
+    """Hierarchical location tree."""
+    tree = await access_service.get_location_tree(conn)
+    return {"success": True, "data": tree}
+
+
+async def _resolve_actor_user_id(conn: asyncpg.Connection, claims: Claims) -> Optional[uuid.UUID]:
+    if not claims or not claims.sub:
+        return None
+    internal_id = await conn.fetchval(
+        "SELECT id FROM users WHERE keycloak_user_id = $1", str(claims.sub)
+    )
+    if internal_id:
+        return internal_id
+    try:
+        candidate = uuid.UUID(str(claims.sub))
+        exists = await conn.fetchval("SELECT id FROM users WHERE id = $1", candidate)
+        if exists:
+            return candidate
+    except (ValueError, AttributeError):
+        pass
+    return None
+
+
+@router.post("/grants", response_model=Dict[str, Any])
+async def create_location_grant(
+    req: CreateLocationGrantRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+):
+    """Create a new location access grant."""
+    admin_id = await _resolve_actor_user_id(conn, claims)
+    try:
+        grant = await access_service.create_location_grant(conn, req, admin_id)
+        return {"success": True, "data": grant}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/grants/{grant_id}", response_model=Dict[str, Any])
+async def update_location_grant(
+    grant_id: uuid.UUID,
+    req: UpdateLocationGrantRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+):
+    """Update an existing location access grant."""
+    admin_id = await _resolve_actor_user_id(conn, claims)
+    try:
+        grant = await access_service.update_location_grant(conn, grant_id, req, admin_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not grant:
+        raise HTTPException(status_code=404, detail="Grant not found")
+    return {"success": True, "data": grant}
+
+
+@router.delete("/grants/{grant_id}", response_model=Dict[str, Any])
+async def revoke_location_grant(
+    grant_id: uuid.UUID,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+):
+    """Revoke a location access grant."""
+    admin_id = await _resolve_actor_user_id(conn, claims)
+    revoked = await access_service.revoke_location_grant(conn, grant_id, admin_id)
+    if not revoked:
+        raise HTTPException(status_code=404, detail="Grant not found")
+    return {"success": True, "data": {"revoked": True}}
+
+
+@router.get("/audit-logs", response_model=Dict[str, Any])
+async def get_access_audit_logs(
+    user_id: Optional[uuid.UUID] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
+):
+    """Access-management-specific audit logs."""
+    result = await access_service.get_access_audit_logs(
+        conn, user_id=user_id, page=page, page_size=page_size,
+    )
+    return {"success": True, "data": result}

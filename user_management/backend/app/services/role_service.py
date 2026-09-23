@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 # This list is intentionally limited to the roles Access Management owns.
 # ADMIN and SUPER_ADMIN continue to be administered by their existing flow.
-OPERATIONAL_ROLES = {"GUARD", "WARDEN", "FACULTY"}
+OPERATIONAL_ROLES = {
+    "GUARD", "WARDEN", "FACULTY",
+    "STUDENT", "SECURITY_GUARD", "STAFF", "WORKER", "VISITOR",
+}
 
 
 class RoleService:

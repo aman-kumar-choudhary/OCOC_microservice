@@ -71,6 +71,12 @@ async def get_db() -> AsyncGenerator[asyncpg.Connection, None]:
         yield conn
 
 
+def get_db_pool() -> Optional[asyncpg.Pool]:
+    """Return the global asyncpg connection pool."""
+    global pool
+    return pool
+
+
 async def run_migrations(migrations_dir: str) -> None:
     """Apply numbered SQL migrations idempotently, matching Go backend migration runner."""
     global pool
