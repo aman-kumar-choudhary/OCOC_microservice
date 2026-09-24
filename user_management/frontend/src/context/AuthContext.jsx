@@ -44,7 +44,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('access_token', access_token)
     localStorage.setItem('refresh_token', refresh_token)
 
-    parseToken(access_token)
+    // Return the claims as well as storing them in state.  State updates are
+    // asynchronous, while the login page needs the roles immediately to pick
+    // the correct first dashboard.
+    return parseToken(access_token)
   }
 
   const logout = async () => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { roleDashboardPath } from '@/utils/roleDashboard'
 import dsvvLogo from '@/assets/Dsvv.png'
 import {
   Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu,
@@ -18,7 +19,7 @@ export const DashboardLayout = ({ children }) => {
   const userRoles = roles.filter((role) => !role.startsWith('default-')).slice(0, 2)
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Dashboard', path: roleDashboardPath(roles), icon: LayoutDashboard },
     { name: 'User Directory', path: '/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Onboard Person', path: '/onboarding', icon: UserPlus, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Analytics', path: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'VIEWER'] },
@@ -26,7 +27,7 @@ export const DashboardLayout = ({ children }) => {
     { name: 'Face Lab', path: '/face-recognition', icon: ScanFace, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
     { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
     { name: 'Access Control', path: '/access', icon: Lock, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN'] },
-    { name: 'Guard Console', path: '/guard', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
+    { name: 'Guard Console', path: '/guard', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
     { name: 'Hostel Management', path: '/hostel', icon: Home, roles: ['SUPER_ADMIN', 'ADMIN', 'WARDEN'] },
     { name: 'Device Registry', path: '/devices', icon: Server, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Audit Log', path: '/audit', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'VIEWER'] },
@@ -69,7 +70,7 @@ export const DashboardLayout = ({ children }) => {
       >
         <div className="flex h-24 items-center justify-between border-b border-white/10 px-5">
           <Link
-            to="/dashboard"
+            to={roleDashboardPath(roles)}
             className="flex items-center justify-center text-white no-underline mx-auto"
             aria-label="DSVV dashboard"
             onClick={() => setIsMobileMenuOpen(false)}

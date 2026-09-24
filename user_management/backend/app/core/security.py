@@ -37,7 +37,7 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "role:manage": ["SUPER_ADMIN"],
     "audit:read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
     "user:manage": ["SUPER_ADMIN", "ADMIN"],
-    "access.rule.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER", "GUARD"],
+    "access.rule.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER", "GUARD", "SECURITY_GUARD"],
     "access.rule.manage": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.grant.temporary": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.grant.manage": ["SUPER_ADMIN", "ADMIN"],
@@ -45,8 +45,8 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "access.user.detail": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.audit.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.occupancy.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
-    "gate.review.manual": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"],
-    "guard.console.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"],
+    "gate.review.manual": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
+    "guard.console.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
 }
 
 ADMIN_ROLES = ("SUPER_ADMIN", "ADMIN")

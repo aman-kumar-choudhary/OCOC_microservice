@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { roleDashboardPath } from '@/utils/roleDashboard'
 import { Lock, Mail, Loader2, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 
 export const Login = () => {
@@ -29,8 +30,8 @@ export const Login = () => {
     setError('')
     setIsLoading(true)
     try {
-      await login({ username: email, password })
-      navigate('/dashboard')
+      const claims = await login({ username: email.trim(), password })
+      navigate(roleDashboardPath(claims?.realm_access?.roles), { replace: true })
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Login failed. Please check your credentials.')
     } finally {

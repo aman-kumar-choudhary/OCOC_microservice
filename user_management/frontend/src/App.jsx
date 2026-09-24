@@ -20,9 +20,10 @@ import AccessManagement from '@/views/AccessManagement'
 import GuardDashboard from '@/views/GuardDashboard'
 import HostelDashboard from '@/views/HostelDashboard'
 import DeviceRegistry from '@/views/DeviceRegistry'
+import { roleDashboardPath } from '@/utils/roleDashboard'
 
 const ProtectedRoute = ({ children, roles: requiredRoles }) => {
-  const { isAuthenticated, isInitializing, hasAnyRole } = useAuth()
+  const { isAuthenticated, isInitializing, hasAnyRole, roles } = useAuth()
 
   if (isInitializing) {
     return null
@@ -33,21 +34,21 @@ const ProtectedRoute = ({ children, roles: requiredRoles }) => {
   }
 
   if (requiredRoles && !hasAnyRole(requiredRoles)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={roleDashboardPath(roles)} replace />
   }
 
   return <DashboardLayout>{children}</DashboardLayout>
 }
 
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, isInitializing } = useAuth()
+  const { isAuthenticated, isInitializing, roles } = useAuth()
 
   if (isInitializing) {
     return null
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={roleDashboardPath(roles)} replace />
   }
 
   return <AuthLayout>{children}</AuthLayout>
@@ -121,7 +122,7 @@ export const App = () => {
       <Route
         path="/rfid"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD']}>
             <RFIDView />
           </ProtectedRoute>
         }
@@ -161,7 +162,7 @@ export const App = () => {
       <Route
         path="/guard"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD']}>
             <GuardDashboard />
           </ProtectedRoute>
         }
