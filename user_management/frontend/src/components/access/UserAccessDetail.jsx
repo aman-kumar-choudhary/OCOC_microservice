@@ -92,7 +92,16 @@ export const UserAccessDetail = ({
         roles: selectedRoles,
         hostel_ids: selectedRoles.includes('WARDEN') ? selectedHostels : []
       })
-      setRoleMessage('Roles and hostel assignments saved successfully.')
+      const assignedRoles = (res.roles || []).join(', ') || 'No operational roles'
+      const identity = detail?.email || userId
+      const identityId = detail?.id || userId
+      const kcId = res.keycloak_user_id ? ` Keycloak ID: ${res.keycloak_user_id}.` : ''
+      const credentialsNotice = res.credentials_printed
+        ? ' Temporary credentials were printed by the backend terminal.'
+        : res.credentials_issued
+          ? ' A temporary password was generated; check the backend environment policy for credential logging.'
+        : ''
+      setRoleMessage(`Keycloak roles synchronized for ${identity} (User ID: ${identityId}). Assigned: ${assignedRoles}.${kcId}${credentialsNotice}`)
       await loadAllData()
       if (onUserUpdated) onUserUpdated()
     } catch (err) {
@@ -488,7 +497,7 @@ export const UserAccessDetail = ({
 
             {roleMessage && (
               <div className={`p-3.5 rounded-xl border text-xs flex items-center gap-2 ${
-                roleMessage.includes('success')
+                roleMessage.includes('synchronized')
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : 'bg-rose-50 border-rose-200 text-rose-800'
               }`}>

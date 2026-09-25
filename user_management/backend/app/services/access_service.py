@@ -314,6 +314,12 @@ class AccessService:
                 sp.course, sp.semester,
                 h.name AS hostel_name,
                 COALESCE(sp.photo_reference,fp.photo_reference,wp.photo_reference,vp.photo_reference) AS photo_reference,
+                COALESCE((SELECT array_agg(r.name ORDER BY r.name)
+                          FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+                          WHERE ur.user_id=u.id), ARRAY[]::text[]) AS roles,
+                COALESCE((SELECT array_agg(DISTINCT l.name ORDER BY l.name)
+                          FROM user_location_access ula JOIN locations l ON l.id=ula.location_id
+                          WHERE ula.user_id=u.id AND ula.status='active'), ARRAY[]::text[]) AS locations,
                 (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id=u.id) AS role_count,
                 (SELECT COUNT(*) FROM user_location_access ula WHERE ula.user_id=u.id AND ula.status='active') AS grant_count
             {base_from}
@@ -330,6 +336,8 @@ class AccessService:
                 employee_id=r["employee_id"], department=r["department"],
                 course=r["course"], semester=r["semester"],
                 hostel_name=r["hostel_name"], photo_reference=r["photo_reference"],
+                roles=r["roles"] or [],
+                locations=r["locations"] or [],
                 role_count=r["role_count"], grant_count=r["grant_count"],
                 keycloak_linked=bool(r["keycloak_user_id"]),
             )

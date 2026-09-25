@@ -9,6 +9,7 @@ import Login from '@/views/Login'
 import ForgotPassword from '@/views/ForgotPassword'
 import Register from '@/views/Register'
 import Dashboard from '@/views/Dashboard'
+import PersonalDashboard from '@/views/PersonalDashboard'
 import UsersView from '@/views/Users'
 import Onboarding from '@/views/Onboarding'
 import Analytics from '@/views/Analytics'
@@ -33,7 +34,8 @@ const ProtectedRoute = ({ children, roles: requiredRoles }) => {
     return <Navigate to="/login" replace />
   }
 
-  if (requiredRoles && !hasAnyRole(requiredRoles)) {
+  const isAdministrator = hasAnyRole(['SUPER_ADMIN', 'ADMIN'])
+  if (requiredRoles && !isAdministrator && !hasAnyRole(requiredRoles)) {
     return <Navigate to={roleDashboardPath(roles)} replace />
   }
 
@@ -52,6 +54,12 @@ const PublicRoute = ({ children }) => {
   }
 
   return <AuthLayout>{children}</AuthLayout>
+}
+
+const DashboardRouter = () => {
+  const { hasAnyRole } = useAuth()
+  const isAdministrator = hasAnyRole(['SUPER_ADMIN', 'ADMIN'])
+  return isAdministrator ? <Dashboard /> : <PersonalDashboard />
 }
 
 export const App = () => {
@@ -91,7 +99,7 @@ export const App = () => {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <DashboardRouter />
           </ProtectedRoute>
         }
       />
@@ -130,7 +138,7 @@ export const App = () => {
       <Route
         path="/face-recognition"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD']}>
             <FaceRecognition />
           </ProtectedRoute>
         }
@@ -154,7 +162,7 @@ export const App = () => {
       <Route
         path="/access"
         element={
-          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN']}>
+          <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
             <AccessManagement />
           </ProtectedRoute>
         }

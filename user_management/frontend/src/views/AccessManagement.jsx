@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Activity, Plus, ShieldCheck, ShieldAlert, Clock, User, MapPin, Search, Loader2, Save } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import accessService from '@/services/accessService'
 import userService from '@/services/userService'
 import { roleService } from '@/services/miscService'
 import UserAccessPanel from '@/components/access/UserAccessPanel'
 
 export const AccessManagement = () => {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [loading, setLoading] = useState(false)
 
@@ -177,6 +179,9 @@ export const AccessManagement = () => {
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Access Management</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">Manage zone restrictions, schedules, and temporary passes</p>
         </div>
+        <button onClick={() => navigate('/onboarding')} className="btn btn-primary text-sm px-3 py-2">
+          <Plus size={16} /> Create User
+        </button>
       </div>
 
       <div className="flex border-b border-[var(--border-light)] gap-6">

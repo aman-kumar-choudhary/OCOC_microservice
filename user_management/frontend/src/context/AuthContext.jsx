@@ -33,7 +33,10 @@ export const AuthProvider = ({ children }) => {
   const roles = user?.realm_access?.roles || []
   const email = user?.email || ''
 
-  const hasRole = (role) => roles.includes(role)
+  // Treat Keycloak role matching case-insensitively; role names remain stored
+  // and displayed exactly as Keycloak issues them.
+  const roleSet = new Set(roles.map((role) => String(role).toUpperCase()))
+  const hasRole = (role) => roleSet.has(String(role).toUpperCase())
   const hasAnyRole = (checkRoles) => checkRoles.some((r) => hasRole(r))
 
   const login = async (credentials) => {

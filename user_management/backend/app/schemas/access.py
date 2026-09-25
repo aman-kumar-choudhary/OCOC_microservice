@@ -158,6 +158,8 @@ class AccessUserSummary(BaseModel):
     semester: Optional[str] = None
     hostel_name: Optional[str] = None
     photo_reference: Optional[str] = None
+    roles: List[str] = Field(default_factory=list)
+    locations: List[str] = Field(default_factory=list)
     role_count: int = 0
     grant_count: int = 0
     keycloak_linked: bool = False

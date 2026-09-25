@@ -12,6 +12,7 @@ import {
 export const DashboardLayout = ({ children }) => {
   const navigate = useNavigate()
   const { user, roles, email, hasRole, logout } = useAuth()
+  const isAdministrator = hasRole('SUPER_ADMIN') || hasRole('ADMIN')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
 
@@ -23,17 +24,17 @@ export const DashboardLayout = ({ children }) => {
     { name: 'User Directory', path: '/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Onboard Person', path: '/onboarding', icon: UserPlus, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Analytics', path: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'VIEWER'] },
-    { name: 'RFID Cards', path: '/rfid', icon: CreditCard, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
-    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
-    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD'] },
-    { name: 'Access Control', path: '/access', icon: Lock, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN'] },
+    { name: 'RFID Cards', path: '/rfid', icon: CreditCard, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
+    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
+    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
+    { name: 'Access Control', path: '/access', icon: Lock, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Guard Console', path: '/guard', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
     { name: 'Hostel Management', path: '/hostel', icon: Home, roles: ['SUPER_ADMIN', 'ADMIN', 'WARDEN'] },
     { name: 'Device Registry', path: '/devices', icon: Server, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'Audit Log', path: '/audit', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'VIEWER'] },
   ]
 
-  const filteredNavItems = navItems.filter((item) => !item.roles || item.roles.some((role) => hasRole(role)))
+  const filteredNavItems = navItems.filter((item) => isAdministrator || !item.roles || item.roles.some((role) => hasRole(role)))
 
   const handleLogout = async () => {
     setIsProfileMenuOpen(false)

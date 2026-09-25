@@ -135,6 +135,15 @@ export const UserAccessPanel = () => {
     campusFilter, accessFilter, courseFilter, semesterFilter, hostelFilter
   ].filter(Boolean).length
 
+  const quickTypes = [
+    { id: '', label: 'All users' },
+    { id: 'student', label: 'Students' },
+    { id: 'faculty', label: 'Faculty' },
+    { id: 'worker', label: 'Workers' },
+    { id: 'visitor', label: 'Visitors' },
+  ]
+  const typeLabel = { student: 'students', faculty: 'faculty', worker: 'workers', visitor: 'visitors' }
+
   // Helper for access badge
   const renderAccessStatus = (u) => {
     if (u.access_status === 'full') {
@@ -162,6 +171,31 @@ export const UserAccessPanel = () => {
     <div className="space-y-5">
       {/* ── Search and Filter Header Card ── */}
       <div className="rounded-2xl border border-[var(--border-light)] bg-white p-5 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-extrabold text-slate-800">People & Access</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Filter by person type, then review each person’s Keycloak roles and location grants.</p>
+          </div>
+          <span className="text-xs font-bold text-slate-600">{totalCount.toLocaleString()} {typeLabel[userType] || 'people'}</span>
+        </div>
+
+        <div className="flex flex-wrap gap-2" aria-label="Quick filter by user type">
+          {quickTypes.map((type) => (
+            <button
+              key={type.id || 'all'}
+              type="button"
+              onClick={() => { setUserType(type.id); setPage(1) }}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold border transition ${
+                userType === type.id
+                  ? 'bg-[#0a2342] text-white border-[#0a2342]'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-amber-400'
+              }`}
+            >
+              {type.label}
+            </button>
+          ))}
+        </div>
+
         {/* Search Bar & Filter Toggle */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div className="relative flex-1">
@@ -279,9 +313,9 @@ export const UserAccessPanel = () => {
           </div>
 
           {/* Department */}
-          <div>
+          <div className={userType && !['student', 'faculty', 'worker'].includes(userType) ? 'hidden' : ''}>
             <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1 block">
-              Department
+              {userType === 'faculty' ? 'Faculty Department' : 'Department'}
             </label>
             <select
               value={departmentFilter}
@@ -331,7 +365,7 @@ export const UserAccessPanel = () => {
         </div>
 
         {/* Collapsible Advanced Academic / Hostel Filters */}
-        {showAdvancedFilters && (
+        {showAdvancedFilters && (userType === 'student' || userType === '') && (
           <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in bg-slate-50/60 p-3.5 rounded-xl">
             {/* Course */}
             <div>
@@ -543,11 +577,11 @@ export const UserAccessPanel = () => {
                       {/* Roles */}
                       <td className="px-4 py-3.5">
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
-                          {u.role_count > 0 ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                              {u.role_count} assigned
+                          {u.roles?.length > 0 ? u.roles.map((role) => (
+                            <span key={role} className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              {role}
                             </span>
-                          ) : <span className="text-[11px] text-slate-400">No roles</span>}
+                          )) : <span className="text-[11px] text-slate-400">No roles</span>}
                         </div>
                       </td>
 
@@ -572,7 +606,14 @@ export const UserAccessPanel = () => {
 
                       {/* Location Access Grants */}
                       <td className="px-4 py-3.5">
-                        {renderAccessStatus(u)}
+                        <div className="space-y-1">
+                          {renderAccessStatus(u)}
+                          {u.locations?.length > 0 && (
+                            <p className="max-w-[220px] truncate text-[10px] text-slate-500" title={u.locations.join(', ')}>
+                              {u.locations.slice(0, 2).join(', ')}{u.locations.length > 2 ? ` +${u.locations.length - 2} more` : ''}
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       {/* Quick Action Button */}

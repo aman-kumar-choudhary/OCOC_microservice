@@ -141,6 +141,7 @@ class KeycloakClient:
         password: Optional[str] = None,
         attributes: Optional[Dict[str, List[str]]] = None,
         enabled: bool = True,
+        temporary_password: bool = False,
     ) -> str:
         """Create a user in Keycloak and return the created Keycloak User ID."""
         token = await self.get_admin_token()
@@ -162,7 +163,7 @@ class KeycloakClient:
                 {
                     "type": "password",
                     "value": password,
-                    "temporary": False,
+                    "temporary": temporary_password,
                 }
             ]
 
@@ -261,9 +262,11 @@ class KeycloakClient:
 
     async def update_user_roles(self, keycloak_id: str, selected_roles: List[str], managed_roles: List[str]) -> None:
         """Synchronize only OCOC operational roles, preserving unrelated mappings."""
-        current = {str(role.get("name", "")).upper() for role in await self.get_user_roles(keycloak_id)}
-        selected = {role.upper() for role in selected_roles}
-        managed = {role.upper() for role in managed_roles}
+        current = {str(role.get("name", "")) for role in await self.get_user_roles(keycloak_id)}
+        selected = set(selected_roles)
+        managed = set(managed_roles)
+        # Preserve the exact Keycloak names. Never uppercase/alias realm roles:
+        # doing so can target a different role or fail to remove the mapped one.
         for role in sorted((current & managed) - selected):
             await self.remove_role(keycloak_id, role)
         for role in sorted(selected - current):
