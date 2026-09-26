@@ -6,8 +6,18 @@ const AuthContext = createContext(undefined)
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('access_token'))
-  const [user, setUser] = useState(null)
-  const [isInitializing, setIsInitializing] = useState(true)
+  const [user, setUser] = useState(() => {
+    const savedToken = localStorage.getItem('access_token')
+    if (savedToken) {
+      try {
+        return jwtDecode(savedToken)
+      } catch (e) {
+        return null
+      }
+    }
+    return null
+  })
+  const [isInitializing, setIsInitializing] = useState(false)
 
   const parseToken = (t) => {
     try {
@@ -23,10 +33,9 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const savedToken = localStorage.getItem('access_token')
-    if (savedToken) {
+    if (savedToken && !user) {
       parseToken(savedToken)
     }
-    setIsInitializing(false)
   }, [])
 
   const isAuthenticated = !!token

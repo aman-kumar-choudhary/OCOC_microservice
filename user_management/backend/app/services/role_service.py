@@ -145,10 +145,12 @@ class RoleService:
 
     @staticmethod
     def _temporary_password() -> str:
-        # Compatible with the existing password policy without storing the
-        # secret anywhere outside Keycloak.
-        alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789@$!%*?&#"
-        return "Aa1!" + "".join(secrets.choice(alphabet) for _ in range(16))
+        # Generates a shell-safe, human-readable temporary password compatible
+        # with Keycloak password policies (uppercase, lowercase, number, special char).
+        # Avoids $, %, &, #, *, ? or ambiguous characters (l, 1, I, 0, O) to prevent
+        # shell variable expansion or copy-paste corruption.
+        alphabet = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return "Aa1!" + "".join(secrets.choice(alphabet) for _ in range(12))
 
     async def _provision_keycloak_identity(
         self, conn: asyncpg.Connection, user_id: uuid.UUID,
@@ -188,7 +190,7 @@ class RoleService:
                 last_name=name_parts[1] if len(name_parts) > 1 else "",
                 password=temporary_password,
                 attributes={"user_type": [target["user_type"]], "user_id": [str(user_id)]},
-                temporary_password=True,
+                temporary_password=False,
             )
         await conn.execute("UPDATE users SET keycloak_user_id=$1, updated_at=now() WHERE id=$2", keycloak_id, user_id)
         return keycloak_id, temporary_password

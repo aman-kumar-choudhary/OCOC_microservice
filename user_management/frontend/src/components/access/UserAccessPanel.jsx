@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Search, Filter, RotateCcw, ChevronLeft, ChevronRight,
   User, Shield, MapPin, Building, Home, CheckCircle2,
   AlertCircle, Loader2, Sparkles, SlidersHorizontal,
-  ChevronDown, ChevronUp, X, ArrowRight, Eye, UserCheck
+  ChevronDown, ChevronUp, X, ArrowRight, Eye, UserCheck, UserPlus
 } from 'lucide-react'
 import accessService from '@/services/accessService'
 import userService from '@/services/userService'
@@ -218,6 +219,14 @@ export const UserAccessPanel = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              to="/onboarding"
+              className="btn btn-primary text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shadow-xs"
+            >
+              <UserPlus size={14} />
+              <span>Onboard User</span>
+            </Link>
+
             <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={`btn text-xs font-bold ${
@@ -489,14 +498,22 @@ export const UserAccessPanel = () => {
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Try adjusting your search query, clearing specific filters, or resetting the filter bar.
             </p>
-            {activeFilterCount > 0 && (
-              <button
-                onClick={handleResetFilters}
-                className="btn btn-outline text-xs mt-2"
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Link
+                to="/onboarding"
+                className="btn btn-primary text-xs font-bold inline-flex items-center gap-1.5"
               >
-                Clear All Filters
-              </button>
-            )}
+                <UserPlus size={14} /> Onboard New User
+              </Link>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={handleResetFilters}
+                  className="btn btn-outline text-xs"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">

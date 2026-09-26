@@ -20,8 +20,10 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    // If error is 401 and we haven't tried refreshing yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh')
+
+    // If error is 401 on an authenticated request and we haven't tried refreshing yet
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true
 
       try {
@@ -44,7 +46,9 @@ api.interceptors.response.use(
         // Refresh failed, logout user
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshError)
       }
     }

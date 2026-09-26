@@ -61,7 +61,15 @@ Migrations are in the `migrations/` folder. Apply them using your preferred tool
 
 ## Keycloak
 
-Keycloak setup helpers are in `scripts/setup-keycloak.sh` — run or adapt it to configure realms, clients and roles required by the service.
+Keycloak setup helper is available in `scripts/setup_keycloak.py` (cross-platform) or `scripts/setup-keycloak.sh` (bash):
+
+```bash
+# Cross-platform (Windows, Linux, macOS):
+python scripts/setup_keycloak.py
+
+# Or via bash:
+bash scripts/setup-keycloak.sh
+```
 
 ## Notes
 
@@ -80,7 +88,9 @@ Add your license here (e.g., MIT). If you want, I can add a `LICENSE` file.
 
 ## How to run this project
 
--  keyclock command :  bin/kc.sh start-dev --http-port=8180
--  user management frontend command : npm install && npm run dev
--  user management backend command : uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
--  facerecognition command : uvicorn app.main:app
+- Keycloak start command: `bin/kc.sh start-dev --http-port=8180` (or `.\bin\kc.bat start-dev --http-port=8180` on Windows)
+- Keycloak realm & roles setup: `python scripts/setup_keycloak.py`
+- User management backend: `uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload`
+- User management frontend: `npm install && npm run dev`
+- Face recognition: `uvicorn app.main:app`
+
