@@ -4,7 +4,7 @@ import rfidService from '@/services/rfidService'
 import { registerPerson } from '@/services/frecoService'
 import {
   GraduationCap, Wrench, UserRound, CreditCard,
-  CheckCircle, Loader2, ArrowRight, ArrowLeft, ScanFace, Award
+  CheckCircle, Loader2, ArrowRight, ArrowLeft, ScanFace, Award, Shield
 } from 'lucide-react'
 import UserProfileForm from '@/components/UserProfileForm'
 import FaceOvalCamera from '@/components/FaceOvalCamera'
@@ -39,6 +39,17 @@ const personaCards = [
     border: 'border-violet-300',
     iconColor: 'text-violet-600',
     activeBg: 'bg-violet-600',
+  },
+  {
+    id: 'faculty_warden',
+    label: 'Faculty + Warden',
+    subtitle: 'Faculty staff with hostel administration',
+    icon: Shield,
+    gradient: 'from-amber-500 to-amber-700',
+    bg: 'bg-amber-50',
+    border: 'border-amber-300',
+    iconColor: 'text-amber-600',
+    activeBg: 'bg-amber-600',
   },
   {
     id: 'worker',
@@ -76,6 +87,7 @@ export const Onboarding = () => {
       full_name: '',
       photo_reference: '',
       roll_number: '',
+      batch: '2024-2028',
       school: '',
       department: '',
       department_id: null,
@@ -83,15 +95,27 @@ export const Onboarding = () => {
       semester: '',
       hostel: false,
       hostel_id: null,
+      room_number: '',
       guardian_contact: '',
       employee_id: '',
       designation: '',
+      courses: '',
+      assigned_students: '',
+      hostel_block: '',
+      warden_responsibilities: '',
       worker_role: '',
+      job_type: '',
+      work_area: '',
+      shift: '',
+      assigned_location_id: null,
       gov_id_type: '',
       gov_id_number: '',
       nationality: '',
       visit_purpose: '',
+      host_person: '',
       host_contact: '',
+      valid_until: '',
+      allowed_location_ids: [],
     }
   })
 

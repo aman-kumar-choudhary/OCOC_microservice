@@ -208,7 +208,7 @@ async def resolve_warden_hostel_scope(
     Scope is always derived from the validated token subject and PostgreSQL;
     callers must never supply a user id to this function.
     """
-    if claims.has_any_role(*ADMIN_ROLES):
+    if claims.has_any_role("SUPER_ADMIN"):
         return None
     if not claims.has_any_role("WARDEN"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "warden role required"})

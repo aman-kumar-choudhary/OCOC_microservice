@@ -131,6 +131,72 @@ async def get_current_user_profile(
             "active_permission": active_perm_dict,
         }
 
+    # Role-specific profiles
+    sp = await conn.fetchrow(
+        "SELECT sp.*, h.name as hostel_name, d.name as department_name FROM student_profiles sp LEFT JOIN hostels h ON h.id = sp.hostel_id LEFT JOIN departments d ON d.id = sp.department_id WHERE sp.user_id = $1",
+        user_id,
+    )
+    fp = await conn.fetchrow(
+        "SELECT fp.*, d.name as department_name FROM faculty_profiles fp LEFT JOIN departments d ON d.id = fp.department_id WHERE fp.user_id = $1",
+        user_id,
+    )
+    warden = await conn.fetchrow(
+        "SELECT wp.*, h.name as hostel_name FROM warden_profiles wp LEFT JOIN hostels h ON h.id = wp.hostel_id WHERE wp.user_id = $1",
+        user_id,
+    )
+    wp = await conn.fetchrow(
+        "SELECT wp.*, d.name as department_name, l.name as location_name FROM worker_profiles wp LEFT JOIN departments d ON d.id = wp.department_id LEFT JOIN locations l ON l.id = wp.assigned_location_id WHERE wp.user_id = $1",
+        user_id,
+    )
+    vp = await conn.fetchrow(
+        "SELECT * FROM visitor_profiles WHERE user_id = $1",
+        user_id,
+    )
+
+    role_profiles = {}
+    if sp:
+        role_profiles["student"] = {
+            "student_id": sp["roll_number"],
+            "course": sp["course"],
+            "department": sp["department_name"],
+            "semester": sp["semester"],
+            "batch": sp.get("batch"),
+            "hostel": sp["hostel_name"],
+            "room_number": sp.get("room_number"),
+        }
+    if fp:
+        role_profiles["faculty"] = {
+            "faculty_id": fp["employee_id"],
+            "department": fp["department_name"],
+            "designation": fp["designation"],
+            "courses": fp.get("courses"),
+            "assigned_students": fp.get("assigned_students"),
+        }
+    if warden:
+        role_profiles["warden"] = {
+            "hostel": warden["hostel_name"],
+            "hostel_block": warden.get("hostel_block"),
+            "responsibilities": warden.get("responsibilities"),
+        }
+    if wp:
+        role_profiles["worker"] = {
+            "worker_id": wp["employee_id"],
+            "job_type": wp.get("job_type") or wp["designation"],
+            "department": wp["department_name"],
+            "assigned_location": wp.get("location_name"),
+            "work_area": wp.get("work_area"),
+            "shift": wp.get("shift"),
+        }
+    if vp:
+        role_profiles["visitor"] = {
+            "visit_purpose": vp["visit_purpose"],
+            "host_person": vp.get("host_person"),
+            "host_contact": vp["host_contact"],
+            "visit_start": vp["visit_start"].isoformat() if vp["visit_start"] else None,
+            "visit_duration_days": vp["visit_duration_days"],
+            "valid_until": vp.get("valid_until").isoformat() if vp.get("valid_until") else None,
+        }
+
     dash = role_service.get_dashboard_info(combined_roles)
 
     data = {
@@ -140,15 +206,27 @@ async def get_current_user_profile(
         "user_type": user["user_type"],
         "status": user["status"],
         "full_name": user["full_name"],
-        "roll_number": user["roll_number"],
-        "course": user["course"],
-        "semester": user["semester"],
-        "department": user["department_name"],
-        "hostel": user["hostel_name"],
-        "employee_id": user["faculty_employee_id"] or user["worker_employee_id"],
-        "designation": user["faculty_designation"] or user["worker_designation"],
-        "visitor_purpose": user["visitor_purpose"],
+        "roll_number": sp["roll_number"] if sp else user["roll_number"],
+        "course": sp["course"] if sp else user["course"],
+        "semester": sp["semester"] if sp else user["semester"],
+        "batch": sp.get("batch") if sp else None,
+        "room_number": sp.get("room_number") if sp else None,
+        "department": (sp["department_name"] if sp else None) or (fp["department_name"] if fp else None) or user["department_name"],
+        "hostel": (sp["hostel_name"] if sp else None) or (warden["hostel_name"] if warden else None) or user["hostel_name"],
+        "hostel_block": warden.get("hostel_block") if warden else None,
+        "warden_responsibilities": warden.get("responsibilities") if warden else None,
+        "employee_id": (fp["employee_id"] if fp else None) or (wp["employee_id"] if wp else None) or user["faculty_employee_id"] or user["worker_employee_id"],
+        "designation": (fp["designation"] if fp else None) or (wp.get("job_type") if wp else None) or user["faculty_designation"] or user["worker_designation"],
+        "courses": fp.get("courses") if fp else None,
+        "assigned_students": fp.get("assigned_students") if fp else None,
+        "job_type": wp.get("job_type") if wp else None,
+        "work_area": wp.get("work_area") if wp else None,
+        "shift": wp.get("shift") if wp else None,
+        "assigned_location": wp.get("location_name") if wp else None,
+        "visitor_purpose": vp.get("visit_purpose") if vp else user["visitor_purpose"],
+        "host_person": vp.get("host_person") if vp else None,
         "roles": combined_roles,
+        "role_profiles": role_profiles,
         "locations": locations,
         "rfid_card": dict(rfid_card) if rfid_card else None,
         "student_hostel_status": student_status,

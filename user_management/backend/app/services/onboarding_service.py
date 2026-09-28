@@ -22,6 +22,8 @@ class OnboardingService:
         req: OnboardingRequest,
     ) -> OnboardingResult:
         req.user.user_type = req.persona.lower()
+        if req.roles:
+            req.user.roles = req.roles
         created_user = await user_service.create_user(conn, actor_id, req.user)
 
         await audit_service.log(

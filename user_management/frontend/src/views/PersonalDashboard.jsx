@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import {
   ShieldCheck, UserRound, Building2, Home, Shield, MapPin,
   CreditCard, Clock, CheckCircle2, AlertCircle, ExternalLink,
-  Loader2, Sparkles, Phone, Mail, Award, BookOpen, Layers
+  Loader2, Sparkles, Phone, Mail, Award, BookOpen, Layers,
+  GraduationCap, Wrench, UserCheck, Hash, Briefcase
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import userService from '@/services/userService'
@@ -194,7 +195,191 @@ export const PersonalDashboard = () => {
               </div>
             </div>
 
-            {/* Authorized Campus Locations Card */}
+            {/* ── Multi-Role Separation Breakdown ── */}
+            {profile?.role_profiles && Object.keys(profile.role_profiles).length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Layers size={18} className="text-amber-500" />
+                    <h3 className="font-extrabold text-sm text-slate-900">
+                      Role-Specific Details & Permissions ({Object.keys(profile.role_profiles).length} Active Roles)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Separate Role Attributes
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3.5">
+                  {/* Student Profile Card */}
+                  {profile.role_profiles.student && (
+                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 space-y-2">
+                      <div className="flex items-center justify-between border-b border-blue-200/80 pb-2">
+                        <span className="font-extrabold text-xs text-blue-900 flex items-center gap-1.5 uppercase tracking-wide">
+                          <GraduationCap size={15} className="text-blue-600" /> Student Profile
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          ID: {profile.role_profiles.student.roll_number || profile.roll_number || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Course & Dept</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.student.course || profile.course || 'Course'} · {profile.role_profiles.student.department || profile.department}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Semester & Batch</span>
+                          <span className="font-semibold text-slate-800">
+                            Semester {profile.role_profiles.student.semester || profile.semester || '1'} {profile.role_profiles.student.batch ? `(${profile.role_profiles.student.batch})` : ''}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Hostel & Room</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.student.hostel || profile.hostel || 'Day Scholar'}
+                            {profile.role_profiles.student.room_number ? ` · ${profile.role_profiles.student.room_number}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Faculty Profile Card */}
+                  {profile.role_profiles.faculty && (
+                    <div className="p-4 rounded-xl border border-violet-200 bg-violet-50/40 space-y-2">
+                      <div className="flex items-center justify-between border-b border-violet-200/80 pb-2">
+                        <span className="font-extrabold text-xs text-violet-900 flex items-center gap-1.5 uppercase tracking-wide">
+                          <Award size={15} className="text-violet-600" /> Faculty Profile
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800">
+                          Faculty ID: {profile.role_profiles.faculty.faculty_id || profile.employee_id || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Designation & Dept</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.faculty.designation || profile.designation || 'Faculty'} · {profile.role_profiles.faculty.department || profile.department}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Courses / Subjects</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.faculty.courses || profile.courses || 'Department Syllabus'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Assigned Students</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.faculty.assigned_students || profile.assigned_students || 'None assigned'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Warden Profile Card */}
+                  {profile.role_profiles.warden && (
+                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+                      <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                        <span className="font-extrabold text-xs text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
+                          <Home size={15} className="text-amber-600" /> Hostel Warden Governance
+                        </span>
+                        <Link
+                          to="/hostel"
+                          className="text-[11px] font-extrabold text-amber-800 hover:text-amber-950 flex items-center gap-1 bg-amber-100/80 hover:bg-amber-200 px-2 py-0.5 rounded-md transition"
+                        >
+                          <span>Hostel Console</span>
+                          <ExternalLink size={12} />
+                        </Link>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-amber-800 block font-bold uppercase">Assigned Hostel & Block</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.warden.hostel || 'Campus Hostel'}
+                            {profile.role_profiles.warden.hostel_block ? ` (${profile.role_profiles.warden.hostel_block})` : ''}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-amber-800 block font-bold uppercase">Warden Responsibilities</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.warden.responsibilities || 'Hostel Caretaker & Gate Pass Approvals'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Worker Profile Card */}
+                  {profile.role_profiles.worker && (
+                    <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2">
+                      <div className="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                        <span className="font-extrabold text-xs text-emerald-900 flex items-center gap-1.5 uppercase tracking-wide">
+                          <Wrench size={15} className="text-emerald-600" /> Campus Operations & Staff
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          Worker ID: {profile.role_profiles.worker.worker_id || profile.employee_id || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Job Type</span>
+                          <span className="font-semibold text-slate-800">{profile.role_profiles.worker.job_type || 'Operations'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Work Area & Shift</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.worker.work_area || 'General Area'} · {profile.role_profiles.worker.shift || 'General Shift'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Assigned Location</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.worker.assigned_location || 'Campus Facilities'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Visitor Profile Card */}
+                  {profile.role_profiles.visitor && (
+                    <div className="p-4 rounded-xl border border-orange-200 bg-orange-50/40 space-y-2">
+                      <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
+                        <span className="font-extrabold text-xs text-orange-900 flex items-center gap-1.5 uppercase tracking-wide">
+                          <UserCheck size={15} className="text-orange-600" /> Visitor Pass Credentials
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                          {profile.role_profiles.visitor.gov_id_type || 'Gov ID'}: {profile.role_profiles.visitor.gov_id_number || 'Verified'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Purpose of Visit</span>
+                          <span className="font-semibold text-slate-800">{profile.role_profiles.visitor.visit_purpose}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Host Person & Contact</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.visitor.host_person || 'Campus Host'}
+                            {profile.role_profiles.visitor.host_contact ? ` (${profile.role_profiles.visitor.host_contact})` : ''}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">Validity & Allowed Zones</span>
+                          <span className="font-semibold text-slate-800">
+                            {profile.role_profiles.visitor.allowed_locations || 'Designated Campus Zones'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">

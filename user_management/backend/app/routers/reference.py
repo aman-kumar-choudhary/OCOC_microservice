@@ -25,10 +25,31 @@ async def list_departments(conn: asyncpg.Connection = Depends(get_db)):
         return error_response("DEPARTMENTS_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@router.get("/api/v1/reference/hostels")
+async def list_reference_hostels(conn: asyncpg.Connection = Depends(get_db)):
+    try:
+        hostels = await user_service.list_hostels(conn)
+        return success_response(data=[h.model_dump() for h in hostels])
+    except Exception as e:
+        logger.error("List reference hostels failed: %s", e)
+        return error_response("HOSTELS_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/api/v1/locations")
+@router.get("/api/v1/reference/locations")
+async def list_reference_locations(conn: asyncpg.Connection = Depends(get_db)):
+    try:
+        locations = await user_service.list_locations(conn)
+        return success_response(data=locations)
+    except Exception as e:
+        logger.error("List reference locations failed: %s", e)
+        return error_response("LOCATIONS_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @router.get("/api/v1/hostels")
 async def list_hostels(
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN")),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN")),
 ):
     try:
         scope = await resolve_warden_hostel_scope(conn, claims)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { roleDashboardPath } from '@/utils/roleDashboard'
+import { roleDashboardPath, isAuthorizedForRoute } from '@/utils/roleDashboard'
 import dsvvLogo from '@/assets/Dsvv.png'
 import {
   Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu,
@@ -12,7 +12,6 @@ import {
 export const DashboardLayout = ({ children }) => {
   const navigate = useNavigate()
   const { user, roles, email, hasRole, logout } = useAuth()
-  const isAdministrator = hasRole('SUPER_ADMIN') || hasRole('ADMIN')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
 
@@ -20,21 +19,21 @@ export const DashboardLayout = ({ children }) => {
   const userRoles = roles.filter((role) => !role.startsWith('default-')).slice(0, 2)
 
   const navItems = [
-    { name: 'Dashboard', path: roleDashboardPath(roles), icon: LayoutDashboard },
-    { name: 'User Directory', path: '/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { name: 'Onboard Person', path: '/onboarding', icon: UserPlus, roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'VIEWER'] },
-    { name: 'RFID Cards', path: '/rfid', icon: CreditCard, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
-    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
-    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
-    { name: 'Access Control', path: '/access', icon: Lock, roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { name: 'Guard Console', path: '/guard', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD'] },
-    { name: 'Hostel Management', path: '/hostel', icon: Home, roles: ['SUPER_ADMIN', 'ADMIN', 'WARDEN'] },
-    { name: 'Device Registry', path: '/devices', icon: Server, roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { name: 'Audit Log', path: '/audit', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'SECURITY_ADMIN', 'VIEWER'] },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Access Control', path: '/access', icon: Lock },
+    { name: 'Hostel Management', path: '/hostel', icon: Home },
+    { name: 'Guard Console', path: '/guard', icon: Shield },
+    { name: 'RFID Cards', path: '/rfid', icon: CreditCard },
+    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace },
+    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert },
+    { name: 'User Directory', path: '/users', icon: Users },
+    { name: 'Onboard Person', path: '/onboarding', icon: UserPlus },
+    { name: 'Device Registry', path: '/devices', icon: Server },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: 'Audit Log', path: '/audit', icon: Activity },
   ]
 
-  const filteredNavItems = navItems.filter((item) => isAdministrator || !item.roles || item.roles.some((role) => hasRole(role)))
+  const filteredNavItems = navItems.filter((item) => isAuthorizedForRoute(item.path, roles))
 
   const handleLogout = async () => {
     setIsProfileMenuOpen(false)

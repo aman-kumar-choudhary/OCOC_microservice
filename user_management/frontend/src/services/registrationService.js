@@ -14,6 +14,33 @@ export default {
     return data.data
   },
 
+  async getDepartments() {
+    try {
+      const { data } = await publicApi.get('/departments')
+      return data.data || []
+    } catch {
+      return []
+    }
+  },
+
+  async getHostels() {
+    try {
+      const { data } = await publicApi.get('/reference/hostels')
+      return data.data || []
+    } catch {
+      return []
+    }
+  },
+
+  async getLocations() {
+    try {
+      const { data } = await publicApi.get('/reference/locations')
+      return data.data || []
+    } catch {
+      return []
+    }
+  },
+
   // Admin endpoints — JWT required
   async listRegistrations(params) {
     const { data } = await api.get('/registrations', { params })
