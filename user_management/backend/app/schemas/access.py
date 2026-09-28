@@ -137,6 +137,12 @@ class FaceVerificationRequest(BaseModel):
 class UpdateUserAccessRequest(BaseModel):
     roles: List[str] = Field(default_factory=list)
     hostel_ids: List[uuid.UUID] = Field(default_factory=list)
+    issue_password: Optional[bool] = False
+    custom_password: Optional[str] = None
+
+
+class ResetCredentialsRequest(BaseModel):
+    custom_password: Optional[str] = None
 
 
 # ── Enhanced Access Management Schemas ──────────────────────────────────────

@@ -64,5 +64,10 @@ export default {
   async getHostels() {
     const { data } = await api.get('/hostels')
     return data.data
+  },
+
+  async getProfile() {
+    const { data } = await api.get('/users/me')
+    return data.data
   }
 }

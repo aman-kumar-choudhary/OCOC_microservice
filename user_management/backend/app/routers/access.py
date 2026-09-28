@@ -6,6 +6,7 @@ from app.schemas.access import (
     TemporaryAccessGrant, CreateTemporaryAccessRequest, AccessEvent,
     EvaluateAccessRequest, Location, RFIDAccessScanRequest, FaceVerificationRequest,
     AccessGroup, CreateAccessGroupRequest, AddAccessGroupMemberRequest, UpdateUserAccessRequest,
+    ResetCredentialsRequest,
     # Enhanced schemas
     CreateLocationGrantRequest, UpdateLocationGrantRequest,
 )
@@ -18,7 +19,7 @@ import asyncpg
 
 router = APIRouter(prefix="/api/v1/access", tags=["access_management"])
 
-# ── Operational role and WARDEN-hostel assignment ──────────────────────────
+# ── Operational role, Keycloak Sync & Credential Management ───────────────────
 
 @router.get("/users/{user_id}/access", response_model=Dict[str, Any])
 async def get_user_access_configuration(
@@ -39,8 +40,35 @@ async def update_user_access_configuration(
     claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
 ):
     try:
-        access = await role_service.update_user_access(conn, claims.sub, user_id, req.roles, req.hostel_ids)
+        access = await role_service.update_user_access(
+            conn=conn,
+            actor_id=claims.sub,
+            user_id=user_id,
+            role_names=req.roles,
+            hostel_ids=req.hostel_ids,
+            issue_password=bool(req.issue_password),
+            custom_password=req.custom_password,
+        )
         return {"success": True, "data": access}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.post("/users/{user_id}/credentials", response_model=Dict[str, Any])
+async def issue_user_credentials(
+    user_id: uuid.UUID,
+    req: ResetCredentialsRequest = ResetCredentialsRequest(),
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+):
+    """Generate or reset Keycloak login credentials and return role/dashboard routing details."""
+    try:
+        creds = await role_service.issue_or_reset_credentials(
+            conn=conn,
+            actor_id=claims.sub,
+            user_id=user_id,
+            custom_password=req.custom_password,
+        )
+        return {"success": True, "data": creds}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

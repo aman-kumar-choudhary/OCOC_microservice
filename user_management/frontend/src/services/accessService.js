@@ -14,6 +14,12 @@ const accessService = {
     const { data } = await api.put(`/access/users/${userId}/access`, payload)
     return data.data
   },
+  issueUserCredentials: async (userId, customPassword = null) => {
+    const { data } = await api.post(`/access/users/${userId}/credentials`, {
+      custom_password: customPassword || undefined
+    })
+    return data.data
+  },
   getGroups: async () => {
     const { data } = await api.get('/access/groups')
     return data.data

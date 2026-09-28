@@ -3,7 +3,7 @@ import {
   X, User, Shield, MapPin, Key, Clock, Calendar, CheckCircle2,
   AlertTriangle, Trash2, Plus, RefreshCw, Loader2, Sparkles,
   ExternalLink, ChevronRight, History, Layers, Check, Edit3,
-  AlertCircle, Building, Award, UserCheck, ShieldAlert
+  AlertCircle, Building, Award, UserCheck, ShieldAlert, Copy, Eye, EyeOff, Lock
 } from 'lucide-react'
 import accessService from '@/services/accessService'
 import userService from '@/services/userService'
@@ -31,7 +31,15 @@ export const UserAccessDetail = ({
   const [hostelsList, setHostelsList] = useState([])
   const [locationTree, setLocationTree] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('grants') // 'grants' | 'roles' | 'effective' | 'history'
+  const [activeTab, setActiveTab] = useState('grants') // 'grants' | 'roles' | 'credentials' | 'effective' | 'history'
+
+  // Credentials & Workspace
+  const [issuedCredentials, setIssuedCredentials] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [copiedKey, setCopiedKey] = useState('')
+  const [issuingCredentials, setIssuingCredentials] = useState(false)
+  const [autoIssuePassword, setAutoIssuePassword] = useState(true)
+  const [customPasswordInput, setCustomPasswordInput] = useState('')
 
   // Role editing
   const [selectedRoles, setSelectedRoles] = useState([])
@@ -83,6 +91,31 @@ export const UserAccessDetail = ({
     }
   }
 
+  const handleCopy = (text, key) => {
+    if (!text) return
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(''), 2500)
+  }
+
+  const handleIssueCredentials = async (customPwd = null) => {
+    setIssuingCredentials(true)
+    setRoleMessage('')
+    try {
+      const res = await accessService.issueUserCredentials(userId, customPwd)
+      setIssuedCredentials(res)
+      setActiveTab('credentials')
+      setRoleMessage(`Credentials successfully generated and synchronized for ${res.email}!`)
+      await loadAllData()
+      if (onUserUpdated) onUserUpdated()
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Failed to issue credentials.')
+    } finally {
+      setIssuingCredentials(false)
+      setCustomPasswordInput('')
+    }
+  }
+
   // Save role updates
   const handleSaveRoles = async () => {
     setSavingRoles(true)
@@ -90,16 +123,24 @@ export const UserAccessDetail = ({
     try {
       const res = await accessService.updateUserAccess(userId, {
         roles: selectedRoles,
-        hostel_ids: selectedRoles.includes('WARDEN') ? selectedHostels : []
+        hostel_ids: selectedRoles.includes('WARDEN') ? selectedHostels : [],
+        issue_password: autoIssuePassword,
+        custom_password: customPasswordInput ? customPasswordInput.trim() : undefined,
       })
       const assignedRoles = (res.roles || []).join(', ') || 'No operational roles'
       const identity = detail?.email || userId
       const identityId = detail?.id || userId
       const kcId = res.keycloak_user_id ? ` Keycloak ID: ${res.keycloak_user_id}.` : ''
-      const credentialsNotice = res.credentials_printed
-        ? ' Temporary credentials were printed by the backend terminal.'
+
+      if (res.credentials?.password) {
+        setIssuedCredentials(res.credentials)
+        setActiveTab('credentials')
+      }
+
+      const credentialsNotice = res.credentials?.password
+        ? ' Login credentials have been generated and are ready to copy in the Login & Credentials tab.'
         : res.credentials_issued
-          ? ' A temporary password was generated; check the backend environment policy for credential logging.'
+          ? ' Login credentials generated.'
         : ''
       setRoleMessage(`Keycloak roles synchronized for ${identity} (User ID: ${identityId}). Assigned: ${assignedRoles}.${kcId}${credentialsNotice}`)
       await loadAllData()
@@ -305,6 +346,7 @@ export const UserAccessDetail = ({
           {[
             { id: 'grants', label: 'Location Grants', icon: MapPin, count: location_grants.length },
             { id: 'roles', label: 'Operational Roles', icon: Shield, count: (detail.roles || []).length },
+            { id: 'credentials', label: 'Login & Credentials', icon: Key, badge: issuedCredentials ? 'Ready' : null },
             { id: 'effective', label: 'Effective Permissions', icon: Layers, count: effectivePerms.length },
             { id: 'history', label: 'Audit History', icon: History, count: auditLogs.length }
           ].map((tab) => {
@@ -327,6 +369,11 @@ export const UserAccessDetail = ({
                     isActive ? 'bg-amber-200/60 text-amber-900' : 'bg-slate-100 text-slate-600'
                   }`}>
                     {tab.count}
+                  </span>
+                )}
+                {tab.badge && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                    {tab.badge}
                   </span>
                 )}
               </button>
@@ -578,21 +625,219 @@ export const UserAccessDetail = ({
               </div>
             )}
 
-            {/* Save Button */}
-            <div className="pt-3">
-              <button
-                onClick={handleSaveRoles}
-                disabled={savingRoles}
-                className="btn btn-primary text-xs"
-              >
-                {savingRoles ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
-                Save Roles & Sync Keycloak
-              </button>
+            {/* Auto issue credentials checkbox & Save Buttons */}
+            <div className="pt-3 border-t border-slate-200 space-y-3">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoIssuePassword}
+                  onChange={(e) => setAutoIssuePassword(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 border-slate-300"
+                />
+                <span>Generate/refresh login credentials for this account</span>
+              </label>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleSaveRoles}
+                  disabled={savingRoles}
+                  className="btn btn-primary text-xs"
+                >
+                  {savingRoles ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
+                  Save Roles & Sync Keycloak
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleIssueCredentials(null)}
+                  disabled={issuingCredentials}
+                  className="btn btn-outline text-xs flex items-center gap-1.5"
+                >
+                  {issuingCredentials ? <Loader2 size={14} className="animate-spin" /> : <Key size={14} />}
+                  <span>Issue / Reset Password Now</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* ── 3. EFFECTIVE PERMISSIONS TAB ── */}
+        {/* ── 3. LOGIN & CREDENTIALS TAB ── */}
+        {activeTab === 'credentials' && (
+          <div className="space-y-6 max-w-2xl">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-800">Login & Dashboard Credentials</h3>
+              <p className="text-xs text-[var(--text-muted)]">
+                Manage Keycloak authentication credentials and direct workspace access for {detail.full_name || detail.email}.
+              </p>
+            </div>
+
+            {/* Issued Credentials Highlight Card */}
+            {issuedCredentials ? (
+              <div className="p-5 rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 shadow-md space-y-4 animate-fade-in">
+                <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-emerald-500 text-white shadow-xs">
+                      <Key size={16} />
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-emerald-950 uppercase tracking-wider">
+                        Active Login Credentials Ready
+                      </h4>
+                      <p className="text-[11px] text-emerald-700">Synchronized with Keycloak identity provider</p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Ready to Use
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Username / Email */}
+                  <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Email / Login ID
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-slate-900 select-all text-xs">
+                        {issuedCredentials.email || detail.email}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(issuedCredentials.email || detail.email, 'email')}
+                        className="p-1 text-slate-400 hover:text-slate-700"
+                        title="Copy Email"
+                      >
+                        {copiedKey === 'email' ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Password
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-extrabold text-emerald-800 text-xs tracking-wider select-all">
+                        {showPassword ? issuedCredentials.password : '••••••••••••'}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="p-1 text-slate-400 hover:text-slate-700"
+                          title={showPassword ? 'Hide' : 'Show'}
+                        >
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                        <button
+                          onClick={() => handleCopy(issuedCredentials.password, 'pwd')}
+                          className="p-1 text-slate-400 hover:text-slate-700"
+                          title="Copy Password"
+                        >
+                          {copiedKey === 'pwd' ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Target Workspace */}
+                  <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs sm:col-span-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Assigned Workspace & Dashboard
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1 rounded bg-[#0a2342] text-[#f5bd19]">
+                          <Shield size={13} />
+                        </span>
+                        <div>
+                          <p className="font-bold text-slate-800 text-xs">
+                            {issuedCredentials.dashboard_name || 'Assigned Workspace'}
+                          </p>
+                          <p className="font-mono text-[11px] text-slate-500">
+                            Path: {issuedCredentials.dashboard_path || '/dashboard'}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={issuedCredentials.dashboard_path || '/dashboard'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        Preview <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Copy Complete Details Button */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => {
+                      const text = `OCOC Campus Access Credentials\nUser: ${detail.full_name || detail.email}\nEmail: ${issuedCredentials.email || detail.email}\nPassword: ${issuedCredentials.password}\nRoles: ${(selectedRoles || []).join(', ') || 'USER'}\nDashboard: ${issuedCredentials.dashboard_name} (http://localhost:5173${issuedCredentials.dashboard_path})\nLogin URL: http://localhost:5173/login`
+                      handleCopy(text, 'all')
+                    }}
+                    className="btn btn-primary text-xs flex-1 flex items-center justify-center gap-2"
+                  >
+                    {copiedKey === 'all' ? (
+                      <>
+                        <Check size={14} className="text-emerald-200" />
+                        <span>Copied All Credentials to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        <span>Copy Complete Login Message</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-3">
+                <Key size={32} className="mx-auto text-slate-400" />
+                <h4 className="font-bold text-sm text-slate-700">No Credentials Generated in this Session</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Click below to generate a new secure password and synchronize this account with Keycloak identity provider.
+                </p>
+              </div>
+            )}
+
+            {/* Quick Actions for Issuing / Resetting Password */}
+            <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-4">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                Generate / Reset Login Password
+              </h4>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  placeholder="Optional custom password (leave blank to auto-generate)"
+                  value={customPasswordInput}
+                  onChange={(e) => setCustomPasswordInput(e.target.value)}
+                  className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-amber-500"
+                />
+                <button
+                  onClick={() => handleIssueCredentials(customPasswordInput ? customPasswordInput.trim() : null)}
+                  disabled={issuingCredentials}
+                  className="btn btn-primary text-xs"
+                >
+                  {issuingCredentials ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  <span>{customPasswordInput ? 'Set Custom Password' : 'Auto-Generate Password'}</span>
+                </button>
+              </div>
+
+              <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-1 border-t border-slate-100">
+                <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                <span>
+                  Generates an 8+ character password compliant with Keycloak security policy and clears any pending account actions.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 4. EFFECTIVE PERMISSIONS TAB ── */}
         {activeTab === 'effective' && (
           <div className="space-y-5">
             <div>
