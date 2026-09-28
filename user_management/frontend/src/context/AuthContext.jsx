@@ -5,9 +5,9 @@ import api from '@/services/api'
 const AuthContext = createContext(undefined)
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem('access_token'))
+  const [token, setToken] = useState(() => sessionStorage.getItem('access_token'))
   const [user, setUser] = useState(() => {
-    const savedToken = localStorage.getItem('access_token')
+    const savedToken = sessionStorage.getItem('access_token')
     if (savedToken) {
       try {
         return jwtDecode(savedToken)
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('access_token')
+    const savedToken = sessionStorage.getItem('access_token')
     if (savedToken && !user) {
       parseToken(savedToken)
     }
@@ -53,8 +53,8 @@ export const AuthProvider = ({ children }) => {
     const { access_token, refresh_token } = data.data
 
     setToken(access_token)
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
+    sessionStorage.setItem('access_token', access_token)
+    sessionStorage.setItem('refresh_token', refresh_token)
 
     // Return the claims as well as storing them in state.  State updates are
     // asynchronous, while the login page needs the roles immediately to pick
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refresh_token')
+    const refreshToken = sessionStorage.getItem('refresh_token')
     if (refreshToken) {
       try {
         await api.post('/auth/logout', { refresh_token: refreshToken })
@@ -73,8 +73,8 @@ export const AuthProvider = ({ children }) => {
     }
     setToken(null)
     setUser(null)
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    sessionStorage.removeItem('access_token')
+    sessionStorage.removeItem('refresh_token')
   }
 
   return (

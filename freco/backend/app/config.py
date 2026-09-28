@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     # --- Hardware ---
-    INFERENCE_DEVICE: str = "auto"
+    INFERENCE_DEVICE: str = "cpu"
     DETECTION_CTX_ID: int = 0
 
     # --- Face Model Packs ---

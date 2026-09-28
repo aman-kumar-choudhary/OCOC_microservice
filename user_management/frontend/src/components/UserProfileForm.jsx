@@ -69,6 +69,7 @@ const departmentCourses = {
 }
 
 const semesters = Array.from({ length: 8 }, (_, i) => ({ value: String(i + 1), label: `Semester ${i + 1}` }))
+const fallbackDepartments = Object.entries(schoolDepartments).flatMap(([school, names]) => names.map((name) => ({ name, school })))
 
 export const UserProfileForm = ({
   formData,
@@ -81,7 +82,7 @@ export const UserProfileForm = ({
   const [dbLocations, setDbLocations] = useState([])
 
   useEffect(() => {
-    userService.getDepartments().then(setDbDepartments).catch(console.error)
+    userService.getDepartments().then((items) => setDbDepartments(items?.length ? items : fallbackDepartments)).catch(() => setDbDepartments(fallbackDepartments))
     userService.getHostels().then(setDbHostels).catch(console.error)
     userService.getLocations().then(setDbLocations).catch(console.error)
   }, [])
@@ -471,6 +472,21 @@ export const UserProfileForm = ({
                 </select>
               </div>
             </div>
+
+            {!isEdit && (
+              <div className="form-group sm:col-span-2 xl:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <label className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                  <input type="checkbox" checked={Boolean(profile.is_warden)} onChange={(e) => updateField('is_warden', e.target.checked)} />
+                  Also assigned as a hostel warden
+                </label>
+                {profile.is_warden && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><label className="form-label">Hostel Block / Location</label><input value={profile.hostel_block || ''} onChange={(e) => updateField('hostel_block', e.target.value)} className="form-input" placeholder="e.g. Block A · Senior Wing" /></div>
+                    <div><label className="form-label">Warden Responsibilities</label><input value={profile.warden_responsibilities || ''} onChange={(e) => updateField('warden_responsibilities', e.target.value)} className="form-input" placeholder="Brief responsibilities" /></div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group sm:col-span-2">
               <label className="form-label">Courses / Subjects Taught *</label>

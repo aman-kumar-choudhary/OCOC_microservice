@@ -774,7 +774,7 @@ export const UserAccessDetail = ({
                 <div className="pt-2 flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={() => {
-                      const text = `OCOC Campus Access Credentials\nUser: ${detail.full_name || detail.email}\nEmail: ${issuedCredentials.email || detail.email}\nPassword: ${issuedCredentials.password}\nRoles: ${(selectedRoles || []).join(', ') || 'USER'}\nDashboard: ${issuedCredentials.dashboard_name} (http://localhost:5173${issuedCredentials.dashboard_path})\nLogin URL: http://localhost:5173/login`
+                      const text = `OCOC Campus Access Credentials\nUser: ${detail.full_name || detail.email}\nEmail: ${issuedCredentials.email || detail.email}\nPassword: ${issuedCredentials.password}\nRoles: ${(selectedRoles || []).join(', ') || 'USER'}\nDashboard: ${issuedCredentials.dashboard_name} (${window.location.origin}${issuedCredentials.dashboard_path})\nLogin URL: ${window.location.origin}/login`
                       handleCopy(text, 'all')
                     }}
                     className="btn btn-primary text-xs flex-1 flex items-center justify-center gap-2"

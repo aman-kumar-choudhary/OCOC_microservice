@@ -16,16 +16,15 @@ const HostelStudentsList = ({ hostelId }) => {
     const fetchStudents = async () => {
       setLoading(true);
       try {
-        let url = `/users?limit=50&page=${page}&user_type=student`;
-        if (hostelId) url += `&hostel_id=${hostelId}`;
-        if (searchQuery) url += `&search=${searchQuery}`;
-        
-        const res = await api.get(url);
-        if (res.data?.data) {
-          setStudents(res.data.data.users || []);
-          setTotalPages(res.data.data.total_pages || 1);
-          setTotalStudents(res.data.data.total || 0);
-        }
+        const params = { limit: 50, page, user_type: 'student' };
+        if (hostelId) params.hostel_id = hostelId;
+        if (searchQuery.trim()) params.search = searchQuery.trim();
+
+        const res = await api.get('/users', { params });
+        const result = res.data?.data;
+        setStudents(Array.isArray(result?.users) ? result.users : []);
+        setTotalPages(result?.total_pages || 1);
+        setTotalStudents(result?.total || 0);
       } catch (err) {
         console.error("Failed to fetch hostel students", err);
       }
@@ -91,7 +90,7 @@ const HostelStudentsList = ({ hostelId }) => {
                         <UserCircle size={20} />
                       </div>
                       <div>
-                        <p className="font-bold text-[#0a2342]">{s.profile?.full_name}</p>
+                        <p className="font-bold text-[#0a2342]">{s.profile?.full_name || s.full_name || 'Unnamed student'}</p>
                         <p className="text-xs text-gray-500 font-mono">Roll: {s.profile?.roll_number || 'N/A'}</p>
                       </div>
                      </div>

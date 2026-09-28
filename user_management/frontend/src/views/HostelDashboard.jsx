@@ -34,8 +34,8 @@ const HostelDashboard = () => {
   useEffect(() => {
     let reconnectTimer;
     const connect = () => {
-      const token = localStorage.getItem('access_token');
-      socketRef.current = new WebSocket(`ws://localhost:8080/api/v1/ws/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+      const token = sessionStorage.getItem('access_token');
+      socketRef.current = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`);
       socketRef.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);

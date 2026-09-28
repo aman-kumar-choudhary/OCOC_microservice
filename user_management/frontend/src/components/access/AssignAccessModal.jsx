@@ -144,9 +144,14 @@ export const AssignAccessModal = ({
     }
   }
 
-  const filteredLocations = flattenedLocations.filter(loc =>
-    loc.path.toLowerCase().includes(locationSearch.toLowerCase())
-  )
+  const normalizedLocationSearch = locationSearch.trim().toLocaleLowerCase()
+  const filteredLocations = flattenedLocations.filter(loc => {
+    if (!normalizedLocationSearch) return true
+    // Match location name, type, and full path so nested locations remain easy to find.
+    return [loc.name, loc.type, loc.path]
+      .filter(Boolean)
+      .some(value => value.toLocaleLowerCase().includes(normalizedLocationSearch))
+  })
 
   const selectedLoc = flattenedLocations.find(l => l.id === selectedLocationId)
 

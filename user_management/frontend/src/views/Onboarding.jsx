@@ -4,7 +4,7 @@ import rfidService from '@/services/rfidService'
 import { registerPerson } from '@/services/frecoService'
 import {
   GraduationCap, Wrench, UserRound, CreditCard,
-  CheckCircle, Loader2, ArrowRight, ArrowLeft, ScanFace, Award, Shield
+  CheckCircle, Loader2, ArrowRight, ArrowLeft, ScanFace, Award
 } from 'lucide-react'
 import UserProfileForm from '@/components/UserProfileForm'
 import FaceOvalCamera from '@/components/FaceOvalCamera'
@@ -39,17 +39,6 @@ const personaCards = [
     border: 'border-violet-300',
     iconColor: 'text-violet-600',
     activeBg: 'bg-violet-600',
-  },
-  {
-    id: 'faculty_warden',
-    label: 'Faculty + Warden',
-    subtitle: 'Faculty staff with hostel administration',
-    icon: Shield,
-    gradient: 'from-amber-500 to-amber-700',
-    bg: 'bg-amber-50',
-    border: 'border-amber-300',
-    iconColor: 'text-amber-600',
-    activeBg: 'bg-amber-600',
   },
   {
     id: 'worker',
@@ -200,6 +189,7 @@ export const Onboarding = () => {
           department_id: p.department_id,
           designation: p.designation,
         })
+        if (p.is_warden) Object.assign(profilePayload, { hostel_block: p.hostel_block, warden_responsibilities: p.warden_responsibilities })
       } else if (persona === 'worker') {
         Object.assign(profilePayload, {
           employee_id: p.employee_id,
@@ -222,7 +212,7 @@ export const Onboarding = () => {
           profile: profilePayload,
         }
       }
-      const result = await userService.onboard(persona, payload)
+      const result = await userService.onboard(persona === 'faculty' && p.is_warden ? 'faculty-warden' : persona, payload)
       setCreatedUserId(result.user.id)
       setStep(3) // Face Capture
     } catch (err) {

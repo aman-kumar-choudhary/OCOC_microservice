@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, AlertTriangle, CheckCircle, XCircle, Clock, ScanFace, ShieldCheck, LogOut, LogIn } from 'lucide-react';
+import { Camera, AlertTriangle, CheckCircle, XCircle, Clock, ScanFace, ShieldCheck, LogOut, LogIn, Search } from 'lucide-react';
 import api from '../services/api';
 import accessService from '../services/accessService';
 import { useLiveFaceInference } from '../hooks/useLiveFaceInference';
@@ -9,6 +9,9 @@ const GuardDashboard = () => {
   const [alerts, setAlerts] = useState([]);
   const [pendingVerifications, setPendingVerifications] = useState([]);
   const [hostelLeaves, setHostelLeaves] = useState([]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentStatusFilter, setStudentStatusFilter] = useState('all');
+  const [movementFilter, setMovementFilter] = useState('all');
   const ws = useRef(null);
   const videoRef = useRef(null);
   const { isStreaming, error: cameraError, wsError, faces, startStream, stopStream } = useLiveFaceInference(videoRef, 'single_recognition');
@@ -33,8 +36,8 @@ const GuardDashboard = () => {
 
     // Connect WebSocket
     const connectWs = () => {
-      const token = localStorage.getItem('access_token');
-      ws.current = new WebSocket(`ws://localhost:8080/api/v1/ws/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+      const token = sessionStorage.getItem('access_token');
+      ws.current = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`);
       
       ws.current.onopen = () => {
         console.log('WebSocket Connected to Guard Console');
@@ -72,6 +75,15 @@ const GuardDashboard = () => {
       clearInterval(refreshLeaves);
     };
   }, []);
+
+  const filteredStudents = hostelLeaves.filter((student) => {
+    const query = studentSearch.trim().toLowerCase();
+    const searchable = [student.student_name, student.student_roll, student.student_id, student.student_phone, student.hostel_name].filter(Boolean).join(' ').toLowerCase();
+    const statusMatches = studentStatusFilter === 'all' || student.current_status === studentStatusFilter;
+    const movement = student.last_movement_type?.toUpperCase();
+    const movementMatches = movementFilter === 'all' || movement === movementFilter;
+    return (!query || searchable.includes(query)) && statusMatches && movementMatches;
+  });
 
   const completeTwoFactor = async (pending, matched) => {
     try {
@@ -177,17 +189,24 @@ const GuardDashboard = () => {
       </div>
 
       <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden">
-        <div className="bg-slate-50 border-b border-[var(--border-light)] px-4 py-3 flex justify-between items-center">
-          <div><h3 className="font-bold text-[#0a2342] text-sm">G                                                                                                                                                     ate in/out Monitor</h3><p className="text-xs text-[var(--text-muted)] mt-0.5">Approved permissions, outside students, and hostel scans from the last 24 hours</p></div>
-          <span className="text-xs text-[var(--text-muted)] font-mono">{hostelLeaves.length} students</span>
+        <div className="bg-slate-50 border-b border-[var(--border-light)] px-4 py-3 space-y-3">
+          <div className="flex justify-between items-center">
+            <div><h3 className="font-bold text-[#0a2342] text-sm">Gate movement and leave monitor</h3><p className="text-xs text-[var(--text-muted)] mt-0.5">Freco live face verification, approved leave, and each student’s latest gate movement</p></div>
+            <span className="text-xs text-[var(--text-muted)] font-mono">{filteredStudents.length} / {hostelLeaves.length} students</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <label className="relative sm:col-span-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="form-input pl-9 py-2 text-sm" placeholder="Search student name, ID, phone" aria-label="Search students by student ID or name" /></label>
+            <select value={studentStatusFilter} onChange={(e) => setStudentStatusFilter(e.target.value)} className="form-input form-select py-2 text-sm" aria-label="Filter by student status"><option value="all">All student statuses</option>{['INSIDE', 'OUTSIDE', 'ON_LEAVE', 'UNAUTHORIZED', 'LATE_RETURN'].map((status) => <option key={status} value={status}>{status.replace('_', ' ')}</option>)}</select>
+            <select value={movementFilter} onChange={(e) => setMovementFilter(e.target.value)} className="form-input form-select py-2 text-sm" aria-label="Filter by gate movement"><option value="all">Entry and exit</option><option value="ENTRY">Entering</option><option value="EXIT">Exiting</option></select>
+          </div>
         </div>
         <div className="overflow-auto max-h-[420px]">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-100 sticky top-0 border-b border-[var(--border-light)] text-[11px] font-extrabold uppercase text-[var(--text-muted)]"><tr><th className="px-4 py-3">Student details</th><th className="px-4 py-3">Current status</th><th className="px-4 py-3">Permission</th><th className="px-4 py-3">Approved by</th><th className="px-4 py-3">Last in/out</th></tr></thead>
+            <thead className="bg-slate-100 sticky top-0 border-b border-[var(--border-light)] text-[11px] font-extrabold uppercase text-[var(--text-muted)]"><tr><th className="px-4 py-3">Student details / ID</th><th className="px-4 py-3">Current status</th><th className="px-4 py-3">Permission</th><th className="px-4 py-3">Approved by</th><th className="px-4 py-3">Last in/out</th></tr></thead>
             <tbody className="divide-y divide-[var(--border-light)] text-xs">                                     
-              {hostelLeaves.length === 0 ? <tr><td colSpan="5" className="px-4 py-10 text-center text-slate-400">No approved leave, outside student, or hostel scan in the last 24 hours.</td></tr> : hostelLeaves.map(student => {
+              {filteredStudents.length === 0 ? <tr><td colSpan="5" className="px-4 py-10 text-center text-slate-400">No students match these filters.</td></tr> : filteredStudents.map(student => {
                 const outside = ['OUTSIDE', 'ON_LEAVE', 'UNAUTHORIZED', 'LATE_RETURN'].includes(student.current_status);
-                return <tr key={student.student_id} className="hover:bg-slate-50"><td className="px-4 py-3"><p className="font-bold text-[#0a2342]">{student.student_name}</p><p className="text-slate-500">{student.student_roll || '—'} · {student.hostel_name || 'No hostel'}{student.student_phone ? ` · ${student.student_phone}` : ''}</p></td><td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded font-bold ${outside ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>{outside ? <LogOut size={12} /> : <LogIn size={12} />}{student.current_status?.replace('_', ' ')}</span></td><td className="px-4 py-3">{student.permission_type ? <><p className="font-bold text-purple-700">{student.permission_type.replace('_', ' ')}</p><p className="text-slate-500">{new Date(student.permission_start_time).toLocaleString()} – {new Date(student.permission_end_time).toLocaleString()}</p>{student.permission_reason && <p className="text-slate-500 max-w-48 truncate" title={student.permission_reason}>{student.permission_reason}</p>}</> : <span className="text-red-600 font-bold">No active permission</span>}</td><td className="px-4 py-3 text-slate-600">{student.granted_by_name || '—'}</td><td className="px-4 py-3"><p className="font-bold">{student.last_movement_type || '—'} {student.last_movement_status ? `(${student.last_movement_status})` : ''}</p><p className="text-slate-500">{student.last_gate_name || '—'}{student.last_event_time ? ` · ${new Date(student.last_event_time).toLocaleString()}` : ''}</p></td></tr>;
+                return <tr key={student.student_id} className="hover:bg-slate-50"><td className="px-4 py-3"><p className="font-bold text-[#0a2342]">{student.student_name}</p><p className="text-slate-500">Student ID: {student.student_roll || student.student_id} · {student.hostel_name || 'No hostel'}{student.student_phone ? ` · ${student.student_phone}` : ''}</p></td><td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded font-bold ${outside ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>{outside ? <LogOut size={12} /> : <LogIn size={12} />}{student.current_status?.replace('_', ' ')}</span></td><td className="px-4 py-3">{student.permission_type ? <><p className="font-bold text-purple-700">{student.permission_type.replace('_', ' ')}</p><p className="text-slate-500">{new Date(student.permission_start_time).toLocaleString()} – {new Date(student.permission_end_time).toLocaleString()}</p>{student.permission_reason && <p className="text-slate-500 max-w-48 truncate" title={student.permission_reason}>{student.permission_reason}</p>}</> : <span className="text-red-600 font-bold">No active permission</span>}</td><td className="px-4 py-3 text-slate-600">{student.granted_by_name || '—'}</td><td className="px-4 py-3"><p className="font-bold">{student.last_movement_type === 'EXIT' ? 'Exiting' : student.last_movement_type === 'ENTRY' ? 'Entering' : 'No recorded movement'} {student.last_movement_status ? `(${student.last_movement_status})` : ''}</p><p className="text-slate-500">{student.last_gate_name || '—'}{student.last_event_time ? ` · ${new Date(student.last_event_time).toLocaleString()}` : ''}</p></td></tr>;
               })}
             </tbody>
           </table>
