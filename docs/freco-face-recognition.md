@@ -291,3 +291,48 @@ docker run --gpus all -p 8000:8000 freco:latest
 - Fusion by **averaging logits** (not probabilities)
 - Threshold: 0.85 (configurable)
 - **Fail-closed**: No liveness model = authentication rejected
+
+---
+
+## Guard Console Integration
+
+The FRECO face stream is consumed by the Guard Console frontend (`GuardDashboard.jsx`) to provide real-time face identification at campus gates.
+
+### How It Works
+
+1. The `useLiveFaceInference` React hook opens a WebSocket to `/api/v1/face/stream` in `single_recognition` mode
+2. Browser camera frames are streamed to FRECO at ~1 frame per cycle
+3. FRECO returns face detection results (bounding box, landmarks, liveness score)
+4. The guard console displays detection status ("1 face detected" / "No face detected")
+5. For identified persons, the frontend cross-references the result against the hostel leaves data loaded from the User Management API
+
+### Leave Date Validation (Client-Side)
+
+When a face is detected and matched, the guard console performs client-side validation:
+
+```
+Face identified → Look up student in hostelLeaves array
+    │
+    ├── Found with active leave (dates cover today)
+    │   └── ✅ Display "LEAVE ACTIVE — Gate exit permitted"
+    │
+    ├── Found with no active leave
+    │   └── ⚠️ Display "NO ACTIVE LEAVE — Manual verification required"
+    │
+    └── Found with expired leave
+        └── ❌ Display "LEAVE EXPIRED — Overdue return"
+```
+
+> **Important**: This is a client-side decision support tool. FRECO itself has no knowledge of leave data — it only provides face detection and identification. The leave validation is performed entirely in the React frontend by matching FRECO results against leave data loaded from the User Management API.
+
+### 2-Step Verification (2-SV)
+
+The guard console also uses FRECO for the second step of RFID-based access:
+
+1. Student taps RFID card → User Management creates a PENDING access event
+2. Guard console receives the event via WebSocket
+3. Guard activates FRECO camera to verify face
+4. Guard confirms or rejects the face match
+5. User Management records the verification result
+
+This workflow does not modify any FRECO code — it only consumes the face stream WebSocket endpoint.

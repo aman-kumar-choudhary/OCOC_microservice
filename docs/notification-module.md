@@ -208,6 +208,57 @@ Only `email` and `whatsapp` are supported. SMS, in-app, push, Telegram, Slack, a
 
 ---
 
+## Leave Management Notification Templates
+
+The following templates are used by the Leave Management module. Leave notifications are written to the `leave_notifications` outbox table for the notification worker to consume.
+
+| Template ID | Event Type | Subject | Recipients |
+|------------|-----------|---------|------------|
+| `leave_submitted` | `leave.submitted` | Leave Request Submitted for Approval | Approver(s) at first workflow stage |
+| `leave_approved` | `leave.approved` | Leave Request Approved | Student, parent (if configured) |
+| `leave_rejected` | `leave.rejected` | Leave Request Rejected | Student |
+| `leave_expired` | `leave.expired` | Leave Period Has Expired | Student, assigned warden |
+| `leave_return_confirmed` | `leave.return` | Student Return Confirmed | Assigned warden |
+
+### Leave Approved Template Example
+
+```json
+{
+  "id": "leave_approved",
+  "name": "Leave Approved",
+  "event_type": "leave.approved",
+  "subject": "Leave Approved — {{student_name}}",
+  "body": "Dear {{parent_name}},\n\n{{student_name}}'s leave has been approved from {{from_date}} to {{to_date}}.\n\nLeave type: {{leave_type}}\nDestination: {{destination}}\nApproved by: {{approver_name}}\n\nThe student has been granted gate exit permission for the approved period.",
+  "allowed_channels": ["email", "whatsapp"],
+  "enabled": true
+}
+```
+
+### Integration Pattern
+
+The Leave Management module writes notification records to `leave_notifications` as an outbox pattern:
+
+```
+Leave action (approve/reject/expire)
+        │
+        ▼
+INSERT INTO leave_notifications
+  (type, recipient_id, leave_request_id, payload, status='pending')
+        │
+        ▼
+Notification Worker reads outbox
+        │
+        ▼
+Resolves template + variables → sends via NotificationService
+        │
+        ▼
+Updates leave_notifications status = 'sent' / 'failed'
+```
+
+> **Note**: Direct integration between the Leave Management module and the Notification Module HTTP API is planned but not yet implemented. Currently, leave notifications are written to the outbox table for a background worker to consume.
+
+---
+
 ## API Endpoints
 
 | Method | Path | Description |
