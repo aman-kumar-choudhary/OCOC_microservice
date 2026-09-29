@@ -22,6 +22,7 @@ import GuardDashboard from '@/views/GuardDashboard'
 import HostelDashboard from '@/views/HostelDashboard'
 import DeviceRegistry from '@/views/DeviceRegistry'
 import LeaveManagement from '@/views/LeaveManagement'
+import Legal from '@/views/Legal'
 import { roleDashboardPath, isAuthorizedForRoute } from '@/utils/roleDashboard'
 
 /**
@@ -145,6 +146,8 @@ export const App = () => {
           </PublicRoute>
         }
       />
+      <Route path="/terms" element={<Legal />} />
+      <Route path="/privacy" element={<Legal />} />
 
       {/* Protected Operations Routes */}
       <Route
@@ -238,7 +241,7 @@ export const App = () => {
       <Route
         path="/leave"
         element={
-          <ProtectedRoute path="/leave" roles={['SUPER_ADMIN', 'ADMIN', 'STUDENT', 'WARDEN', 'CHANCELLOR', 'MEDICAL_OFFICER', 'SECURITY_ADMIN']}>
+          <ProtectedRoute path="/leave" roles={['SUPER_ADMIN', 'ADMIN', 'STUDENT', 'WARDEN', 'CHANCELLOR', 'MEDICAL_OFFICER', 'SECURITY_ADMIN', 'GUARD', 'SECURITY_GUARD']}>
             <LeaveManagement />
           </ProtectedRoute>
         }

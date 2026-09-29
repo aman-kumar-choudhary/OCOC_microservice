@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import DigitalGatePassModal from '@/components/DigitalGatePassModal'
 import {
   ShieldCheck, UserRound, Building2, Home, Shield, MapPin,
   CreditCard, Clock, CheckCircle2, AlertCircle, ExternalLink,
   Loader2, Sparkles, Phone, Mail, Award, BookOpen, Layers,
-  GraduationCap, Wrench, UserCheck, Hash, Briefcase
+  GraduationCap, Wrench, UserCheck, Hash, Briefcase, FileText, CalendarClock,
+  QrCode
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import userService from '@/services/userService'
@@ -19,6 +21,7 @@ export const PersonalDashboard = () => {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [selectedGatePass, setSelectedGatePass] = useState(null)
 
   useEffect(() => {
     let isMounted = true
@@ -498,6 +501,59 @@ export const PersonalDashboard = () => {
               </div>
             )}
 
+            {/* Leave Management Quick Access — for students */}
+            {isStudent && (
+              <div className="rounded-2xl border border-purple-200 bg-white p-6 shadow-xs space-y-3">
+                <div className="flex items-center gap-2">
+                  <CalendarClock size={18} className="text-purple-600" />
+                  <h3 className="font-extrabold text-sm text-slate-900">Leave Management</h3>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Apply for campus leave, track your approval status, and view your leave balance and history.
+                </p>
+                {profile?.student_hostel_status?.active_permission && (
+                  <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-emerald-900 flex items-center gap-1">
+                        <CheckCircle2 size={14} className="text-emerald-600" /> Active Gate Exit Pass
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-200 text-emerald-900">
+                        Sanctioned
+                      </span>
+                    </div>
+                    <p className="text-emerald-800 leading-tight">
+                      {profile.student_hostel_status.active_permission.permission_type?.replace('_', ' ')} · Valid until{' '}
+                      {new Date(profile.student_hostel_status.active_permission.end_time).toLocaleString()}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedGatePass({
+                          student_name: profile.full_name,
+                          student_id: profile.student_profile?.roll_number || profile.id,
+                          leave_type: profile.student_hostel_status.active_permission.permission_type,
+                          start_at: profile.student_hostel_status.active_permission.start_time,
+                          end_at: profile.student_hostel_status.active_permission.end_time,
+                          destination: profile.student_hostel_status.active_permission.destination || 'Authorized Leave',
+                        })
+                      }
+                      className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 text-xs transition shadow-2xs"
+                    >
+                      <QrCode size={14} /> Open Digital Gate Pass
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Link
+                    to="/leave"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-purple-700 transition-colors"
+                  >
+                    <FileText size={15} /> Apply for Leave
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Security & Support Information */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-3 text-xs">
               <h3 className="font-extrabold text-sm text-slate-900">Campus Helpdesk</h3>
@@ -515,6 +571,13 @@ export const PersonalDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Digital Gate Pass Modal */}
+      <DigitalGatePassModal
+        isOpen={!!selectedGatePass}
+        onClose={() => setSelectedGatePass(null)}
+        passData={selectedGatePass}
+      />
     </section>
   )
 }

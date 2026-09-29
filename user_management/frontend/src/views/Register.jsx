@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import registrationService from '@/services/registrationService'
+import PasswordStrengthMeter from '@/components/PasswordStrengthMeter'
+import LegalModal from '@/components/LegalModal'
 import {
   User, Mail, Phone, Hash, Building, Briefcase, FileText, UserCheck,
   MapPin, ArrowRight, Loader2, CheckCircle, Lock, Eye, EyeOff,
   GraduationCap, Award, Shield, Wrench, Calendar, Clock, Sparkles,
-  Layers, CheckSquare, Square
+  Layers, CheckSquare, Square, ShieldCheck, Cpu, CheckCircle2
 } from 'lucide-react'
 
 const ROLE_PRESETS = [
@@ -80,6 +82,10 @@ export const Register = () => {
   const [error, setError] = useState('')
   const [registrationResult, setRegistrationResult] = useState(null)
   const [formReady, setFormReady] = useState(false)
+  const [legalModalOpen, setLegalModalOpen] = useState(false)
+  const [legalModalTab, setLegalModalTab] = useState('terms')
+  const [biometricConsent, setBiometricConsent] = useState(false)
+  const [termsConsent, setTermsConsent] = useState(false)
 
   // Load reference catalogs on mount
   useEffect(() => {
@@ -151,6 +157,16 @@ export const Register = () => {
 
     if (!passwordRegex.test(password)) {
       setError('Password must be at least 8 characters with uppercase, lowercase, number, and special character.')
+      return
+    }
+
+    if (!biometricConsent) {
+      setError('You must provide explicit biometric consent for campus turnstile identity verification.')
+      return
+    }
+
+    if (!termsConsent) {
+      setError('You must accept the Campus Terms & Conditions to complete registration.')
       return
     }
 
@@ -279,6 +295,31 @@ export const Register = () => {
               <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded text-[11px]">
                 {registrationResult.dashboard_path || '/dashboard'}
               </code>
+            </div>
+          </div>
+
+          {/* Onboarding Lifecycle Journey */}
+          <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 text-left text-xs space-y-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
+              Onboarding Process Progression
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                <CheckCircle2 size={13} className="text-emerald-600" />
+                <span>1. Digital ID Created</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                <CheckCircle2 size={13} className="text-emerald-600" />
+                <span>2. Biometric Vector Enrolled</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-amber-700 font-bold">
+                <Clock size={13} className="text-amber-600" />
+                <span>3. Collect RFID Card</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-500">
+                <ShieldCheck size={13} className="text-slate-400" />
+                <span>4. Gate Turnstile Active</span>
+              </div>
             </div>
           </div>
 
@@ -497,6 +538,9 @@ export const Register = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Password Strength Meter & Complexity Checklist */}
+                <PasswordStrengthMeter password={password} confirmPassword={confirmPassword} />
               </div>
 
               {/* ── 2. Student Role Details ── */}
@@ -1052,6 +1096,67 @@ export const Register = () => {
               )}
             </div>
 
+            {/* Biometric Trust & Granular Compliance Section */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-3 text-xs mt-3">
+              {/* Biometric Neural Vector Assurance */}
+              <div className="flex items-start gap-2 text-[11px] text-slate-600 border-b border-slate-200/80 pb-2.5">
+                <Cpu size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                <p className="leading-tight">
+                  <strong className="text-slate-800">Biometric Privacy Safeguard:</strong> OCOC generates high-dimensional mathematical vector embeddings via the FRECO neural engine. Raw surveillance video is never stored or broadcast.
+                </p>
+              </div>
+
+              {/* Granular Consent 1: Explicit Biometric Consent (DPDP Act) */}
+              <label className="flex items-start gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  required
+                  checked={biometricConsent}
+                  onChange={(e) => setBiometricConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0a2342] focus:ring-[#f5bd19]"
+                />
+                <span className="text-[11px] text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors">
+                  I give explicit, informed consent for facial feature vector generation and storage for automated campus turnstile clearance and attendance in accordance with the{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLegalModalTab('privacy')
+                      setLegalModalOpen(true)
+                    }}
+                    className="underline text-blue-600 hover:text-blue-800 font-bold inline"
+                  >
+                    Campus Biometric &amp; Privacy Policy
+                  </button>
+                  .
+                </span>
+              </label>
+
+              {/* Granular Consent 2: Terms & Conditions */}
+              <label className="flex items-start gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  required
+                  checked={termsConsent}
+                  onChange={(e) => setTermsConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0a2342] focus:ring-[#f5bd19]"
+                />
+                <span className="text-[11px] text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors">
+                  I accept the{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLegalModalTab('terms')
+                      setLegalModalOpen(true)
+                    }}
+                    className="underline text-blue-600 hover:text-blue-800 font-bold inline"
+                  >
+                    Campus Terms &amp; Conditions
+                  </button>{' '}
+                  and agree to abide by university conduct, RFID smart card custody rules, and gate movement regulations.
+                </span>
+              </label>
+            </div>
+
             {/* Submit Action */}
             <button
               type="submit"
@@ -1077,9 +1182,20 @@ export const Register = () => {
                 Sign In
               </Link>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px', fontSize: '10px', color: '#8795a8' }}>
+              <Shield size={12} style={{ color: '#8795a8' }} />
+              <span>Secured by Keycloak SSO · TLS Encrypted</span>
+            </div>
           </form>
         </>
       )}
+
+      {/* Interactive Legal & Biometric Policy Modal */}
+      <LegalModal
+        isOpen={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        initialTab={legalModalTab}
+      />
     </div>
   )
 }

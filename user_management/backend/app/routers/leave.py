@@ -102,8 +102,8 @@ async def load_request(conn, request_id: uuid.UUID):
 
 
 def can_approve(claims: Claims, permission: str) -> bool:
-    return claims.has_any_role("SUPER_ADMIN") or claims.has_any_role(*{
-        "leave.approve.warden": ["WARDEN"],
+    return claims.has_any_role("SUPER_ADMIN", "ADMIN") or claims.has_any_role(*{
+        "leave.approve.warden": ["WARDEN", "ADMIN"],
         "leave.approve.chancellor": ["CHANCELLOR"],
         "leave.approve.medical": ["MEDICAL_OFFICER"],
     }.get(permission, []))
