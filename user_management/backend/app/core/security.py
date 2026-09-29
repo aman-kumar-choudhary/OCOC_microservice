@@ -47,6 +47,14 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "access.occupancy.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
     "gate.review.manual": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
     "guard.console.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
+    "leave.request.submit": ["SUPER_ADMIN", "STUDENT"],
+    "leave.approve.warden": ["SUPER_ADMIN", "WARDEN"],
+    "leave.approve.chancellor": ["SUPER_ADMIN", "CHANCELLOR"],
+    "leave.approve.medical": ["SUPER_ADMIN", "MEDICAL_OFFICER"],
+    "leave.delegate": ["SUPER_ADMIN", "WARDEN", "CHANCELLOR", "MEDICAL_OFFICER"],
+    "leave.workflow.manage": ["SUPER_ADMIN"],
+    "leave.balance.manage": ["SUPER_ADMIN", "ADMIN"],
+    "leave.audit.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
 }
 
 ADMIN_ROLES = ("SUPER_ADMIN", "ADMIN")

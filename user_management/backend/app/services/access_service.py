@@ -144,7 +144,12 @@ class AccessService:
         if action=="ENTRY":
             last=await conn.fetchval("""SELECT action FROM access_events WHERE rfid_uid=$1 AND location_id=$2 AND status='GRANTED' ORDER BY event_time DESC LIMIT 1""",rfid_uid,location_id) if rfid_uid else await conn.fetchval("SELECT last_action FROM user_last_locations WHERE user_id=$1 AND location_id=$2",user_id,location_id)
             if last=="ENTRY": return await self._log_event(conn,user_id,location_id,action,"DENIED","Anti-passback: card is already inside this zone",rfid_uid,reader_id,device_id,face_confidence)
-        temporary=await conn.fetchval("SELECT EXISTS(SELECT 1 FROM temporary_access_grants WHERE user_id=$1 AND location_id=$2 AND valid_from<=$3 AND valid_to>=$3)",user_id,location_id,now)
+        temporary=await conn.fetchval("""SELECT
+            EXISTS(SELECT 1 FROM temporary_access_grants WHERE user_id=$1 AND location_id=$2 AND valid_from<=$3 AND valid_to>=$3)
+            OR ($4='EXIT' AND EXISTS(SELECT 1 FROM locations gate WHERE gate.id=$2 AND lower(gate.type)='gate')
+                AND EXISTS(SELECT 1 FROM leave_rfid_permissions p JOIN leave_requests r ON r.id=p.request_id
+                WHERE p.student_id=$1 AND p.status='ACTIVE' AND r.status='APPROVED'
+                  AND p.starts_at<=$3 AND p.ends_at>=$3))""",user_id,location_id,now,action)
         tree=await conn.fetch("""WITH RECURSIVE tree AS (SELECT id,parent_id FROM locations WHERE id=$1 UNION ALL SELECT l.id,l.parent_id FROM locations l JOIN tree t ON t.parent_id=l.id) SELECT id FROM tree""",location_id)
         location_ids=[row["id"] for row in tree]
         db_roles=await conn.fetch("SELECT r.name FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$1",user_id)

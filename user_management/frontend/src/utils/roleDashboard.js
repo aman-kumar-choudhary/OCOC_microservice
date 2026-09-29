@@ -47,6 +47,7 @@ export const ROUTE_PERMISSIONS = {
   '/face-recognition': ['SUPER_ADMIN', 'GUARD', 'SECURITY_GUARD', 'SECURITY_ADMIN'],
   '/face-auth-log': ['SUPER_ADMIN', 'GUARD', 'SECURITY_GUARD', 'SECURITY_ADMIN'],
   '/hostel': ['SUPER_ADMIN', 'WARDEN'],
+  '/leave': ['SUPER_ADMIN', 'ADMIN', 'STUDENT', 'WARDEN', 'CHANCELLOR', 'MEDICAL_OFFICER', 'SECURITY_ADMIN'],
   '/audit': ['SUPER_ADMIN', 'SECURITY_ADMIN', 'VIEWER'],
 }
 
@@ -66,7 +67,7 @@ export const isAuthorizedForRoute = (path, roles = []) => {
 
   // Pure Admin: restricted exclusively to Access Management and related device registry
   if (assigned.has('ADMIN') && !assigned.has('SUPER_ADMIN')) {
-    if (normalizedPath === '/access' || normalizedPath === '/devices') {
+    if (normalizedPath === '/access' || normalizedPath === '/devices' || normalizedPath === '/leave') {
       return true
     }
     // Admin is NOT allowed on /dashboard, /users, /hostel, /guard, etc.
@@ -75,7 +76,7 @@ export const isAuthorizedForRoute = (path, roles = []) => {
 
   // Pure Warden: restricted exclusively to Hostel Management
   if (assigned.has('WARDEN') && !assigned.has('SUPER_ADMIN')) {
-    if (normalizedPath === '/hostel') {
+    if (normalizedPath === '/hostel' || normalizedPath === '/leave') {
       return true
     }
     return false
@@ -86,7 +87,7 @@ export const isAuthorizedForRoute = (path, roles = []) => {
     (assigned.has('GUARD') || assigned.has('SECURITY_GUARD') || assigned.has('SECURITY_ADMIN')) &&
     !assigned.has('SUPER_ADMIN')
   ) {
-    if (['/guard', '/rfid', '/face-recognition', '/face-auth-log'].includes(normalizedPath)) {
+    if (['/guard', '/rfid', '/face-recognition', '/face-auth-log', '/leave'].includes(normalizedPath)) {
       return true
     }
     return false

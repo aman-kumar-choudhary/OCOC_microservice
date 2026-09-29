@@ -26,3 +26,17 @@ npm run build
 # Preview production build locally
 npm run preview
 ```
+
+## Local API proxy
+
+The Vite development server forwards `/api` requests to the User Management
+backend at `http://127.0.0.1:8000` by default. Start the backend from
+`user_management/backend` with:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+To use a different backend port, set `VITE_API_TARGET`, for example
+`VITE_API_TARGET=http://127.0.0.1:8080 npm run dev`. Restart Vite after changing
+the target. The Docker Compose backend continues to expose port 8080.

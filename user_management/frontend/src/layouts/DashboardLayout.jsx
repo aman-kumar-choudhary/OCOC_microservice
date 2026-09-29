@@ -6,7 +6,7 @@ import dsvvLogo from '@/assets/Dsvv.png'
 import {
   Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu,
   ShieldAlert, UserPlus, Users, X, ScanFace, ChevronDown, Mail, Lock,
-  Shield, Home, Server
+  Shield, Home, Server, CalendarDays
 } from 'lucide-react'
 
 export const DashboardLayout = ({ children }) => {
@@ -22,6 +22,7 @@ export const DashboardLayout = ({ children }) => {
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Access Control', path: '/access', icon: Lock },
     { name: 'Hostel Management', path: '/hostel', icon: Home },
+    { name: 'Leave Management', path: '/leave', icon: CalendarDays },
     { name: 'Guard Console', path: '/guard', icon: Shield },
     { name: 'RFID Cards', path: '/rfid', icon: CreditCard },
     { name: 'Face Lab', path: '/face-recognition', icon: ScanFace },
