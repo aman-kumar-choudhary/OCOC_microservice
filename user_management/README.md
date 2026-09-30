@@ -84,8 +84,6 @@ Contributions are welcome — open issues or PRs with small, focused changes.
 
 Add your license here (e.g., MIT). If you want, I can add a `LICENSE` file.
 
-
-
 ## How to run this project
 
 - Keycloak start command: `bin/kc.sh start-dev --http-port=8180` (or `.\bin\kc.bat start-dev --http-port=8180` on Windows)
@@ -94,3 +92,22 @@ Add your license here (e.g., MIT). If you want, I can add a `LICENSE` file.
 - User management frontend: `npm install && npm run dev`
 - Face recognition: `uvicorn app.main:app`
 
+## Seeding dummy data
+
+## option A
+
+# 1. Preview planned insertions without making changes
+
+python3 /scripts/seed_dummy_data.py --dry-run
+
+# 2. Execute insertion
+
+python3 /scripts/seed_dummy_data.py
+
+## option B
+
+python3 /scripts/seed_dummy_data.py --db-url "postgres://ococ:root@localhost:5432/ococ_users?sslmode=disable"
+
+## option C
+
+docker exec -i ococ-user-postgres psql -U ococ -d ococ_users < user_management/scripts/seed_dummy_data.sql
