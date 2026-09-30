@@ -27,28 +27,42 @@ class AuditService:
         actor_uuid = None
         if actor_id:
             try:
-                actor_uuid = uuid.UUID(actor_id)
+                candidate = uuid.UUID(actor_id)
             except Exception:
                 pass
+            else:
+                # JWT `sub` is a Keycloak ID, while audit_logs.actor_id is a
+                # local users.id foreign key. Resolve either supported input
+                # form and write NULL for service/admin identities not linked
+                # to a local user.
+                actor_uuid = await conn.fetchval(
+                    "SELECT id FROM users WHERE keycloak_user_id=$1 OR id=$2 "
+                    "ORDER BY CASE WHEN keycloak_user_id=$1 THEN 0 ELSE 1 END LIMIT 1",
+                    actor_id, candidate,
+                )
 
         before_json = json.dumps(before_state, default=str) if before_state is not None else None
         after_json = json.dumps(after_state, default=str) if after_state is not None else None
 
         try:
-            await conn.execute(
-                """
-                INSERT INTO audit_logs (id, actor_id, operation, entity_type, entity_id, before_state, after_state, ip_address, user_agent, created_at)
-                VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, now())
-                """,
-                actor_uuid,
-                operation,
-                entity_type,
-                str(entity_id),
-                before_json,
-                after_json,
-                ip_address,
-                user_agent,
-            )
+            # Nested asyncpg transactions use a savepoint. If audit storage is
+            # unavailable, roll back just this insert instead of poisoning an
+            # enclosing role/location update transaction.
+            async with conn.transaction():
+                await conn.execute(
+                    """
+                    INSERT INTO audit_logs (id, actor_id, operation, entity_type, entity_id, before_state, after_state, ip_address, user_agent, created_at)
+                    VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, now())
+                    """,
+                    actor_uuid,
+                    operation,
+                    entity_type,
+                    str(entity_id),
+                    before_json,
+                    after_json,
+                    ip_address,
+                    user_agent,
+                )
         except Exception as e:
             logger.error("Audit logging failed: %s", e)
 

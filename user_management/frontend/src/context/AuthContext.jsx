@@ -5,9 +5,19 @@ import api from '@/services/api'
 const AuthContext = createContext(undefined)
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem('access_token'))
-  const [user, setUser] = useState(null)
-  const [isInitializing, setIsInitializing] = useState(true)
+  const [token, setToken] = useState(() => sessionStorage.getItem('access_token'))
+  const [user, setUser] = useState(() => {
+    const savedToken = sessionStorage.getItem('access_token')
+    if (savedToken) {
+      try {
+        return jwtDecode(savedToken)
+      } catch (e) {
+        return null
+      }
+    }
+    return null
+  })
+  const [isInitializing, setIsInitializing] = useState(false)
 
   const parseToken = (t) => {
     try {
@@ -22,18 +32,20 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('access_token')
-    if (savedToken) {
+    const savedToken = sessionStorage.getItem('access_token')
+    if (savedToken && !user) {
       parseToken(savedToken)
     }
-    setIsInitializing(false)
   }, [])
 
   const isAuthenticated = !!token
   const roles = user?.realm_access?.roles || []
   const email = user?.email || ''
 
-  const hasRole = (role) => roles.includes(role)
+  // Treat Keycloak role matching case-insensitively; role names remain stored
+  // and displayed exactly as Keycloak issues them.
+  const roleSet = new Set(roles.map((role) => String(role).toUpperCase()))
+  const hasRole = (role) => roleSet.has(String(role).toUpperCase())
   const hasAnyRole = (checkRoles) => checkRoles.some((r) => hasRole(r))
 
   const login = async (credentials) => {
@@ -41,14 +53,17 @@ export const AuthProvider = ({ children }) => {
     const { access_token, refresh_token } = data.data
 
     setToken(access_token)
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
+    sessionStorage.setItem('access_token', access_token)
+    sessionStorage.setItem('refresh_token', refresh_token)
 
-    parseToken(access_token)
+    // Return the claims as well as storing them in state.  State updates are
+    // asynchronous, while the login page needs the roles immediately to pick
+    // the correct first dashboard.
+    return parseToken(access_token)
   }
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refresh_token')
+    const refreshToken = sessionStorage.getItem('refresh_token')
     if (refreshToken) {
       try {
         await api.post('/auth/logout', { refresh_token: refreshToken })
@@ -58,8 +73,8 @@ export const AuthProvider = ({ children }) => {
     }
     setToken(null)
     setUser(null)
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    sessionStorage.removeItem('access_token')
+    sessionStorage.removeItem('refresh_token')
   }
 
   return (

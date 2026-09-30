@@ -297,10 +297,10 @@ export const UsersView = () => {
             className="w-36"
           >
             <option value="">All Types</option>
-            <option value="student">🎓 Student</option>
-            <option value="faculty">👨‍🏫 Faculty</option>
-            <option value="worker">🔧 Worker</option>
-            <option value="visitor">👤 Visitor</option>
+            <option value="student">Student</option>
+            <option value="faculty">Faculty</option>
+            <option value="worker">Worker</option>
+            <option value="visitor">Visitor</option>
           </Sel>
 
           {/* Status */}
@@ -311,9 +311,9 @@ export const UsersView = () => {
             className="w-36"
           >
             <option value="">All Statuses</option>
-            <option value="active">✅ Active</option>
-            <option value="suspended">⚠️ Suspended</option>
-            <option value="deactivated">🚫 Deactivated</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="deactivated">Deactivated</option>
           </Sel>
 
           {/* Spacer */}

@@ -1,39 +1,101 @@
-# Frontend Application (Vue 3 + TypeScript)
+# Frontend Application (React + Vite)
 
 ## Overview
 
-The Frontend is a Vue 3 + TypeScript single-page application that provides the user interface for the OCOC platform. It communicates with the User Management Backend and Freco Face Recognition Service.
+The Frontend is a React single-page application built with Vite that provides the user interface for the OCOC platform. It communicates with the User Management Backend (Python/FastAPI) and FRECO Face Recognition Service.
 
 **Location**: `user_management/frontend/`
 
-**Entry Point**: `src/main.ts`
+**Entry Point**: `src/main.jsx`
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Vue 3 Frontend                            │
-│                                                             │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────────┐   │
-│  │ Pinia      │  │ Vue Router │  │ Axios HTTP Client  │   │
-│  │ Auth Store │  │ Guards     │  │ + Interceptors     │   │
-│  └────────────┘  └────────────┘  └────────────────────┘   │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ Views                                               │   │
-│  │ ├─ Login / ForgotPassword                           │   │
-│  │ ├─ Dashboard (analytics, stats)                     │   │
-│  │ ├─ Users (CRUD, import/export)                      │   │
-│  │ ├─ Onboarding (user creation workflow)              │   │
-│  │ ├─ RFID (card management)                           │   │
-│  │ ├─ FaceRecognition (single/mass camera)             │   │
-│  │ ├─ FaceAuthLog (authentication history)             │   │
-│  │ ├─ Audit (audit trail viewer)                       │   │
-│  │ └─ Analytics (charts)                               │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                      React Frontend                              │
+│                                                                  │
+│  ┌────────────┐  ┌────────────┐  ┌────────────────────────┐    │
+│  │ AuthContext │  │ React      │  │ Axios HTTP Client      │    │
+│  │ (Auth +    │  │ Router     │  │ + Interceptors          │    │
+│  │  Roles)    │  │ Guards     │  │ (api.js, frecoService)  │    │
+│  └────────────┘  └────────────┘  └────────────────────────┘    │
+│                                                                  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Views (17 pages)                                          │  │
+│  │ ├─ Login / ForgotPassword / Register (Public)             │  │
+│  │ ├─ Dashboard (Super Admin — analytics, KPIs)              │  │
+│  │ ├─ PersonalDashboard (Student/Faculty/Worker/Visitor)     │  │
+│  │ ├─ AccessManagement (Admin — rules, grants, devices)      │  │
+│  │ ├─ HostelDashboard (Warden — students, movement, curfew) │  │
+│  │ ├─ GuardDashboard (Guard — camera, 2-SV, gate monitor)   │  │
+│  │ ├─ LeaveManagement (Leave application + approvals)        │  │
+│  │ ├─ Users (User CRUD, import/export)                       │  │
+│  │ ├─ Onboarding (Multi-step user creation wizard)           │  │
+│  │ ├─ RFID (Card management)                                 │  │
+│  │ ├─ FaceRecognition (Single/mass camera recognition)       │  │
+│  │ ├─ FaceAuthLog (Authentication event history)             │  │
+│  │ ├─ Analytics (Charts and trends)                          │  │
+│  │ ├─ Audit (Audit trail viewer)                             │  │
+│  │ └─ DeviceRegistry (Access control devices)                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Role-Based Routing
+
+The application implements strict role-based access control at the router level. Each role is redirected to their authorized dashboard on login.
+
+### Dashboard Routing (`DashboardRouter`)
+
+| Role | Default Dashboard | Component |
+|------|------------------|-----------|
+| **Super Admin** | `/dashboard` | `Dashboard.jsx` — Campus command centre |
+| **Admin** | `/access` | `AccessManagement.jsx` — Access control management |
+| **Warden** | `/hostel` | `HostelDashboard.jsx` — Hostel management |
+| **Guard / Security Guard / Security Admin** | `/guard` | `GuardDashboard.jsx` — Guard console |
+| **Viewer** | `/analytics` | `Analytics.jsx` — Read-only analytics |
+| **Student / Faculty / Worker / Visitor** | `/dashboard` | `PersonalDashboard.jsx` — Personal workspace |
+
+### Route Permissions
+
+| Path | Authorized Roles | Component |
+|------|-----------------|-----------|
+| `/login` | Public | `Login.jsx` |
+| `/forgot-password` | Public | `ForgotPassword.jsx` |
+| `/register` | Public | `Register.jsx` |
+| `/dashboard` | SUPER_ADMIN, STUDENT, FACULTY, WORKER, VISITOR, USER, STAFF | `DashboardRouter` |
+| `/users` | SUPER_ADMIN | `Users.jsx` |
+| `/onboarding` | SUPER_ADMIN | `Onboarding.jsx` |
+| `/analytics` | SUPER_ADMIN, VIEWER | `Analytics.jsx` |
+| `/access` | SUPER_ADMIN, ADMIN | `AccessManagement.jsx` |
+| `/devices` | SUPER_ADMIN, ADMIN | `DeviceRegistry.jsx` |
+| `/guard` | SUPER_ADMIN, GUARD, SECURITY_GUARD, SECURITY_ADMIN | `GuardDashboard.jsx` |
+| `/rfid` | SUPER_ADMIN, GUARD, SECURITY_GUARD, SECURITY_ADMIN | `RFID.jsx` |
+| `/face-recognition` | SUPER_ADMIN, GUARD, SECURITY_GUARD, SECURITY_ADMIN | `FaceRecognition.jsx` |
+| `/face-auth-log` | SUPER_ADMIN, GUARD, SECURITY_GUARD, SECURITY_ADMIN | `FaceAuthLog.jsx` |
+| `/hostel` | SUPER_ADMIN, WARDEN | `HostelDashboard.jsx` |
+| `/leave` | SUPER_ADMIN, ADMIN, STUDENT, WARDEN, CHANCELLOR, MEDICAL_OFFICER, SECURITY_ADMIN, GUARD, SECURITY_GUARD | `LeaveManagement.jsx` |
+| `/audit` | SUPER_ADMIN, SECURITY_ADMIN, VIEWER | `Audit.jsx` |
+
+### Route Protection Components
+
+- **`ProtectedRoute`**: Blocks unauthorized access and redirects to the user's authorized dashboard
+- **`PublicRoute`**: Redirects authenticated users away from login/register pages
+- **`RootRedirect`**: Sends authenticated users to their role-based dashboard
+- **`DashboardRouter`**: Automatically resolves the correct dashboard component based on role
+
+### Authorization Logic
+
+```
+Super Admin → Full unrestricted access to every route
+Admin → /access, /devices, /leave only
+Warden → /hostel, /leave only
+Guard → /guard, /rfid, /face-recognition, /face-auth-log, /leave only
+Other roles → Standard ROUTE_PERMISSIONS lookup
 ```
 
 ---
@@ -41,7 +103,7 @@ The Frontend is a Vue 3 + TypeScript single-page application that provides the u
 ## Authentication Flow
 
 1. User submits credentials → `POST /api/v1/auth/login`
-2. Store `access_token` + `refresh_token` in localStorage
+2. Store `access_token` + `refresh_token` in sessionStorage
 3. Decode JWT to extract roles from `realm_access.roles`
 4. Axios interceptor attaches Bearer token to all requests
 5. On 401 → attempt token refresh → retry original request
@@ -49,167 +111,81 @@ The Frontend is a Vue 3 + TypeScript single-page application that provides the u
 
 ---
 
-## Router Configuration
+## State Management (AuthContext)
 
-### Routes
+```jsx
+// Context provides:
+const { user, roles, email, isAuthenticated, isInitializing } = useAuth()
 
-| Path | View | Permission | Layout |
-|------|------|------------|--------|
-| `/` | Redirect to Dashboard | - | - |
-| `/login` | Login | Public | AuthLayout |
-| `/forgot-password` | ForgotPassword | Public | AuthLayout |
-| `/dashboard` | Dashboard | Auth | DashboardLayout |
-| `/users` | Users | user:read | DashboardLayout |
-| `/onboarding` | Onboarding | user:create | DashboardLayout |
-| `/rfid` | RFID | rfid:read | DashboardLayout |
-| `/audit` | Audit | audit:read | DashboardLayout |
-| `/analytics` | Analytics | Auth | DashboardLayout |
-| `/face-recognition` | FaceRecognition | Auth | DashboardLayout |
-| `/face-auth-log` | FaceAuthLog | Auth | DashboardLayout |
-
-### Navigation Guards
-
-```typescript
-router.beforeEach((to, _from, next) => {
-  const auth = useAuthStore()
-
-  // Redirect to login if not authenticated
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return next({ name: 'Login' })
-  }
-
----
-
-## State Management (Pinia)
-
-### Auth Store
-
-```typescript
-interface KeycloakClaims {
-  sub: string
-  email: string
-  preferred_username: string
-  realm_access: {
-    roles: string[]
-  }
-}
-
-// State
-const token = ref<string | null>(localStorage.getItem('access_token'))
-const user = ref<KeycloakClaims | null>(null)
-
-// Getters
-const isAuthenticated = computed(() => !!token.value)
-const roles = computed(() => user.value?.realm_access?.roles || [])
-const hasRole = (role: string) => roles.value.includes(role)
-
-// Actions
-async function login(credentials) { /* ... */ }
-async function logout() { /* ... */ }
+// Role checking:
+const hasRole = (role) => roles.includes(role.toUpperCase())
 ```
 
 ---
 
 ## Service Layer
 
-| Service | Purpose |
-|---------|---------|
-| `api.ts` | Axios instance with auth interceptor |
-| `frecoService.ts` | Face recognition API calls |
-| `userService.ts` | User CRUD operations |
-| `rfidService.ts` | RFID card operations |
-| `registrationService.ts` | User registration |
-| `dashboardService.ts` | Dashboard analytics |
-| `miscService.ts` | Miscellaneous endpoints |
+| Service | File | Purpose |
+|---------|------|---------|
+| API Client | `api.js` | Axios instance with auth interceptor and token refresh |
+| FRECO Service | `frecoService.js` | Face recognition API calls (direct to FRECO, no auth) |
+| User Service | `userService.js` | User CRUD operations |
+| RFID Service | `rfidService.js` | RFID card operations |
+| Registration Service | `registrationService.js` | Public user registration |
+| Dashboard Service | `dashboardService.js` | Dashboard analytics and overview |
+| Access Service | `accessService.js` | Access control rules, grants, events, guard data |
+| Hostel Service | `hostelService.js` | Hostel management operations |
+| Misc Service | `miscService.js` | Reference data (departments, roles, hostels) |
 
-### API Client Configuration
+### Dual API Client Pattern
 
-```typescript
-const api = axios.create({
-  baseURL: '/api/v1',
-  headers: { 'Content-Type': 'application/json' }
+```javascript
+// User Management API (proxied via Vite, JWT auth)
+const api = axios.create({ baseURL: '/api/v1' })
+api.interceptors.request.use(config => {
+  config.headers.Authorization = `Bearer ${sessionStorage.getItem('access_token')}`
 })
 
-// Request interceptor - attach token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
-
-// Response interceptor - handle 401 with token refresh
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // Refresh token and retry
-    }
-    return Promise.reject(error)
-  }
-)
-```
-
-### Freco Service
-
-```typescript
+// FRECO API (direct connection, no auth)
 const FRECO_BASE = import.meta.env.VITE_FRECO_URL || 'http://localhost:8000'
-
-export async function recognizeFace(image: File): Promise<RecognitionResult> {
-  const form = new FormData()
-  form.append('image', image)
-  const { data } = await freco.post<RecognitionResult>('/api/v1/recognize', form)
-  return data
-}
-
-export async function registerPerson(opts: {
-  externalId: string
-  name: string
-  personType: string
-  images: File[]
-  poses: string[]
-}): Promise<PersonRegisterResult> { /* ... */ }
+const freco = axios.create({ baseURL: FRECO_BASE })
 ```
 
 ---
 
-## Face Recognition UI
+## Key Components
 
-### Single Face Mode
+| Component | File | Purpose |
+|-----------|------|---------|
+| `FaceOvalCamera` | `FaceOvalCamera.jsx` | Camera with oval guide, pose detection, auto-capture |
+| `FaceWideCamera` | `FaceWideCamera.jsx` | Wide-angle camera for mass face detection |
+| `UserProfileForm` | `UserProfileForm.jsx` | Dynamic persona form (student/faculty/worker/visitor) |
+| `EditUserModal` | `EditUserModal.jsx` | User edit dialog with all profile fields |
+| `AssignRFIDModal` | `AssignRFIDModal.jsx` | RFID card assignment modal |
+| `UserStatusModal` | `UserStatusModal.jsx` | Suspend/activate/deactivate confirmation |
+| `PassportPhotoCapture` | `PassportPhotoCapture.jsx` | Photo capture for user registration |
+| `HostelStudentModal` | `HostelStudentModal.jsx` | Hostel student detail modal |
+| `UserAccessPanel` | `access/UserAccessPanel.jsx` | Per-user access grant management |
+| `LiveStatusTable` | `hostel/LiveStatusTable.jsx` | Real-time hostel student status |
+| `HostelStatsCards` | `hostel/HostelStatsCards.jsx` | Hostel overview statistics |
+| `PermissionPanel` | `hostel/PermissionPanel.jsx` | Leave and permission management |
+| `MovementHistoryTable` | `hostel/MovementHistoryTable.jsx` | Student movement history |
+| `EmergencyMode` | `hostel/EmergencyMode.jsx` | Emergency headcount mode |
+| `HostelStudentsList` | `hostel/HostelStudentsList.jsx` | Hostel student directory |
 
-- Camera with oval guide
-- Auto-capture when face detected
-- Calls `POST /api/v1/recognize`
-- Displays: name, role, similarity %
+---
 
-### Multi-Face Mode
+## Custom Hooks
 
-- Wide camera view
-- Samples frames every 1.5 seconds
-- Calls `POST /api/v1/recognize/mass`
-- Displays results for each detected face
-
-### Face Authentication Logging
-
-```typescript
-function logRecognition(result: RecognitionResult, authType: 'single' | 'mass') {
-  const livenessFailed = result.message === 'Liveness check failed'
-  return api.post('/face-auth/log', {
-    person_external_id: result.userId || '',
-    person_name: result.name || '',
-    result: result.recognized ? 'success' : livenessFailed ? 'liveness_failed' : 'unknown',
-    similarity_score: result.similarity,
-    liveness_score: (result as any).liveness_score,
-    reason: result.message || '',
-    auth_type: authType,
-  }).catch(() => undefined)
-}
-```
+| Hook | File | Purpose |
+|------|------|---------|
+| `useLiveFaceInference` | `hooks/useLiveFaceInference.js` | Manages WebSocket connection to FRECO face stream, camera lifecycle, and face detection state |
 
 ---
 
 ## Vite Configuration
 
-```typescript
+```javascript
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
@@ -263,56 +239,70 @@ npm run preview
 ```
 frontend/
 ├── src/
-│   ├── assets/          # Static assets
-│   ├── components/      # Reusable components
-│   │   ├── FaceOvalCamera.vue
-│   │   ├── FaceWideCamera.vue
-│   │   ├── AssignRFIDModal.vue
-│   │   ├── EditUserModal.vue
-│   │   └── ...
-│   ├── composables/     # Vue composables
-│   │   └── useLiveFaceInference.ts
-│   ├── layouts/         # Layout components
-│   │   ├── AuthLayout.vue
-│   │   └── DashboardLayout.vue
-│   ├── router/          # Vue Router configuration
-│   │   └── index.ts
-│   ├── services/        # API service layer
-│   │   ├── api.ts
-│   │   ├── frecoService.ts
-│   │   ├── userService.ts
-│   │   └── ...
-│   ├── stores/          # Pinia stores
-│   │   └── auth.ts
-│   ├── types/           # TypeScript types
-│   │   └── index.ts
-│   ├── views/           # Page components
-│   │   ├── Login.vue
-│   │   ├── Dashboard.vue
-│   │   ├── Users.vue
-│   │   ├── FaceRecognition.vue
-│   │   └── ...
-│   ├── App.vue          # Root component
-│   └── main.ts          # Entry point
-├── public/              # Static public assets
-├── index.html           # HTML template
+│   ├── assets/             # Static assets
+│   ├── components/         # Reusable components
+│   │   ├── FaceOvalCamera.jsx
+│   │   ├── FaceWideCamera.jsx
+│   │   ├── AssignRFIDModal.jsx
+│   │   ├── EditUserModal.jsx
+│   │   ├── HostelStudentModal.jsx
+│   │   ├── PassportPhotoCapture.jsx
+│   │   ├── UserProfileForm.jsx
+│   │   ├── UserStatusModal.jsx
+│   │   ├── access/         # Access management components
+│   │   │   └── UserAccessPanel.jsx
+│   │   └── hostel/         # Hostel management components
+│   │       ├── LiveStatusTable.jsx
+│   │       ├── HostelStatsCards.jsx
+│   │       ├── PermissionPanel.jsx
+│   │       ├── MovementHistoryTable.jsx
+│   │       ├── EmergencyMode.jsx
+│   │       └── HostelStudentsList.jsx
+│   ├── context/            # React context providers
+│   │   └── AuthContext.jsx
+│   ├── hooks/              # Custom hooks
+│   │   └── useLiveFaceInference.js
+│   ├── layouts/            # Layout components
+│   │   ├── AuthLayout.jsx
+│   │   └── DashboardLayout.jsx
+│   ├── services/           # API service layer
+│   │   ├── api.js
+│   │   ├── frecoService.js
+│   │   ├── userService.js
+│   │   ├── rfidService.js
+│   │   ├── accessService.js
+│   │   ├── hostelService.js
+│   │   ├── dashboardService.js
+│   │   ├── registrationService.js
+│   │   └── miscService.js
+│   ├── utils/              # Utility functions
+│   │   ├── roleDashboard.js
+│   │   └── date.js
+│   ├── views/              # Page components (17 views)
+│   │   ├── Login.jsx
+│   │   ├── ForgotPassword.jsx
+│   │   ├── Register.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── PersonalDashboard.jsx
+│   │   ├── AccessManagement.jsx
+│   │   ├── HostelDashboard.jsx
+│   │   ├── GuardDashboard.jsx
+│   │   ├── LeaveManagement.jsx
+│   │   ├── Users.jsx
+│   │   ├── Onboarding.jsx
+│   │   ├── RFID.jsx
+│   │   ├── FaceRecognition.jsx
+│   │   ├── FaceAuthLog.jsx
+│   │   ├── Analytics.jsx
+│   │   ├── Audit.jsx
+│   │   └── DeviceRegistry.jsx
+│   ├── App.jsx             # Root component with routing
+│   ├── main.jsx            # Entry point
+│   ├── auth.css            # Authentication page styles
+│   └── style.css           # Global application styles
+├── public/                 # Static public assets
+├── index.html              # HTML template
 ├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── tailwind.config.js
-```
-
-
-  // Redirect to dashboard if already authenticated
-  if (to.meta.public && auth.isAuthenticated) {
-    return next({ name: 'Dashboard' })
-  }
-
-  // Check permission (simplified - SUPER_ADMIN bypasses)
-  if (to.meta.permission && !auth.hasRole(to.meta.permission) && !auth.hasRole('SUPER_ADMIN')) {
-    // Could redirect to dashboard or show unauthorized
-  }
-
-  next()
-})
+├── vite.config.js
+└── .gitignore
 ```

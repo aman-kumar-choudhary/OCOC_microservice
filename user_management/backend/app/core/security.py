@@ -37,12 +37,24 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "role:manage": ["SUPER_ADMIN"],
     "audit:read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
     "user:manage": ["SUPER_ADMIN", "ADMIN"],
-    "access.rule.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER", "GUARD"],
+    "access.rule.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER", "GUARD", "SECURITY_GUARD"],
     "access.rule.manage": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.grant.temporary": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
+    "access.grant.manage": ["SUPER_ADMIN", "ADMIN"],
+    "access.user.search": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
+    "access.user.detail": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
+    "access.audit.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.occupancy.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER"],
-    "gate.review.manual": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"],
-    "guard.console.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"],
+    "gate.review.manual": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
+    "guard.console.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
+    "leave.request.submit": ["SUPER_ADMIN", "STUDENT"],
+    "leave.approve.warden": ["SUPER_ADMIN", "WARDEN"],
+    "leave.approve.chancellor": ["SUPER_ADMIN", "CHANCELLOR"],
+    "leave.approve.medical": ["SUPER_ADMIN", "MEDICAL_OFFICER"],
+    "leave.delegate": ["SUPER_ADMIN", "WARDEN", "CHANCELLOR", "MEDICAL_OFFICER"],
+    "leave.workflow.manage": ["SUPER_ADMIN"],
+    "leave.balance.manage": ["SUPER_ADMIN", "ADMIN"],
+    "leave.audit.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
 }
 
 ADMIN_ROLES = ("SUPER_ADMIN", "ADMIN")
@@ -204,7 +216,7 @@ async def resolve_warden_hostel_scope(
     Scope is always derived from the validated token subject and PostgreSQL;
     callers must never supply a user id to this function.
     """
-    if claims.has_any_role(*ADMIN_ROLES):
+    if claims.has_any_role("SUPER_ADMIN"):
         return None
     if not claims.has_any_role("WARDEN"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "warden role required"})
@@ -216,3 +228,69 @@ async def resolve_warden_hostel_scope(
     if requested_hostel_id is not None and requested_hostel_id not in hostel_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "HOSTEL_SCOPE_FORBIDDEN", "message": "hostel is not assigned to this warden"})
     return hostel_ids
+
+
+async def resolve_user_location_scope(
+    conn: asyncpg.Connection,
+    claims: Claims,
+    required_level: str = "VIEW",
+    requested_location_id: Optional[uuid.UUID] = None,
+) -> Optional[List[uuid.UUID]]:
+    """Return allowed location IDs for the current user, or None for admins."""
+    if claims.has_any_role(*ADMIN_ROLES):
+        return None  # admins see everything
+
+    user_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id = $1", claims.sub)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "no local user record for token subject"},
+        )
+
+    level_order = {"VIEW": 0, "ENTRY": 1, "MANAGE": 2, "ADMIN": 3}
+    min_level = level_order.get(required_level, 0)
+
+    rows = await conn.fetch(
+        """
+        SELECT location_id, access_level FROM user_location_access
+        WHERE user_id = $1 AND status = 'active'
+          AND (valid_until IS NULL OR valid_until >= now())
+    """,
+        user_id,
+    )
+
+    allowed = [r["location_id"] for r in rows if level_order.get(r["access_level"], 0) >= min_level]
+
+    # Also include warden_hostels if user is a WARDEN
+    if claims.has_any_role("WARDEN"):
+        warden_hostel_ids = await conn.fetchval(
+            "SELECT COALESCE(array_agg(hostel_id), ARRAY[]::uuid[]) FROM warden_hostels WHERE user_id = $1",
+            user_id,
+        )
+        if warden_hostel_ids:
+            allowed = list(set(allowed + list(warden_hostel_ids)))
+
+    # Expand via hierarchy (children of allowed locations)
+    if allowed:
+        children = await conn.fetch(
+            """
+            WITH RECURSIVE tree AS (
+                SELECT id FROM locations WHERE id = ANY($1::uuid[])
+                UNION ALL
+                SELECT l.id FROM locations l JOIN tree t ON l.parent_id = t.id
+            ) SELECT id FROM tree
+        """,
+            allowed,
+        )
+        allowed = list(set(r["id"] for r in children))
+
+    if requested_location_id and requested_location_id not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "LOCATION_SCOPE_FORBIDDEN",
+                "message": "location not in authorized scope",
+            },
+        )
+
+    return allowed

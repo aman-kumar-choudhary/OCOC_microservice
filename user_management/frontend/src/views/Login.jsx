@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { roleDashboardPath } from '@/utils/roleDashboard'
+import LegalModal from '@/components/LegalModal'
 import { Lock, Mail, Loader2, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 
 export const Login = () => {
@@ -13,6 +15,8 @@ export const Login = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [formReady, setFormReady] = useState(false)
+  const [legalModalOpen, setLegalModalOpen] = useState(false)
+  const [legalModalTab, setLegalModalTab] = useState('terms')
 
   useEffect(() => {
     const timer = setTimeout(() => setFormReady(true), 50)
@@ -29,8 +33,8 @@ export const Login = () => {
     setError('')
     setIsLoading(true)
     try {
-      await login({ username: email, password })
-      navigate('/dashboard')
+      const claims = await login({ username: email.trim(), password })
+      navigate(roleDashboardPath(claims?.realm_access?.roles), { replace: true })
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Login failed. Please check your credentials.')
     } finally {
@@ -146,11 +150,45 @@ export const Login = () => {
         </button>
       </form>
 
-      {/* Trust badge */}
+      {/* Trust badge & legal */}
       <div className="login-trust">
         <ShieldCheck size={14} className="login-trust-icon" />
-        <span>OCOC Identity Protected · Administrators only</span>
+        <span>Secured by Keycloak SSO · TLS Encrypted</span>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '12px', fontSize: '11px', color: '#8795a8' }}>
+        <button
+          type="button"
+          onClick={() => {
+            setLegalModalTab('terms')
+            setLegalModalOpen(true)
+          }}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+        >
+          Terms &amp; Conditions
+        </button>
+        <span>·</span>
+        <button
+          type="button"
+          onClick={() => {
+            setLegalModalTab('privacy')
+            setLegalModalOpen(true)
+          }}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+        >
+          Privacy Policy
+        </button>
+        <span>·</span>
+        <Link to="/register" style={{ color: '#8795a8', textDecoration: 'underline', fontWeight: 500 }}>
+          Register
+        </Link>
+      </div>
+
+      {/* Interactive Legal Modal */}
+      <LegalModal
+        isOpen={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        initialTab={legalModalTab}
+      />
     </div>
   )
 }

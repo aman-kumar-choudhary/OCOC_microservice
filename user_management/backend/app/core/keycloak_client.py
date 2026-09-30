@@ -141,19 +141,27 @@ class KeycloakClient:
         password: Optional[str] = None,
         attributes: Optional[Dict[str, List[str]]] = None,
         enabled: bool = True,
+        temporary_password: bool = False,
     ) -> str:
         """Create a user in Keycloak and return the created Keycloak User ID."""
         token = await self.get_admin_token()
         url = f"{self.base_url}/admin/realms/{self.realm}/users"
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
+        clean_first_name = first_name.strip() if first_name and first_name.strip() else username
+        clean_last_name = last_name.strip() if last_name and last_name.strip() else "User"
+
         payload: Dict[str, Any] = {
             "username": username,
             "email": email,
-            "firstName": first_name,
-            "lastName": last_name,
+            "firstName": clean_first_name,
+            "lastName": clean_last_name,
             "enabled": enabled,
             "emailVerified": True,
+            # The generated onboarding password is delivered by the access
+            # management workflow; don't leave this user blocked by an
+            # unhandled browser-only required action.
+            "requiredActions": [],
         }
         if attributes:
             payload["attributes"] = attributes
@@ -162,7 +170,7 @@ class KeycloakClient:
                 {
                     "type": "password",
                     "value": password,
-                    "temporary": False,
+                    "temporary": temporary_password,
                 }
             ]
 
@@ -188,11 +196,22 @@ class KeycloakClient:
         headers = {"Authorization": f"Bearer {token}"}
         resp = await self.client.get(url, params={"email": email, "exact": "true"}, headers=headers)
         if resp.status_code != 200:
-            return None
+            raise KeycloakError(f"Failed to look up Keycloak user by email ({resp.status_code}): {resp.text}")
         users = resp.json()
         if users and isinstance(users, list):
             return users[0]
         return None
+
+    async def get_user_by_id(self, keycloak_id: str) -> Optional[Dict[str, Any]]:
+        """Return a Keycloak user by ID, or None when that ID no longer exists."""
+        token = await self.get_admin_token()
+        url = f"{self.base_url}/admin/realms/{self.realm}/users/{keycloak_id}"
+        resp = await self.client.get(url, headers={"Authorization": f"Bearer {token}"})
+        if resp.status_code == 404:
+            return None
+        if resp.status_code != 200:
+            raise KeycloakError(f"Failed to look up Keycloak user ({resp.status_code}): {resp.text}")
+        return resp.json()
 
     async def update_user(self, keycloak_id: str, data: Dict[str, Any]) -> None:
         token = await self.get_admin_token()
@@ -201,6 +220,17 @@ class KeycloakClient:
         resp = await self.client.put(url, json=data, headers=headers)
         if resp.status_code not in (200, 204):
             raise KeycloakError(f"Failed to update Keycloak user: {resp.text}")
+
+    async def clear_required_actions(self, keycloak_id: str) -> None:
+        """Clear pending browser actions for an account issued by Access Management."""
+        user = await self.get_user_by_id(keycloak_id)
+        update_data: Dict[str, Any] = {"requiredActions": []}
+        if user:
+            if not user.get("lastName"):
+                update_data["lastName"] = "User"
+            if not user.get("firstName"):
+                update_data["firstName"] = user.get("username", "User")
+        await self.update_user(keycloak_id, update_data)
 
     async def delete_user(self, keycloak_id: str) -> None:
         token = await self.get_admin_token()
@@ -261,9 +291,11 @@ class KeycloakClient:
 
     async def update_user_roles(self, keycloak_id: str, selected_roles: List[str], managed_roles: List[str]) -> None:
         """Synchronize only OCOC operational roles, preserving unrelated mappings."""
-        current = {str(role.get("name", "")).upper() for role in await self.get_user_roles(keycloak_id)}
-        selected = {role.upper() for role in selected_roles}
-        managed = {role.upper() for role in managed_roles}
+        current = {str(role.get("name", "")) for role in await self.get_user_roles(keycloak_id)}
+        selected = set(selected_roles)
+        managed = set(managed_roles)
+        # Preserve the exact Keycloak names. Never uppercase/alias realm roles:
+        # doing so can target a different role or fail to remove the mapped one.
         for role in sorted((current & managed) - selected):
             await self.remove_role(keycloak_id, role)
         for role in sorted(selected - current):

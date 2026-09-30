@@ -2,16 +2,28 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import json
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 
 import asyncpg
 
 from app.routers.ws import manager
-from app.schemas.access import AccessEvent, AccessGroup, AccessRule, AddAccessGroupMemberRequest, CreateAccessGroupRequest, CreateAccessRuleRequest, CreateTemporaryAccessRequest, Location, TemporaryAccessGrant, UpdateAccessRuleRequest
+from app.schemas.access import (
+    AccessEvent, AccessGroup, AccessRule, AddAccessGroupMemberRequest,
+    CreateAccessGroupRequest, CreateAccessRuleRequest, CreateTemporaryAccessRequest,
+    Location, TemporaryAccessGrant, UpdateAccessRuleRequest,
+    # Enhanced schemas
+    AccessUserSummary, AccessUserSearchResult, UserAccessDetail,
+    UserLocationAccessGrant, LocationTreeNode, CreateLocationGrantRequest,
+    UpdateLocationGrantRequest, EffectivePermission,
+    AccessAuditLogEntry, AccessAuditLogResult,
+)
 
 logger = logging.getLogger(__name__)
+
+ACCESS_LEVELS_ORDER = {"VIEW": 0, "ENTRY": 1, "MANAGE": 2, "ADMIN": 3}
 
 
 class AccessService:
@@ -132,7 +144,12 @@ class AccessService:
         if action=="ENTRY":
             last=await conn.fetchval("""SELECT action FROM access_events WHERE rfid_uid=$1 AND location_id=$2 AND status='GRANTED' ORDER BY event_time DESC LIMIT 1""",rfid_uid,location_id) if rfid_uid else await conn.fetchval("SELECT last_action FROM user_last_locations WHERE user_id=$1 AND location_id=$2",user_id,location_id)
             if last=="ENTRY": return await self._log_event(conn,user_id,location_id,action,"DENIED","Anti-passback: card is already inside this zone",rfid_uid,reader_id,device_id,face_confidence)
-        temporary=await conn.fetchval("SELECT EXISTS(SELECT 1 FROM temporary_access_grants WHERE user_id=$1 AND location_id=$2 AND valid_from<=$3 AND valid_to>=$3)",user_id,location_id,now)
+        temporary=await conn.fetchval("""SELECT
+            EXISTS(SELECT 1 FROM temporary_access_grants WHERE user_id=$1 AND location_id=$2 AND valid_from<=$3 AND valid_to>=$3)
+            OR ($4='EXIT' AND EXISTS(SELECT 1 FROM locations gate WHERE gate.id=$2 AND lower(gate.type)='gate')
+                AND EXISTS(SELECT 1 FROM leave_rfid_permissions p JOIN leave_requests r ON r.id=p.request_id
+                WHERE p.student_id=$1 AND p.status='ACTIVE' AND r.status='APPROVED'
+                  AND p.starts_at<=$3 AND p.ends_at>=$3))""",user_id,location_id,now,action)
         tree=await conn.fetch("""WITH RECURSIVE tree AS (SELECT id,parent_id FROM locations WHERE id=$1 UNION ALL SELECT l.id,l.parent_id FROM locations l JOIN tree t ON t.parent_id=l.id) SELECT id FROM tree""",location_id)
         location_ids=[row["id"] for row in tree]
         db_roles=await conn.fetch("SELECT r.name FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$1",user_id)
@@ -147,6 +164,17 @@ class AccessService:
             match=(subject=="all" or subject=="user" and target==str(user_id) or subject=="role" and target in roles or subject=="group" and target in groups or subject=="hostel" and user["hostel_id"] and target==str(user["hostel_id"]) or subject=="student_own_hostel" and user["hostel_id"] and user["user_type"]=="student" and str(user["hostel_id"])==str(location_id))
             if match: effect,reason=rule["effect"],f"Matched rule: {rule['name']}"; break
         if effect=="DENY": return await self._log_event(conn,user_id,location_id,action,"DENIED",reason,rfid_uid,reader_id,device_id,face_confidence)
+        # A location grant applies to its child locations. `location_ids`
+        # contains the requested location and its ancestors, so an active grant
+        # on any of them authorizes this request unless an explicit deny matched.
+        direct_grant = await conn.fetchval("""SELECT EXISTS(
+            SELECT 1 FROM user_location_access
+            WHERE user_id=$1 AND location_id = ANY($2::uuid[]) AND status='active'
+              AND (valid_from IS NULL OR valid_from <= $3)
+              AND (valid_until IS NULL OR valid_until >= $3)
+        )""", user_id, location_ids, now)
+        if direct_grant:
+            return await self._log_event(conn,user_id,location_id,action,"GRANTED","Direct location access grant",rfid_uid,reader_id,device_id,face_confidence)
         if temporary: return await self._log_event(conn,user_id,location_id,action,"GRANTED","Temporary access grant",rfid_uid,reader_id,device_id,face_confidence)
         if effect!="ALLOW": return await self._log_event(conn,user_id,location_id,action,"DENIED",reason,rfid_uid,reader_id,device_id,face_confidence)
         return await self._log_event(conn,user_id,location_id,action,"GRANTED",reason,rfid_uid,reader_id,device_id,face_confidence)
@@ -189,5 +217,515 @@ class AccessService:
             WHERE {' AND '.join(clauses)} ORDER BY e.event_time DESC LIMIT ${len(args)}""",*args)
         return [AccessEvent(**dict(row)) for row in rows]
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # Enhanced Access Management methods
+    # ══════════════════════════════════════════════════════════════════════════
 
-access_service=AccessService()
+    async def search_access_users(
+        self, conn: asyncpg.Connection, *,
+        search: Optional[str] = None,
+        user_type: Optional[str] = None,
+        role: Optional[str] = None,
+        department: Optional[str] = None,
+        course: Optional[str] = None,
+        semester: Optional[str] = None,
+        hostel: Optional[str] = None,
+        campus: Optional[str] = None,
+        status: Optional[str] = None,
+        access_filter: Optional[str] = None,  # no_access | partial | full
+        page: int = 1,
+        page_size: int = 25,
+    ) -> AccessUserSearchResult:
+        """Server-side paginated user search for the access management panel."""
+        page = max(1, page)
+        page_size = min(max(1, page_size), 50)
+        offset = (page - 1) * page_size
+
+        clauses: list[str] = []
+        args: list[Any] = []
+        idx = 1
+
+        if user_type and user_type.strip():
+            clauses.append(f"u.user_type = ${idx}")
+            args.append(user_type.strip().lower())
+            idx += 1
+        if status and status.strip():
+            clauses.append(f"u.status = ${idx}")
+            args.append(status.strip().lower())
+            idx += 1
+        if department and department.strip():
+            clauses.append(f"d.name = ${idx}")
+            args.append(department.strip())
+            idx += 1
+        if course and course.strip():
+            clauses.append(f"sp.course = ${idx}")
+            args.append(course.strip())
+            idx += 1
+        if semester and semester.strip():
+            clauses.append(f"sp.semester = ${idx}")
+            args.append(semester.strip())
+            idx += 1
+        if hostel and hostel.strip():
+            clauses.append(f"h.name = ${idx}")
+            args.append(hostel.strip())
+            idx += 1
+        if role and role.strip():
+            clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur2 JOIN roles r2 ON r2.id=ur2.role_id WHERE ur2.user_id=u.id AND r2.name=${idx})")
+            args.append(role.strip().upper())
+            idx += 1
+        if search and search.strip():
+            s_pat = f"%{search.strip()}%"
+            clauses.append(
+                f"(u.email ILIKE ${idx} OR u.phone ILIKE ${idx} OR "
+                f"sp.full_name ILIKE ${idx} OR fp.full_name ILIKE ${idx} OR "
+                f"wp.full_name ILIKE ${idx} OR vp.full_name ILIKE ${idx} OR "
+                f"sp.roll_number ILIKE ${idx} OR fp.employee_id ILIKE ${idx} OR "
+                f"wp.employee_id ILIKE ${idx})"
+            )
+            args.append(s_pat)
+            idx += 1
+
+        # Access-level filter
+        if access_filter == "no_access":
+            clauses.append("NOT EXISTS (SELECT 1 FROM user_location_access ula WHERE ula.user_id=u.id AND ula.status='active')")
+        elif access_filter == "partial":
+            clauses.append("EXISTS (SELECT 1 FROM user_location_access ula WHERE ula.user_id=u.id AND ula.status='active')")
+            clauses.append("NOT EXISTS (SELECT 1 FROM user_location_access ula WHERE ula.user_id=u.id AND ula.status='active' AND ula.access_level='ADMIN' AND EXISTS (SELECT 1 FROM locations lc WHERE lc.id=ula.location_id AND lc.type='campus'))")
+        elif access_filter == "full":
+            clauses.append("EXISTS (SELECT 1 FROM user_location_access ula JOIN locations lc ON lc.id=ula.location_id WHERE ula.user_id=u.id AND ula.status='active' AND ula.access_level='ADMIN' AND lc.type='campus')")
+
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        base_from = f"""
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id=u.id AND u.user_type='student'
+            LEFT JOIN faculty_profiles fp ON fp.user_id=u.id AND u.user_type='faculty'
+            LEFT JOIN worker_profiles wp ON wp.user_id=u.id AND u.user_type='worker'
+            LEFT JOIN visitor_profiles vp ON vp.user_id=u.id AND u.user_type='visitor'
+            LEFT JOIN departments d ON d.id=COALESCE(sp.department_id,fp.department_id,wp.department_id)
+            LEFT JOIN hostels h ON h.id=sp.hostel_id
+            {where_sql}
+        """
+
+        total = await conn.fetchval(f"SELECT COUNT(*) {base_from}", *args)
+
+        query = f"""
+            SELECT
+                u.id, u.email, u.user_type, u.status, u.phone, u.keycloak_user_id,
+                COALESCE(sp.full_name,fp.full_name,wp.full_name,vp.full_name) AS full_name,
+                sp.roll_number,
+                COALESCE(fp.employee_id,wp.employee_id) AS employee_id,
+                d.name AS department,
+                sp.course, sp.semester,
+                h.name AS hostel_name,
+                COALESCE(sp.photo_reference,fp.photo_reference,wp.photo_reference,vp.photo_reference) AS photo_reference,
+                COALESCE((SELECT array_agg(r.name ORDER BY r.name)
+                          FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+                          WHERE ur.user_id=u.id), ARRAY[]::text[]) AS roles,
+                COALESCE((SELECT array_agg(DISTINCT l.name ORDER BY l.name)
+                          FROM user_location_access ula JOIN locations l ON l.id=ula.location_id
+                          WHERE ula.user_id=u.id AND ula.status='active'), ARRAY[]::text[]) AS locations,
+                (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id=u.id) AS role_count,
+                (SELECT COUNT(*) FROM user_location_access ula WHERE ula.user_id=u.id AND ula.status='active') AS grant_count
+            {base_from}
+            ORDER BY u.created_at DESC
+            LIMIT ${idx} OFFSET ${idx + 1}
+        """
+        rows = await conn.fetch(query, *args, page_size, offset)
+
+        users = [
+            AccessUserSummary(
+                id=r["id"], email=r["email"], user_type=r["user_type"],
+                status=r["status"], phone=r["phone"],
+                full_name=r["full_name"], roll_number=r["roll_number"],
+                employee_id=r["employee_id"], department=r["department"],
+                course=r["course"], semester=r["semester"],
+                hostel_name=r["hostel_name"], photo_reference=r["photo_reference"],
+                roles=r["roles"] or [],
+                locations=r["locations"] or [],
+                role_count=r["role_count"], grant_count=r["grant_count"],
+                keycloak_linked=bool(r["keycloak_user_id"]),
+            )
+            for r in rows
+        ]
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        return AccessUserSearchResult(
+            users=users, total=total, page=page,
+            page_size=page_size, total_pages=total_pages,
+        )
+
+    async def get_user_access_detail(
+        self, conn: asyncpg.Connection, user_id: uuid.UUID,
+    ) -> UserAccessDetail:
+        """Load full user detail with roles, location grants, and temp grants."""
+        user = await conn.fetchrow("""
+            SELECT u.id, u.email, u.phone, u.user_type, u.status,
+                   u.keycloak_user_id, u.created_at, u.updated_at,
+                   COALESCE(sp.full_name,fp.full_name,wp.full_name,vp.full_name) AS full_name,
+                   sp.roll_number,
+                   COALESCE(fp.employee_id,wp.employee_id) AS employee_id,
+                   COALESCE(sp.department_id,fp.department_id,wp.department_id) AS department_id,
+                   d.name AS department, d.school,
+                   sp.course, sp.semester,
+                   COALESCE(fp.designation,wp.designation) AS designation,
+                   sp.hostel_id, h.name AS hostel_name,
+                   COALESCE(sp.photo_reference,fp.photo_reference,wp.photo_reference,vp.photo_reference) AS photo_reference
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id=u.id AND u.user_type='student'
+            LEFT JOIN faculty_profiles fp ON fp.user_id=u.id AND u.user_type='faculty'
+            LEFT JOIN worker_profiles wp ON wp.user_id=u.id AND u.user_type='worker'
+            LEFT JOIN visitor_profiles vp ON vp.user_id=u.id AND u.user_type='visitor'
+            LEFT JOIN departments d ON d.id=COALESCE(sp.department_id,fp.department_id,wp.department_id)
+            LEFT JOIN hostels h ON h.id=sp.hostel_id
+            WHERE u.id=$1
+        """, user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        # Roles
+        role_rows = await conn.fetch(
+            "SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=$1 ORDER BY r.name",
+            user_id,
+        )
+        roles = [r["name"] for r in role_rows]
+
+        # Location grants
+        grant_rows = await conn.fetch("""
+            SELECT ula.*, l.name AS location_name, l.type AS location_type,
+                   COALESCE(sp2.full_name,fp2.full_name,wp2.full_name,vp2.full_name) AS granted_by_name
+            FROM user_location_access ula
+            JOIN locations l ON l.id=ula.location_id
+            LEFT JOIN users u2 ON u2.id=ula.granted_by
+            LEFT JOIN student_profiles sp2 ON sp2.user_id=u2.id
+            LEFT JOIN faculty_profiles fp2 ON fp2.user_id=u2.id
+            LEFT JOIN worker_profiles wp2 ON wp2.user_id=u2.id
+            LEFT JOIN visitor_profiles vp2 ON vp2.user_id=u2.id
+            WHERE ula.user_id=$1
+            ORDER BY ula.status ASC, l.name
+        """, user_id)
+        location_grants = [
+            UserLocationAccessGrant(
+                id=g["id"], location_id=g["location_id"],
+                location_name=g["location_name"], location_type=g["location_type"],
+                access_level=g["access_level"],
+                valid_from=g["valid_from"], valid_until=g["valid_until"],
+                status=g["status"], granted_by=g["granted_by"],
+                granted_by_name=g["granted_by_name"],
+                revoked_at=g["revoked_at"], revoked_by=g["revoked_by"],
+                reason=g["reason"],
+                created_at=g["created_at"], updated_at=g["updated_at"],
+            )
+            for g in grant_rows
+        ]
+
+        # Temporary grants
+        temp_rows = await conn.fetch("""
+            SELECT id, user_id, location_id, valid_from, valid_to, granted_by, reason, created_at
+            FROM temporary_access_grants
+            WHERE user_id=$1 ORDER BY created_at DESC
+        """, user_id)
+        temp_grants = [TemporaryAccessGrant(**dict(t)) for t in temp_rows]
+
+        return UserAccessDetail(
+            id=user["id"], email=user["email"], phone=user["phone"],
+            user_type=user["user_type"], status=user["status"],
+            full_name=user["full_name"], roll_number=user["roll_number"],
+            employee_id=user["employee_id"],
+            department=user["department"], department_id=user["department_id"],
+            school=user["school"], course=user["course"], semester=user["semester"],
+            designation=user["designation"],
+            hostel_name=user["hostel_name"], hostel_id=user["hostel_id"],
+            photo_reference=user["photo_reference"],
+            keycloak_user_id=user["keycloak_user_id"],
+            keycloak_linked=bool(user["keycloak_user_id"]),
+            roles=roles,
+            location_grants=location_grants,
+            temporary_grants=temp_grants,
+            created_at=user["created_at"], updated_at=user["updated_at"],
+        )
+
+    async def get_user_effective_permissions(
+        self, conn: asyncpg.Connection, user_id: uuid.UUID,
+    ) -> List[EffectivePermission]:
+        """Compute effective permissions with hierarchy inheritance."""
+        # Get explicit grants
+        grants = await conn.fetch("""
+            SELECT ula.location_id, ula.access_level, l.name AS location_name, l.type AS location_type
+            FROM user_location_access ula
+            JOIN locations l ON l.id=ula.location_id
+            WHERE ula.user_id=$1 AND ula.status='active'
+              AND (ula.valid_until IS NULL OR ula.valid_until >= now())
+        """, user_id)
+
+        explicit_map: Dict[uuid.UUID, dict] = {}
+        for g in grants:
+            loc_id = g["location_id"]
+            if loc_id not in explicit_map or ACCESS_LEVELS_ORDER.get(g["access_level"], 0) > ACCESS_LEVELS_ORDER.get(explicit_map[loc_id]["access_level"], 0):
+                explicit_map[loc_id] = dict(g)
+
+        permissions: List[EffectivePermission] = []
+
+        # Add explicit permissions
+        for loc_id, g in explicit_map.items():
+            permissions.append(EffectivePermission(
+                location_id=loc_id, location_name=g["location_name"],
+                location_type=g["location_type"], access_level=g["access_level"],
+                source="explicit",
+            ))
+
+        # Expand inherited permissions from each explicit grant
+        for loc_id, g in explicit_map.items():
+            children = await conn.fetch("""
+                WITH RECURSIVE subtree AS (
+                    SELECT id, name, type FROM locations WHERE parent_id=$1
+                    UNION ALL
+                    SELECT l.id, l.name, l.type FROM locations l JOIN subtree s ON l.parent_id=s.id
+                ) SELECT id, name, type FROM subtree
+            """, loc_id)
+            for child in children:
+                child_id = child["id"]
+                if child_id not in explicit_map:
+                    # Only add inherited if not already explicitly granted
+                    already = next((p for p in permissions if p.location_id == child_id), None)
+                    if not already or ACCESS_LEVELS_ORDER.get(g["access_level"], 0) > ACCESS_LEVELS_ORDER.get(already.access_level, 0):
+                        if already:
+                            permissions.remove(already)
+                        permissions.append(EffectivePermission(
+                            location_id=child_id, location_name=child["name"],
+                            location_type=child["type"], access_level=g["access_level"],
+                            source="inherited", inherited_from=loc_id,
+                            inherited_from_name=g["location_name"],
+                        ))
+
+        return sorted(permissions, key=lambda p: p.location_name)
+
+    async def get_location_tree(self, conn: asyncpg.Connection) -> List[LocationTreeNode]:
+        """Build the full location hierarchy as a nested tree."""
+        rows = await conn.fetch(
+            "SELECT id, name, type, description, parent_id, status FROM locations ORDER BY name"
+        )
+        nodes: Dict[uuid.UUID, LocationTreeNode] = {}
+        for r in rows:
+            nodes[r["id"]] = LocationTreeNode(
+                id=r["id"], name=r["name"], type=r["type"],
+                description=r["description"], parent_id=r["parent_id"],
+                status=r["status"],
+            )
+
+        roots: List[LocationTreeNode] = []
+        for node in nodes.values():
+            if node.parent_id and node.parent_id in nodes:
+                nodes[node.parent_id].children.append(node)
+            else:
+                roots.append(node)
+        return roots
+
+    async def create_location_grant(
+        self, conn: asyncpg.Connection, req: CreateLocationGrantRequest,
+        admin_id: uuid.UUID,
+    ) -> UserLocationAccessGrant:
+        """Create a new location access grant with audit logging."""
+        level = req.access_level.upper()
+        if level not in ACCESS_LEVELS_ORDER:
+            raise ValueError(f"Invalid access_level: {level}")
+
+        # Verify user and location exist
+        user_exists = await conn.fetchval("SELECT EXISTS(SELECT 1 FROM users WHERE id=$1)", req.user_id)
+        if not user_exists:
+            raise ValueError("User not found")
+        loc = await conn.fetchrow("SELECT name, type FROM locations WHERE id=$1", req.location_id)
+        if not loc:
+            raise ValueError("Location not found")
+
+        row = await conn.fetchrow("""
+            INSERT INTO user_location_access
+                (user_id, location_id, access_level, valid_from, valid_until, status, granted_by, reason)
+            VALUES ($1, $2, $3, $4, $5, 'active', $6, $7)
+            ON CONFLICT (user_id, location_id, access_level) DO UPDATE SET
+                valid_from=EXCLUDED.valid_from, valid_until=EXCLUDED.valid_until,
+                status='active', granted_by=EXCLUDED.granted_by, reason=EXCLUDED.reason,
+                revoked_at=NULL, revoked_by=NULL, updated_at=now()
+            RETURNING *
+        """, req.user_id, req.location_id, level,
+             req.valid_from, req.valid_until, admin_id, req.reason)
+
+        # Audit log
+        from app.services.audit_service import audit_service
+        await audit_service.log(
+            conn, str(admin_id), "LOCATION_ACCESS_GRANTED", "user", str(req.user_id),
+            after_state={
+                "location_id": str(req.location_id), "location_name": loc["name"],
+                "access_level": level, "valid_until": str(req.valid_until) if req.valid_until else "permanent",
+                "reason": req.reason,
+            },
+        )
+
+        return UserLocationAccessGrant(
+            id=row["id"], location_id=row["location_id"],
+            location_name=loc["name"], location_type=loc["type"],
+            access_level=row["access_level"],
+            valid_from=row["valid_from"], valid_until=row["valid_until"],
+            status=row["status"], granted_by=row["granted_by"],
+            reason=row["reason"],
+            created_at=row["created_at"], updated_at=row["updated_at"],
+        )
+
+    async def update_location_grant(
+        self, conn: asyncpg.Connection, grant_id: uuid.UUID,
+        req: UpdateLocationGrantRequest, admin_id: uuid.UUID,
+    ) -> Optional[UserLocationAccessGrant]:
+        """Update an existing location access grant."""
+        current = await conn.fetchrow(
+            "SELECT ula.*, l.name AS location_name, l.type AS location_type FROM user_location_access ula JOIN locations l ON l.id=ula.location_id WHERE ula.id=$1",
+            grant_id,
+        )
+        if not current:
+            return None
+
+        new_level = (req.access_level or current["access_level"]).upper()
+        new_status = req.status or current["status"]
+        if new_level not in ACCESS_LEVELS_ORDER:
+            raise ValueError(f"Invalid access_level: {new_level}")
+        if new_status not in {"active", "revoked", "expired"}:
+            raise ValueError(f"Invalid grant status: {new_status}")
+        # JSON null explicitly clears the expiry; an omitted property preserves
+        # the existing expiry.
+        new_valid_until = req.valid_until if "valid_until" in req.model_fields_set else current["valid_until"]
+
+        row = await conn.fetchrow("""
+            UPDATE user_location_access
+            SET access_level=$1, valid_until=$2, status=$3, reason=COALESCE($4, reason), updated_at=now()
+            WHERE id=$5 RETURNING *
+        """, new_level, new_valid_until, new_status, req.reason, grant_id)
+
+        from app.services.audit_service import audit_service
+        await audit_service.log(
+            conn, str(admin_id), "LOCATION_ACCESS_UPDATED", "user", str(current["user_id"]),
+            before_state={"access_level": current["access_level"], "status": current["status"]},
+            after_state={"access_level": new_level, "status": new_status, "reason": req.reason},
+        )
+
+        return UserLocationAccessGrant(
+            id=row["id"], location_id=row["location_id"],
+            location_name=current["location_name"], location_type=current["location_type"],
+            access_level=row["access_level"],
+            valid_from=row["valid_from"], valid_until=row["valid_until"],
+            status=row["status"], granted_by=row["granted_by"],
+            reason=row["reason"],
+            created_at=row["created_at"], updated_at=row["updated_at"],
+        )
+
+    async def revoke_location_grant(
+        self, conn: asyncpg.Connection, grant_id: uuid.UUID, admin_id: uuid.UUID,
+    ) -> bool:
+        """Revoke a location access grant."""
+        current = await conn.fetchrow(
+            "SELECT user_id, location_id, access_level FROM user_location_access WHERE id=$1", grant_id,
+        )
+        if not current:
+            return False
+
+        await conn.execute("""
+            UPDATE user_location_access
+            SET status='revoked', revoked_at=now(), revoked_by=$1, updated_at=now()
+            WHERE id=$2
+        """, admin_id, grant_id)
+
+        from app.services.audit_service import audit_service
+        loc_name = await conn.fetchval("SELECT name FROM locations WHERE id=$1", current["location_id"])
+        await audit_service.log(
+            conn, str(admin_id), "LOCATION_ACCESS_REVOKED", "user", str(current["user_id"]),
+            before_state={
+                "location_id": str(current["location_id"]), "location_name": loc_name,
+                "access_level": current["access_level"],
+            },
+        )
+        return True
+
+    async def expire_stale_grants(self, conn: asyncpg.Connection) -> int:
+        """Expire location grants past their valid_until. Returns count of expired."""
+        result = await conn.execute("""
+            UPDATE user_location_access
+            SET status='expired', updated_at=now()
+            WHERE status='active' AND valid_until IS NOT NULL AND valid_until < now()
+        """)
+        count1 = int(result.split()[-1]) if result else 0
+
+        result2 = await conn.execute("""
+            UPDATE temporary_access_grants
+            SET status='expired'
+            WHERE (status='active' OR status IS NULL) AND valid_to < now()
+        """)
+        count2 = int(result2.split()[-1]) if result2 else 0
+        total = count1 + count2
+        if total > 0:
+            logger.info("Expired %d stale access grants (%d location, %d temporary)", total, count1, count2)
+        return total
+
+    async def get_access_audit_logs(
+        self, conn: asyncpg.Connection, *,
+        user_id: Optional[uuid.UUID] = None,
+        page: int = 1,
+        page_size: int = 25,
+    ) -> AccessAuditLogResult:
+        """Retrieve access-management-specific audit logs."""
+        page = max(1, page)
+        page_size = min(max(1, page_size), 100)
+        offset = (page - 1) * page_size
+
+        access_ops = [
+            "LOCATION_ACCESS_GRANTED", "LOCATION_ACCESS_REVOKED",
+            "LOCATION_ACCESS_UPDATED", "LOCATION_ACCESS_EXPIRED",
+            "ACCESS_CONFIGURATION_UPDATED", "ROLE_ASSIGNED", "ROLE_REMOVED",
+            "HOSTEL_ACCESS_GRANTED", "HOSTEL_ACCESS_REVOKED",
+        ]
+
+        clauses = [f"al.operation = ANY($1::text[])"]
+        args: list[Any] = [access_ops]
+        idx = 2
+
+        if user_id:
+            clauses.append(f"al.entity_id = ${idx}")
+            args.append(str(user_id))
+            idx += 1
+
+        where_sql = f"WHERE {' AND '.join(clauses)}"
+
+        total = await conn.fetchval(
+            f"SELECT COUNT(*) FROM audit_logs al {where_sql}", *args,
+        )
+
+        rows = await conn.fetch(f"""
+            SELECT al.id, al.actor_id, al.operation, al.entity_type, al.entity_id,
+                   al.before_state, al.after_state, al.created_at,
+                   COALESCE(sp.full_name,fp.full_name,wp.full_name,vp.full_name,u.email) AS actor_email
+            FROM audit_logs al
+            LEFT JOIN users u ON u.id=al.actor_id
+            LEFT JOIN student_profiles sp ON sp.user_id=u.id
+            LEFT JOIN faculty_profiles fp ON fp.user_id=u.id
+            LEFT JOIN worker_profiles wp ON wp.user_id=u.id
+            LEFT JOIN visitor_profiles vp ON vp.user_id=u.id
+            {where_sql}
+            ORDER BY al.created_at DESC
+            LIMIT ${idx} OFFSET ${idx + 1}
+        """, *args, page_size, offset)
+
+        logs = [
+            AccessAuditLogEntry(
+                id=r["id"], actor_id=str(r["actor_id"]) if r["actor_id"] else None,
+                actor_email=r["actor_email"],
+                operation=r["operation"], entity_type=r["entity_type"],
+                entity_id=r["entity_id"],
+                before_state=json.loads(r["before_state"]) if r["before_state"] else None,
+                after_state=json.loads(r["after_state"]) if r["after_state"] else None,
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        return AccessAuditLogResult(
+            logs=logs, total=total, page=page,
+            page_size=page_size, total_pages=total_pages,
+        )
+
+access_service = AccessService()

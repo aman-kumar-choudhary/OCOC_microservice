@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.core.database import close_db, init_db, run_migrations
+import asyncio
+from app.core.database import close_db, init_db, run_migrations, get_db_pool
+from app.services.access_service import access_service
 from app.core.keycloak_client import keycloak_client
 from app.core.redis_client import redis_client
 from app.routers import (
@@ -28,6 +30,7 @@ from app.routers import (
     devices,
     reports,
     hostel,
+    leave,
 )
 
 logging.basicConfig(
@@ -62,10 +65,51 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Redis initialization failed: %s", e)
 
+    # 3. Start background periodic tasks (e.g. grant expiry)
+    async def _periodic_grant_expiry():
+        while True:
+            try:
+                await asyncio.sleep(300)
+                db_pool = get_db_pool()
+                if db_pool:
+                    async with db_pool.acquire() as conn:
+                        await access_service.expire_stale_grants(conn)
+            except asyncio.CancelledError:
+                break
+            except Exception as ex:
+                logger.warning("Error in periodic grant expiry task: %s", ex)
+
+    expiry_task = asyncio.create_task(_periodic_grant_expiry())
+
+    async def _periodic_leave_expiry():
+        while True:
+            try:
+                await asyncio.sleep(60)
+                db_pool = get_db_pool()
+                if db_pool:
+                    async with db_pool.acquire() as conn:
+                        await leave.process_expired_leaves(conn)
+            except asyncio.CancelledError:
+                break
+            except Exception as ex:
+                logger.warning("Error in periodic leave expiry task: %s", ex)
+
+    leave_expiry_task = asyncio.create_task(_periodic_leave_expiry())
+
     yield
 
     # Shutdown
     logger.info("Shutting down OCOC User Management Microservice...")
+    expiry_task.cancel()
+    leave_expiry_task.cancel()
+    try:
+        await expiry_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await leave_expiry_task
+    except asyncio.CancelledError:
+        pass
     await redis_client.close()
     await keycloak_client.close()
     await close_db()
@@ -200,3 +244,4 @@ app.include_router(ws.router)
 app.include_router(devices.router)
 app.include_router(reports.router)
 app.include_router(hostel.router)
+app.include_router(leave.router)

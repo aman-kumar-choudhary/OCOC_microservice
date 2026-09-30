@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse
 import asyncpg
 
 from app.core.database import get_db
-from app.core.security import Claims, require_permission
+from app.core.security import Claims, require_permission, get_current_claims
 from app.schemas.common import error_response, success_response
 from app.schemas.role import AssignRoleRequest
 from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest, BulkTransferRequest
@@ -20,6 +20,221 @@ from app.services.user_service import user_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
+
+
+@router.get("/me")
+async def get_current_user_profile(
+    claims: Claims = Depends(get_current_claims),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Return profile, roles, assigned locations, and dashboard details for current authenticated user."""
+    user = await conn.fetchrow(
+        """
+        SELECT u.id, u.email, u.phone, u.user_type, u.status, u.keycloak_user_id,
+               COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name, u.email) AS full_name,
+               sp.roll_number, sp.course, sp.semester,
+               d.name AS department_name, d.code AS department_code,
+               h.name AS hostel_name, h.code AS hostel_code,
+               fp.employee_id AS faculty_employee_id, fp.designation AS faculty_designation,
+               wp.employee_id AS worker_employee_id, wp.designation AS worker_designation,
+               vp.visit_purpose AS visitor_purpose, vp.host_contact AS visitor_contact, (vp.visit_start + (COALESCE(vp.visit_duration_days, 1) || ' days')::interval) AS visitor_valid_until
+        FROM users u
+        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+        LEFT JOIN faculty_profiles fp ON fp.user_id = u.id
+        LEFT JOIN worker_profiles wp ON wp.user_id = u.id
+        LEFT JOIN visitor_profiles vp ON vp.user_id = u.id
+        LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id)
+        LEFT JOIN hostels h ON h.id = sp.hostel_id
+        WHERE u.keycloak_user_id = $1 OR LOWER(u.email) = LOWER($2)
+        LIMIT 1
+        """,
+        claims.sub,
+        claims.email or claims.preferred_username,
+    )
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+
+    user_id = user["id"]
+
+    # Roles
+    user_roles = await conn.fetch(
+        "SELECT r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1 ORDER BY r.name",
+        user_id,
+    )
+    roles = [r["name"] for r in user_roles]
+    combined_roles = list(set(roles + [r for r in claims.roles if not r.startswith("default-") and r != "uma_authorization"]))
+
+    # Location grants
+    loc_rows = await conn.fetch(
+        """
+        SELECT l.id, l.name, l.type, ula.access_level, ula.valid_until
+        FROM user_location_access ula
+        JOIN locations l ON l.id = ula.location_id
+        WHERE ula.user_id = $1 AND ula.status = 'active'
+          AND (ula.valid_until IS NULL OR ula.valid_until >= now())
+        ORDER BY l.name
+        """,
+        user_id,
+    )
+    locations = [
+        {
+            "id": str(r["id"]),
+            "name": r["name"],
+            "type": r["type"],
+            "access_level": r["access_level"],
+            "valid_until": r["valid_until"].isoformat() if r["valid_until"] else None,
+        }
+        for r in loc_rows
+    ]
+
+    # RFID card info
+    rfid_card = await conn.fetchrow(
+        """
+        SELECT rc.uid, rc.status
+        FROM user_rfid_cards urc
+        JOIN rfid_cards rc ON rc.id = urc.rfid_card_id
+        WHERE urc.user_id = $1 AND urc.unassigned_at IS NULL AND rc.status = 'active'
+        LIMIT 1
+        """,
+        user_id,
+    )
+
+    # Student specific details
+    student_status = None
+    if user["user_type"] == "student":
+        status_row = await conn.fetchrow(
+            "SELECT current_status, last_event_time FROM student_hostel_status WHERE student_id = $1",
+            user_id,
+        )
+        active_perm = await conn.fetchrow(
+            """
+            SELECT permission_type, reason, start_time, end_time, status
+            FROM hostel_permissions
+            WHERE student_id = $1 AND status = 'APPROVED'
+              AND end_time >= now()
+            ORDER BY start_time DESC LIMIT 1
+            """,
+            user_id,
+        )
+        active_perm_dict = None
+        if active_perm:
+            active_perm_dict = {
+                "permission_type": active_perm["permission_type"],
+                "reason": active_perm["reason"],
+                "start_time": active_perm["start_time"].isoformat() if active_perm["start_time"] else None,
+                "end_time": active_perm["end_time"].isoformat() if active_perm["end_time"] else None,
+                "status": active_perm["status"],
+            }
+        student_status = {
+            "current_status": status_row["current_status"] if status_row else "INSIDE",
+            "last_movement": status_row["last_event_time"].isoformat() if status_row and status_row["last_event_time"] else None,
+            "active_permission": active_perm_dict,
+        }
+
+    # Role-specific profiles
+    sp = await conn.fetchrow(
+        "SELECT sp.*, h.name as hostel_name, d.name as department_name FROM student_profiles sp LEFT JOIN hostels h ON h.id = sp.hostel_id LEFT JOIN departments d ON d.id = sp.department_id WHERE sp.user_id = $1",
+        user_id,
+    )
+    fp = await conn.fetchrow(
+        "SELECT fp.*, d.name as department_name FROM faculty_profiles fp LEFT JOIN departments d ON d.id = fp.department_id WHERE fp.user_id = $1",
+        user_id,
+    )
+    warden = await conn.fetchrow(
+        "SELECT wp.*, h.name as hostel_name FROM warden_profiles wp LEFT JOIN hostels h ON h.id = wp.hostel_id WHERE wp.user_id = $1",
+        user_id,
+    )
+    wp = await conn.fetchrow(
+        "SELECT wp.*, d.name as department_name, l.name as location_name FROM worker_profiles wp LEFT JOIN departments d ON d.id = wp.department_id LEFT JOIN locations l ON l.id = wp.assigned_location_id WHERE wp.user_id = $1",
+        user_id,
+    )
+    vp = await conn.fetchrow(
+        "SELECT * FROM visitor_profiles WHERE user_id = $1",
+        user_id,
+    )
+
+    role_profiles = {}
+    if sp:
+        role_profiles["student"] = {
+            "student_id": sp["roll_number"],
+            "course": sp["course"],
+            "department": sp["department_name"],
+            "semester": sp["semester"],
+            "batch": sp.get("batch"),
+            "hostel": sp["hostel_name"],
+            "room_number": sp.get("room_number"),
+        }
+    if fp:
+        role_profiles["faculty"] = {
+            "faculty_id": fp["employee_id"],
+            "department": fp["department_name"],
+            "designation": fp["designation"],
+            "courses": fp.get("courses"),
+            "assigned_students": fp.get("assigned_students"),
+        }
+    if warden:
+        role_profiles["warden"] = {
+            "hostel": warden["hostel_name"],
+            "hostel_block": warden.get("hostel_block"),
+            "responsibilities": warden.get("responsibilities"),
+        }
+    if wp:
+        role_profiles["worker"] = {
+            "worker_id": wp["employee_id"],
+            "job_type": wp.get("job_type") or wp["designation"],
+            "department": wp["department_name"],
+            "assigned_location": wp.get("location_name"),
+            "work_area": wp.get("work_area"),
+            "shift": wp.get("shift"),
+        }
+    if vp:
+        role_profiles["visitor"] = {
+            "visit_purpose": vp["visit_purpose"],
+            "host_person": vp.get("host_person"),
+            "host_contact": vp["host_contact"],
+            "visit_start": vp["visit_start"].isoformat() if vp["visit_start"] else None,
+            "visit_duration_days": vp["visit_duration_days"],
+            "valid_until": vp.get("valid_until").isoformat() if vp.get("valid_until") else None,
+        }
+
+    dash = role_service.get_dashboard_info(combined_roles)
+
+    data = {
+        "id": str(user["id"]),
+        "email": user["email"],
+        "phone": user["phone"],
+        "user_type": user["user_type"],
+        "status": user["status"],
+        "full_name": user["full_name"],
+        "roll_number": sp["roll_number"] if sp else user["roll_number"],
+        "course": sp["course"] if sp else user["course"],
+        "semester": sp["semester"] if sp else user["semester"],
+        "batch": sp.get("batch") if sp else None,
+        "room_number": sp.get("room_number") if sp else None,
+        "department": (sp["department_name"] if sp else None) or (fp["department_name"] if fp else None) or user["department_name"],
+        "hostel": (sp["hostel_name"] if sp else None) or (warden["hostel_name"] if warden else None) or user["hostel_name"],
+        "hostel_block": warden.get("hostel_block") if warden else None,
+        "warden_responsibilities": warden.get("responsibilities") if warden else None,
+        "employee_id": (fp["employee_id"] if fp else None) or (wp["employee_id"] if wp else None) or user["faculty_employee_id"] or user["worker_employee_id"],
+        "designation": (fp["designation"] if fp else None) or (wp.get("job_type") if wp else None) or user["faculty_designation"] or user["worker_designation"],
+        "courses": fp.get("courses") if fp else None,
+        "assigned_students": fp.get("assigned_students") if fp else None,
+        "job_type": wp.get("job_type") if wp else None,
+        "work_area": wp.get("work_area") if wp else None,
+        "shift": wp.get("shift") if wp else None,
+        "assigned_location": wp.get("location_name") if wp else None,
+        "visitor_purpose": vp.get("visit_purpose") if vp else user["visitor_purpose"],
+        "host_person": vp.get("host_person") if vp else None,
+        "roles": combined_roles,
+        "role_profiles": role_profiles,
+        "locations": locations,
+        "rfid_card": dict(rfid_card) if rfid_card else None,
+        "student_hostel_status": student_status,
+        "dashboard_path": dash["path"],
+        "dashboard_name": dash["name"],
+        "dashboard_category": dash["category"],
+    }
+    return success_response(data=data)
 
 
 @router.get("")

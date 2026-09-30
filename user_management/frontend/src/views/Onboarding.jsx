@@ -76,6 +76,7 @@ export const Onboarding = () => {
       full_name: '',
       photo_reference: '',
       roll_number: '',
+      batch: '2024-2028',
       school: '',
       department: '',
       department_id: null,
@@ -83,15 +84,27 @@ export const Onboarding = () => {
       semester: '',
       hostel: false,
       hostel_id: null,
+      room_number: '',
       guardian_contact: '',
       employee_id: '',
       designation: '',
+      courses: '',
+      assigned_students: '',
+      hostel_block: '',
+      warden_responsibilities: '',
       worker_role: '',
+      job_type: '',
+      work_area: '',
+      shift: '',
+      assigned_location_id: null,
       gov_id_type: '',
       gov_id_number: '',
       nationality: '',
       visit_purpose: '',
+      host_person: '',
       host_contact: '',
+      valid_until: '',
+      allowed_location_ids: [],
     }
   })
 
@@ -176,6 +189,7 @@ export const Onboarding = () => {
           department_id: p.department_id,
           designation: p.designation,
         })
+        if (p.is_warden) Object.assign(profilePayload, { hostel_block: p.hostel_block, warden_responsibilities: p.warden_responsibilities })
       } else if (persona === 'worker') {
         Object.assign(profilePayload, {
           employee_id: p.employee_id,
@@ -198,7 +212,7 @@ export const Onboarding = () => {
           profile: profilePayload,
         }
       }
-      const result = await userService.onboard(persona, payload)
+      const result = await userService.onboard(persona === 'faculty' && p.is_warden ? 'faculty-warden' : persona, payload)
       setCreatedUserId(result.user.id)
       setStep(3) // Face Capture
     } catch (err) {

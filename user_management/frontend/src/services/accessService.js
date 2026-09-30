@@ -14,8 +14,52 @@ const accessService = {
     const { data } = await api.put(`/access/users/${userId}/access`, payload)
     return data.data
   },
+  issueUserCredentials: async (userId, customPassword = null) => {
+    const { data } = await api.post(`/access/users/${userId}/credentials`, {
+      custom_password: customPassword || undefined
+    })
+    return data.data
+  },
   getGroups: async () => {
     const { data } = await api.get('/access/groups')
+    return data.data
+  },
+
+  // ── Enhanced User Access & Search ──
+  searchAccessUsers: async (params) => {
+    const { data } = await api.get('/access/manage/users', { params })
+    return data.data
+  },
+  getAccessUserDetail: async (userId) => {
+    const { data } = await api.get(`/access/manage/users/${userId}`)
+    return data.data
+  },
+  getUserEffectivePermissions: async (userId) => {
+    const { data } = await api.get(`/access/manage/users/${userId}/permissions`)
+    return data.data
+  },
+  getLocationTree: async () => {
+    const { data } = await api.get('/access/locations/tree')
+    return data.data
+  },
+
+  // ── Location Grants CRUD ──
+  createLocationGrant: async (payload) => {
+    const { data } = await api.post('/access/grants', payload)
+    return data.data
+  },
+  updateLocationGrant: async (grantId, payload) => {
+    const { data } = await api.put(`/access/grants/${grantId}`, payload)
+    return data.data
+  },
+  revokeLocationGrant: async (grantId) => {
+    const { data } = await api.delete(`/access/grants/${grantId}`)
+    return data.data
+  },
+
+  // ── Access Audit Logs ──
+  getAccessAuditLogs: async (params) => {
+    const { data } = await api.get('/access/audit-logs', { params })
     return data.data
   },
 

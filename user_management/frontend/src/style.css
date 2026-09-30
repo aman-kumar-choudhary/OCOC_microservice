@@ -114,3 +114,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .text-muted { color: var(--text-muted); }
+
+/* Print-friendly styles for Leave Passes and Gate Clearance Slips */
+@media print {
+  header, nav, aside, footer, .no-print, .no-print-backdrop, button {
+    display: none !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+

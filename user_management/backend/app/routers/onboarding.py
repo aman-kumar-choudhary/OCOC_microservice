@@ -60,6 +60,23 @@ async def onboard_faculty(
         return error_response("ONBOARDING_FAILED", str(e), status_code=400)
 
 
+@router.post("/faculty-warden")
+@router.post("/faculty_warden")
+@router.post("/warden")
+async def onboard_faculty_warden(
+    req: WrappedUserRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_permission("user:create")),
+):
+    try:
+        onboarding_req = OnboardingRequest(persona="faculty_warden", user=req.user)
+        res = await onboarding_service.onboard(conn, actor_id=claims.sub, req=onboarding_req)
+        return success_response(data=res.model_dump(), status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error("Faculty-Warden onboarding failed for actor %s: %s", claims.sub, e)
+        return error_response("ONBOARDING_FAILED", str(e), status_code=400)
+
+
 @router.post("/worker")
 async def onboard_worker(
     req: WrappedUserRequest,

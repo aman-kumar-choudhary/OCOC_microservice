@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 from app.schemas.user import CreateUserRequest, User
 from app.schemas.rfid import Card
 
 
 class OnboardingRequest(BaseModel):
-    persona: str = Field(..., pattern="^(student|faculty|worker|visitor)$")
+    persona: str = Field(..., pattern="^(student|faculty|faculty_warden|warden|worker|visitor)$")
+    roles: Optional[List[str]] = None
     user: CreateUserRequest
 
 

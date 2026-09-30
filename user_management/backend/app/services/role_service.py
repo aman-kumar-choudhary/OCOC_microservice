@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 # This list is intentionally limited to the roles Access Management owns.
 # ADMIN and SUPER_ADMIN continue to be administered by their existing flow.
-OPERATIONAL_ROLES = {"GUARD", "WARDEN", "FACULTY"}
+OPERATIONAL_ROLES = {
+    "GUARD", "SECURITY_GUARD", "WARDEN", "FACULTY",
+    "STUDENT", "STAFF", "WORKER", "VISITOR",
+}
 
 
 class RoleService:
@@ -122,7 +125,7 @@ class RoleService:
         )
 
     async def get_user_access(self, conn: asyncpg.Connection, user_id: uuid.UUID) -> dict[str, Any]:
-        user = await conn.fetchrow("SELECT id, keycloak_user_id FROM users WHERE id=$1", user_id)
+        user = await conn.fetchrow("SELECT id, keycloak_user_id, email FROM users WHERE id=$1", user_id)
         if not user:
             raise ValueError("User not found")
         roles = await conn.fetch(
@@ -133,14 +136,21 @@ class RoleService:
             "SELECT h.id, h.name, h.code FROM warden_hostels wh JOIN hostels h ON h.id=wh.hostel_id WHERE wh.user_id=$1 ORDER BY h.name",
             user_id,
         )
-        return {"user_id": str(user_id), "roles": [row["name"] for row in roles], "hostels": [dict(row) for row in hostels]}
+        return {
+            "user_id": str(user_id), "email": user["email"],
+            "keycloak_user_id": user["keycloak_user_id"],
+            "roles": [row["name"] for row in roles],
+            "hostels": [dict(row) for row in hostels],
+        }
 
     @staticmethod
     def _temporary_password() -> str:
-        # Compatible with the existing password policy without storing the
-        # secret anywhere outside Keycloak.
-        alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789@$!%*?&#"
-        return "Aa1!" + "".join(secrets.choice(alphabet) for _ in range(16))
+        # Generates a shell-safe, human-readable temporary password compatible
+        # with Keycloak password policies (uppercase, lowercase, number, special char).
+        # Avoids $, %, &, #, *, ? or ambiguous characters (l, 1, I, 0, O) to prevent
+        # shell variable expansion or copy-paste corruption.
+        alphabet = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return "Aa1!" + "".join(secrets.choice(alphabet) for _ in range(12))
 
     async def _provision_keycloak_identity(
         self, conn: asyncpg.Connection, user_id: uuid.UUID,
@@ -161,41 +171,77 @@ class RoleService:
         )
         if not target:
             raise ValueError("User not found")
-        if target["keycloak_user_id"]:
-            return target["keycloak_user_id"], None
-
         username = target["email"].lower()
-        temporary_password = self._temporary_password()
+        # A stored ID can become stale if the Keycloak user was removed or the
+        # realm was recreated. Validate it before using it for role mappings.
+        if target["keycloak_user_id"]:
+            linked_user = await keycloak_client.get_user_by_id(target["keycloak_user_id"])
+            if linked_user:
+                await keycloak_client.clear_required_actions(target["keycloak_user_id"])
+                return target["keycloak_user_id"], None
+
         existing = await keycloak_client.get_user_by_email(target["email"])
         if existing:
             keycloak_id = existing["id"]
-            username = existing.get("username") or username
-            await keycloak_client.reset_password(keycloak_id, temporary_password, temporary=False)
+            # Link the existing identity without changing its credentials.
+            temporary_password = None
         else:
+            temporary_password = self._temporary_password()
             name_parts = str(target["full_name"]).strip().split(maxsplit=1)
+            first_name = name_parts[0] if name_parts else username
+            last_name = name_parts[1] if len(name_parts) > 1 else (str(target["user_type"]).capitalize() if target.get("user_type") else "User")
             keycloak_id = await keycloak_client.create_user(
                 username=username,
                 email=target["email"].lower(),
-                first_name=name_parts[0] if name_parts else username,
-                last_name=name_parts[1] if len(name_parts) > 1 else "",
+                first_name=first_name,
+                last_name=last_name,
                 password=temporary_password,
                 attributes={"user_type": [target["user_type"]], "user_id": [str(user_id)]},
+                temporary_password=False,
             )
+        await keycloak_client.clear_required_actions(keycloak_id)
         await conn.execute("UPDATE users SET keycloak_user_id=$1, updated_at=now() WHERE id=$2", keycloak_id, user_id)
         return keycloak_id, temporary_password
 
-    def _log_temporary_credentials(self, username: str, password: str, roles: set[str], hostels: list[dict[str, Any]]) -> None:
+    def _log_temporary_credentials(
+        self, username: str, password: str, roles: set[str],
+        hostels: list[dict[str, Any]], user_id: str, keycloak_id: Optional[str],
+    ) -> None:
         if settings.ENVIRONMENT.lower() not in {"development", "dev", "test"}:
             return
         hostel_names = ", ".join(str(hostel["name"]) for hostel in hostels) or "None"
         logger.warning(
-            "USER ACCESS CREATED\n\nUsername: %s\nTemporary Password: %s\nRole: %s\nHostels: %s\nLogin: http://localhost:5173/login",
-            username, password, " + ".join(sorted(roles)), hostel_names,
+            "USER ACCESS CREATED\n\nUser ID: %s\nKeycloak ID: %s\nEmail: %s\nTemporary Password: %s\nAssigned Roles: %s\nHostels: %s\nLogin: http://localhost:5173/login",
+            user_id, keycloak_id or "unlinked", username, password,
+            " + ".join(sorted(roles)) or "None", hostel_names,
         )
+
+    @staticmethod
+    def get_dashboard_info(roles: set[str] | list[str]) -> dict[str, str]:
+        r = {str(x).upper() for x in roles}
+        if "SUPER_ADMIN" in r or "ADMIN" in r or "USER_MANAGER" in r:
+            return {"path": "/dashboard", "name": "Campus Operations Workspace", "category": "ADMIN"}
+        if "WARDEN" in r:
+            return {"path": "/hostel", "name": "Hostel Management Workspace", "category": "WARDEN"}
+        if "GUARD" in r or "SECURITY_GUARD" in r or "SECURITY_ADMIN" in r:
+            return {"path": "/guard", "name": "Guard Console Workspace", "category": "GUARD"}
+        if "VIEWER" in r:
+            return {"path": "/analytics", "name": "Campus Analytics Workspace", "category": "VIEWER"}
+        if "FACULTY" in r:
+            return {"path": "/dashboard", "name": "Faculty & Academic Workspace", "category": "FACULTY"}
+        if "STUDENT" in r:
+            return {"path": "/dashboard", "name": "Student Identity Workspace", "category": "STUDENT"}
+        if "WORKER" in r or "STAFF" in r:
+            return {"path": "/dashboard", "name": "Campus Staff & Operations Workspace", "category": "WORKER"}
+        if "VISITOR" in r:
+            return {"path": "/dashboard", "name": "Visitor Access Workspace", "category": "VISITOR"}
+        return {"path": "/dashboard", "name": "Personal Identity Workspace", "category": "USER"}
 
     async def update_user_access(
         self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID,
         role_names: List[str], hostel_ids: List[uuid.UUID],
+        issue_password: bool = False,
+        custom_password: Optional[str] = None,
     ) -> dict[str, Any]:
         requested_roles = {name.strip().upper() for name in role_names if name.strip()}
         if not requested_roles.issubset(OPERATIONAL_ROLES):
@@ -206,7 +252,7 @@ class RoleService:
 
         before = await self.get_user_access(conn, user_id)
         actor_local_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id=$1", actor_id) if actor_id else None
-        audit_actor_id = str(actor_local_id) if actor_local_id else actor_id
+        audit_actor_id = str(actor_local_id) if actor_local_id else None
         target = await conn.fetchrow("SELECT id, keycloak_user_id, email FROM users WHERE id=$1", user_id)
         if not target:
             raise ValueError("User not found")
@@ -218,14 +264,21 @@ class RoleService:
             valid_hostels = await conn.fetchval("SELECT COUNT(*) FROM hostels WHERE id = ANY($1::uuid[])", hostel_ids)
             if valid_hostels != len(set(hostel_ids)):
                 raise ValueError("One or more selected hostels do not exist")
-        # Keycloak has no distributed transaction with PostgreSQL.  Update it
-        # first; if the local transaction fails, restore its prior roles.
+
         keycloak_id = target["keycloak_user_id"]
         temporary_password = None
-        if requested_roles and not keycloak_id:
+        if requested_roles:
             keycloak_id, temporary_password = await self._provision_keycloak_identity(conn, user_id)
         if keycloak_id:
             await keycloak_client.update_user_roles(keycloak_id, list(requested_roles), list(OPERATIONAL_ROLES))
+
+        final_password = None
+        if issue_password or temporary_password:
+            final_password = custom_password.strip() if custom_password and custom_password.strip() else (temporary_password or self._temporary_password())
+            if keycloak_id:
+                await keycloak_client.reset_password(keycloak_id, final_password, temporary=False)
+                await keycloak_client.clear_required_actions(keycloak_id)
+
         try:
             async with conn.transaction():
                 await conn.execute(
@@ -263,9 +316,141 @@ class RoleService:
             except Exception as rollback_error:
                 logger.critical("Keycloak role rollback failed for user %s: %s", user_id, rollback_error)
             raise
-        if temporary_password:
-            self._log_temporary_credentials(target["email"].lower(), temporary_password, requested_roles, after["hostels"])
+
+        if final_password:
+            self._log_temporary_credentials(
+                target["email"].lower(), final_password, requested_roles,
+                after["hostels"], str(user_id), keycloak_id,
+            )
+        logger.info(
+            "ACCESS ROLES SYNCHRONIZED | User ID: %s | Email: %s | Keycloak ID: %s | Roles: %s | Hostels: %s",
+            user_id, target["email"], keycloak_id or "unlinked",
+            ", ".join(sorted(requested_roles)) or "None",
+            ", ".join(h["name"] for h in after["hostels"]) or "None",
+        )
+        dash = self.get_dashboard_info(requested_roles)
+        after["credentials_issued"] = bool(final_password)
+        after["credentials_printed"] = bool(
+            final_password and settings.ENVIRONMENT.lower() in {"development", "dev", "test"}
+        )
+        after["dashboard_path"] = dash["path"]
+        after["dashboard_name"] = dash["name"]
+        after["credentials"] = {
+            "username": target["email"].lower(),
+            "email": target["email"].lower(),
+            "password": final_password,
+            "dashboard_path": dash["path"],
+            "dashboard_name": dash["name"],
+            "roles": sorted(list(requested_roles)),
+        }
         return after
+
+    async def issue_or_reset_credentials(
+        self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID,
+        custom_password: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Generate or reset Keycloak credentials and return full access and dashboard details."""
+        target = await conn.fetchrow(
+            """
+            SELECT u.id, u.keycloak_user_id, u.email, u.user_type,
+                   COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name, u.email) AS full_name
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id=u.id
+            LEFT JOIN faculty_profiles fp ON fp.user_id=u.id
+            LEFT JOIN worker_profiles wp ON wp.user_id=u.id
+            LEFT JOIN visitor_profiles vp ON vp.user_id=u.id
+            WHERE u.id=$1
+            """,
+            user_id,
+        )
+        if not target:
+            raise ValueError("User not found")
+
+        password_to_set = custom_password.strip() if custom_password and custom_password.strip() else self._temporary_password()
+
+        keycloak_id = target["keycloak_user_id"]
+        if keycloak_id:
+            kc_user = await keycloak_client.get_user_by_id(keycloak_id)
+            if not kc_user:
+                keycloak_id = None
+
+        if not keycloak_id:
+            existing = await keycloak_client.get_user_by_email(target["email"])
+            if existing:
+                keycloak_id = existing["id"]
+            else:
+                name_parts = str(target["full_name"]).strip().split(maxsplit=1)
+                first_name = name_parts[0] if name_parts else target["email"].lower()
+                last_name = name_parts[1] if len(name_parts) > 1 else (str(target["user_type"]).capitalize() if target.get("user_type") else "User")
+                keycloak_id = await keycloak_client.create_user(
+                    username=target["email"].lower(),
+                    email=target["email"].lower(),
+                    first_name=first_name,
+                    last_name=last_name,
+                    password=password_to_set,
+                    attributes={"user_type": [target["user_type"]], "user_id": [str(user_id)]},
+                    temporary_password=False,
+                )
+            await conn.execute("UPDATE users SET keycloak_user_id=$1, updated_at=now() WHERE id=$2", keycloak_id, user_id)
+
+        # Set password and clear required actions in Keycloak
+        await keycloak_client.reset_password(keycloak_id, password_to_set, temporary=False)
+        await keycloak_client.clear_required_actions(keycloak_id)
+
+        # Ensure current roles are mapped in Keycloak
+        current_access = await self.get_user_access(conn, user_id)
+        current_roles = current_access["roles"]
+        if current_roles:
+            await keycloak_client.update_user_roles(keycloak_id, current_roles, list(OPERATIONAL_ROLES))
+
+        # Fetch active location grants
+        locations = await conn.fetch(
+            """
+            SELECT l.id, l.name, l.type, ula.access_level, ula.valid_until
+            FROM user_location_access ula
+            JOIN locations l ON l.id = ula.location_id
+            WHERE ula.user_id = $1 AND ula.status = 'active'
+            ORDER BY l.name
+            """,
+            user_id
+        )
+
+        dash = self.get_dashboard_info(current_roles)
+
+        actor_local_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id=$1", actor_id) if actor_id else None
+        audit_actor_id = str(actor_local_id) if actor_local_id else None
+        await audit_service.log(
+            conn=conn,
+            actor_id=audit_actor_id,
+            operation="CREDENTIALS_ISSUED",
+            entity_type="user",
+            entity_id=str(user_id),
+            after_state={"email": target["email"], "roles": current_roles},
+        )
+
+        return {
+            "user_id": str(user_id),
+            "email": target["email"].lower(),
+            "username": target["email"].lower(),
+            "full_name": target["full_name"],
+            "password": password_to_set,
+            "keycloak_user_id": keycloak_id,
+            "roles": current_roles,
+            "hostels": current_access["hostels"],
+            "locations": [
+                {
+                    "id": str(loc["id"]),
+                    "name": loc["name"],
+                    "type": loc["type"],
+                    "access_level": loc["access_level"],
+                    "valid_until": loc["valid_until"].isoformat() if loc["valid_until"] else None,
+                }
+                for loc in locations
+            ],
+            "dashboard_path": dash["path"],
+            "dashboard_name": dash["name"],
+            "category": dash["category"],
+        }
 
 
 role_service = RoleService()

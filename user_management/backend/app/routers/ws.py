@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Dict, Any
 import logging
@@ -46,7 +47,7 @@ class ConnectionManager:
         """Send the reviewer-only event without changing the legacy stream."""
         for connection in list(self.active_connections):
             roles = {role.upper() for role in self.connection_roles.get(connection, [])}
-            if not roles.intersection({"SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD"}):
+            if not roles.intersection({"SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"}):
                 continue
             try:
                 await connection.send_text(json.dumps(message))

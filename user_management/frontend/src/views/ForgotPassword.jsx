@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '@/services/api'
+import PasswordStrengthMeter from '@/components/PasswordStrengthMeter'
+import LegalModal from '@/components/LegalModal'
 import {
   Mail, KeyRound, Lock, Loader2, ArrowLeft, CheckCircle2,
-  ShieldCheck, ArrowRight, RotateCcw
+  ShieldCheck, ArrowRight, RotateCcw, Eye, EyeOff, Shield
 } from 'lucide-react'
 
 export const ForgotPassword = () => {
@@ -13,6 +15,10 @@ export const ForgotPassword = () => {
   const [resetToken, setResetToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [legalModalOpen, setLegalModalOpen] = useState(false)
+  const [legalModalTab, setLegalModalTab] = useState('terms')
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -76,9 +82,9 @@ export const ForgotPassword = () => {
 
   const resetPassword = async (e) => {
     e.preventDefault()
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,12}$/
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,128}$/
     if (!passwordRegex.test(newPassword)) {
-      setError('Password must be 8-12 chars, with uppercase, lowercase, number, and special symbol.')
+      setError('Password must be 8-128 chars, with uppercase, lowercase, number, and special symbol.')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -148,7 +154,7 @@ export const ForgotPassword = () => {
             </div>
             <h2 className="step-title">Reset Password</h2>
             <p className="step-desc">
-              Enter your email address and we'll send you a one-time password (OTP) to verify your identity.
+              Enter your registered university email address. If an active account matches, we'll send a 6-digit one-time password (OTP) valid for 10 minutes.
             </p>
           </div>
 
@@ -277,15 +283,24 @@ export const ForgotPassword = () => {
                 id="forgot-new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                type="password"
+                type={showNewPassword ? 'text' : 'password'}
                 required
                 minLength={8}
-                maxLength={12}
+                maxLength={128}
                 className="field-input"
-                placeholder="8-12 chars, strong"
+                placeholder="8+ characters, complex"
                 autoComplete="new-password"
                 disabled={isLoading}
               />
+              <button
+                type="button"
+                className="field-toggle"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                tabIndex={-1}
+                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+              >
+                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 
@@ -301,16 +316,28 @@ export const ForgotPassword = () => {
                 id="forgot-confirm-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 required
                 minLength={8}
                 className="field-input"
-                placeholder="••••••••"
+                placeholder="Re-enter new password"
                 autoComplete="new-password"
                 disabled={isLoading}
               />
+              <button
+                type="button"
+                className="field-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
+
+          {/* Password Strength Meter & Real-Time Checklist */}
+          <PasswordStrengthMeter password={newPassword} confirmPassword={confirmPassword} />
 
           <button id="forgot-submit-password" type="submit" className="forgot-btn" disabled={isLoading}>
             {isLoading ? (
@@ -345,11 +372,45 @@ export const ForgotPassword = () => {
         </div>
       )}
 
-      {/* Footer trust badge */}
+      {/* Footer trust badge & legal links */}
       <div className="forgot-trust">
         <ShieldCheck size={14} className="forgot-trust-icon" />
-        <span>OCOC Identity Protected</span>
+        <span>Secured by Keycloak SSO · TLS Encrypted</span>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '12px', fontSize: '11px', color: '#8795a8' }}>
+        <button
+          type="button"
+          onClick={() => {
+            setLegalModalTab('terms')
+            setLegalModalOpen(true)
+          }}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+        >
+          Terms &amp; Conditions
+        </button>
+        <span>·</span>
+        <button
+          type="button"
+          onClick={() => {
+            setLegalModalTab('privacy')
+            setLegalModalOpen(true)
+          }}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+        >
+          Privacy Policy
+        </button>
+        <span>·</span>
+        <Link to="/login" style={{ color: '#8795a8', textDecoration: 'underline', fontWeight: 500 }}>
+          Back to Sign In
+        </Link>
+      </div>
+
+      {/* Interactive Legal Modal */}
+      <LegalModal
+        isOpen={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        initialTab={legalModalTab}
+      />
     </div>
   )
 }

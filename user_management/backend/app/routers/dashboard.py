@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, status
 import asyncpg
 
 from app.core.database import get_db
-from app.core.security import Claims, get_current_claims
+from app.core.security import Claims, require_role
 from app.schemas.common import error_response, success_response
 from app.services.dashboard_service import dashboard_service
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 @router.get("/overview")
 async def get_overview(
-    claims: Claims = Depends(get_current_claims),
+    claims: Claims = Depends(require_role("SUPER_ADMIN")),
     conn: asyncpg.Connection = Depends(get_db),
 ):
     try:
@@ -33,7 +33,7 @@ async def get_overview(
 async def get_analytics(
     start: Optional[str] = Query(None),
     end: Optional[str] = Query(None),
-    claims: Claims = Depends(get_current_claims),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "VIEWER")),
     conn: asyncpg.Connection = Depends(get_db),
 ):
     try:

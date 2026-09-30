@@ -62,7 +62,27 @@ export default {
   },
 
   async getHostels() {
-    const { data } = await api.get('/hostels')
+    try {
+      const { data } = await api.get('/hostels')
+      return data.data
+    } catch {
+      const { data } = await api.get('/reference/hostels')
+      return data.data
+    }
+  },
+
+  async getLocations() {
+    try {
+      const { data } = await api.get('/locations')
+      return data.data
+    } catch {
+      const { data } = await api.get('/access/locations')
+      return data.data
+    }
+  },
+
+  async getProfile() {
+    const { data } = await api.get('/users/me')
     return data.data
   }
 }

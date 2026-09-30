@@ -58,9 +58,7 @@ class HostelService:
             LEFT JOIN worker_profiles wp ON wp.user_id = grantor.id
             LEFT JOIN faculty_profiles fp ON fp.user_id = grantor.id
             LEFT JOIN student_profiles gp ON gp.user_id = grantor.id
-            WHERE hp.id IS NOT NULL
-               OR COALESCE(shs.current_status, 'INSIDE') IN ('OUTSIDE', 'ON_LEAVE', 'UNAUTHORIZED', 'LATE_RETURN')
-               OR hm.event_time >= NOW() - INTERVAL '24 hours'
+            WHERE u.status = 'ACTIVE'
             ORDER BY
                 CASE COALESCE(shs.current_status, 'INSIDE')
                     WHEN 'ON_LEAVE' THEN 0 WHEN 'OUTSIDE' THEN 1 ELSE 2

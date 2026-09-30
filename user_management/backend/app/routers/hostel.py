@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/hostel", tags=["hostel"])
 @router.get("/assigned-hostels", response_model=Dict[str, Any])
 async def get_assigned_hostels(
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN")),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN")),
 ):
     scope = await resolve_warden_hostel_scope(conn, claims)
     if scope is None:
@@ -32,7 +32,7 @@ async def get_assigned_hostels(
 async def get_dashboard(
     hostel_id: Optional[uuid.UUID] = None,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     scope = await resolve_warden_hostel_scope(conn, claims, hostel_id)
     stats = await hostel_service.get_dashboard_stats(conn, hostel_id, scope)
@@ -42,7 +42,7 @@ async def get_dashboard(
 async def get_live_status(
     hostel_id: Optional[uuid.UUID] = None,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     scope = await resolve_warden_hostel_scope(conn, claims, hostel_id)
     status_list = await hostel_service.get_live_status(conn, hostel_id, scope)
@@ -52,7 +52,7 @@ async def get_live_status(
 async def grant_permission(
     req: CreatePermissionRequest,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     try:
         import datetime
@@ -81,7 +81,7 @@ async def grant_permission(
 async def revoke_permission(
     permission_id: uuid.UUID,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     permission_hostel_id = await conn.fetchval("SELECT sp.hostel_id FROM hostel_permissions hp JOIN student_profiles sp ON sp.user_id=hp.student_id WHERE hp.id=$1", permission_id)
     if permission_hostel_id is None:
@@ -95,7 +95,7 @@ async def list_permissions(
     student_id: Optional[uuid.UUID] = None,
     hostel_id: Optional[uuid.UUID] = None,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     requested_hostel_id = hostel_id
     if student_id is not None:
@@ -108,7 +108,7 @@ async def list_permissions(
 async def get_movement_history(
     hostel_id: Optional[uuid.UUID] = None,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     scope = await resolve_warden_hostel_scope(conn, claims, hostel_id)
     history = await hostel_service.get_movement_history(conn, hostel_id, scope)
@@ -118,7 +118,7 @@ async def get_movement_history(
 async def get_alerts(
     hostel_id: Optional[uuid.UUID] = None,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     scope = await resolve_warden_hostel_scope(conn, claims, hostel_id)
     alerts = await hostel_service.get_alerts(conn, hostel_id, scope)
@@ -128,7 +128,7 @@ async def get_alerts(
 async def get_emergency_headcount(
     hostel_id: Optional[uuid.UUID] = None,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "WARDEN"))
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN"))
 ):
     scope = await resolve_warden_hostel_scope(conn, claims, hostel_id)
     headcount = await hostel_service.get_emergency_headcount(conn, hostel_id, scope)

@@ -14,9 +14,19 @@ class ProfileRequest(BaseModel):
     school: Optional[str] = None
     course: Optional[str] = None
     semester: Optional[str] = None
+    batch: Optional[str] = None
+    room_number: Optional[str] = None
     designation: Optional[str] = None
+    courses: Optional[str] = None
+    assigned_students: Optional[str] = None
     hostel_flag: Optional[bool] = False
     hostel_id: Optional[str] = None
+    hostel_block: Optional[str] = None
+    warden_responsibilities: Optional[str] = None
+    job_type: Optional[str] = None
+    work_area: Optional[str] = None
+    shift: Optional[str] = None
+    assigned_location_id: Optional[str] = None
     emergency_contact: Optional[str] = None
     guardian_contact: Optional[str] = None
     photo_reference: Optional[str] = None
@@ -24,9 +34,13 @@ class ProfileRequest(BaseModel):
     gov_id_type: Optional[str] = None
     gov_id_number: Optional[str] = None
     visit_purpose: Optional[str] = None
+    host_person: Optional[str] = None
     host_contact: Optional[str] = None
     visit_start: Optional[str] = None
     visit_duration_days: Optional[int] = None
+    valid_until: Optional[str] = None
+    allowed_location_ids: Optional[List[str]] = None
+    allowed_locations: Optional[str] = None
 
 
 class Profile(ProfileRequest):
@@ -35,7 +49,8 @@ class Profile(ProfileRequest):
 
 
 class CreateUserRequest(BaseModel):
-    user_type: Optional[str] = Field(None, pattern="^(student|faculty|worker|visitor)$")
+    user_type: Optional[str] = None
+    roles: Optional[List[str]] = None
     email: EmailStr
     phone: Optional[str] = None
     password: Optional[str] = ""
@@ -45,6 +60,7 @@ class CreateUserRequest(BaseModel):
 class UpdateUserRequest(BaseModel):
     phone: Optional[str] = None
     profile: Optional[ProfileRequest] = None
+    roles: Optional[List[str]] = None
 
 
 class BulkTransferRequest(BaseModel):
@@ -63,6 +79,7 @@ class User(BaseModel):
     updated_at: str
     profile: Optional[Profile] = None
     roles: List[str] = Field(default_factory=list)
+    role_profiles: Optional[Dict[str, Any]] = None
     active_rfid: Optional[str] = None
     has_face_auth: bool = False
 

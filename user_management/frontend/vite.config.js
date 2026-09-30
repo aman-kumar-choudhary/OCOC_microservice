@@ -12,10 +12,14 @@ export default defineConfig({
     }
   },
   server: {
+    // Make the development app reachable from other machines on the LAN.
+    host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        // Local backend command uses port 8000; override when running another port.
+        target: process.env.VITE_API_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
+        ws: true,
       }
     }
   }

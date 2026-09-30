@@ -21,10 +21,10 @@ export const UserStatusModal = ({
         bgClass: 'bg-amber-50 border-amber-200 text-amber-800',
         btnClass: 'bg-amber-500 text-white hover:bg-amber-600',
         consequences: [
-          '🔒 RFID card access will be immediately revoked',
-          '🚫 Keycloak login session will be terminated',
-          '📧 User will be unable to log into any OCOC system',
-          '✅ Can be re-activated by an administrator',
+          ' RFID card access will be immediately revoked',
+          ' Keycloak login session will be terminated',
+          ' User will be unable to log into any OCOC system',
+          ' Can be re-activated by an administrator',
         ]
       }
     }
@@ -37,9 +37,9 @@ export const UserStatusModal = ({
         bgClass: 'bg-emerald-50 border-emerald-200 text-emerald-800',
         btnClass: 'btn-primary',
         consequences: [
-          '✅ Keycloak account will be re-enabled',
-          '🔓 User will be able to log in again',
-          '⚠️ RFID access must be re-issued separately if revoked',
+          ' Keycloak account will be re-enabled',
+          ' User will be able to log in again',
+          ' RFID access must be re-issued separately if revoked',
         ]
       }
     }
@@ -52,10 +52,10 @@ export const UserStatusModal = ({
         bgClass: 'bg-red-50 border-red-200 text-red-800',
         btnClass: 'bg-red-600 text-white hover:bg-red-700',
         consequences: [
-          '❌ RFID card access permanently revoked',
-          '🚫 Keycloak login session immediately terminated',
-          '🗄️ User record preserved for audit history',
-          '⚠️ Cannot be reversed without admin intervention',
+          ' RFID card access permanently revoked',
+          ' Keycloak login session immediately terminated',
+          ' User record preserved for audit history',
+          ' Cannot be reversed without admin intervention',
         ]
       }
     }
@@ -67,10 +67,10 @@ export const UserStatusModal = ({
       bgClass: 'bg-red-50 border-red-200 text-red-800',
       btnClass: 'bg-red-600 text-white hover:bg-red-700',
       consequences: [
-        '❌ The user profile and related RFID assignments will be deleted',
-        '🧬 Face enrollment and stored embeddings will be deleted',
-        '🗄️ Audit events are retained without the deleted user record',
-        '⚠️ This action cannot be undone',
+        ' The user profile and related RFID assignments will be deleted',
+        ' Face enrollment and stored embeddings will be deleted',
+        ' Audit events are retained without the deleted user record',
+        'This action cannot be undone',
       ]
     }
   }
