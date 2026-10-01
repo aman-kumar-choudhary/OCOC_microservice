@@ -6,7 +6,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 T = TypeVar("T")
 
-
 class ErrorDetail(BaseModel):
     code: str
     message: str

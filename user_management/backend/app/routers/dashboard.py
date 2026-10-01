@@ -5,7 +5,6 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 import asyncpg
-
 from app.core.database import get_db
 from app.core.security import Claims, require_role
 from app.schemas.common import error_response, success_response

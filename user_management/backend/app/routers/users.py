@@ -8,7 +8,6 @@ import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import PlainTextResponse
 import asyncpg
-
 from app.core.database import get_db
 from app.core.security import Claims, require_permission, get_current_claims
 from app.schemas.common import error_response, success_response

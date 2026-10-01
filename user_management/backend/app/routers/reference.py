@@ -4,7 +4,6 @@ import logging
 from fastapi import APIRouter, Depends, status
 import asyncpg
 import uuid
-
 from app.core.database import get_db
 from app.core.security import Claims, require_permission, require_role, resolve_warden_hostel_scope
 from app.schemas.common import error_response, success_response

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter, Depends, status
 import asyncpg
-
 from app.core.database import get_db
 from app.core.security import Claims, get_current_claims, require_permission
 from app.schemas.common import error_response, success_response

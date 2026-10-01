@@ -7,7 +7,6 @@ from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import Claims, require_role, get_current_claims
-
 router = APIRouter(prefix="/api/v1/devices", tags=["devices"])
 
 class DeviceCreate(BaseModel):

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List, Optional
 import uuid
 from pydantic import BaseModel, Field
-
 class LogRequest(BaseModel):
     person_external_id: str
     person_name: Optional[str] = None

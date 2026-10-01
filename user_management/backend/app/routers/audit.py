@@ -10,7 +10,6 @@ from app.core.database import get_db
 from app.core.security import Claims, require_permission
 from app.schemas.common import error_response, success_response
 from app.services.audit_service import audit_service
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/audit", tags=["audit"])

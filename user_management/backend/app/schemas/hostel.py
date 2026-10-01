@@ -3,7 +3,6 @@ from typing import Optional, List, Any
 import datetime
 from uuid import UUID
 from pydantic import BaseModel, Field
-
 class HostelGate(BaseModel):
     id: UUID
     hostel_id: UUID

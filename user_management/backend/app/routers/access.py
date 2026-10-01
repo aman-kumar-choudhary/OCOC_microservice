@@ -16,7 +16,6 @@ from app.core.security import Claims, get_current_claims, require_permission, re
 from app.core.database import get_db
 from app.services.role_service import role_service
 import asyncpg
-
 router = APIRouter(prefix="/api/v1/access", tags=["access_management"])
 # ── Operational role, Keycloak Sync & Credential Management ───────────────────
 

@@ -1,6 +1,5 @@
 """Leave management API mounted in the user-management process and database."""
 from __future__ import annotations
-
 import json
 import uuid
 from datetime import datetime, timezone

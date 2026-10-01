@@ -3,7 +3,6 @@ import uuid
 import datetime
 import asyncpg
 import logging
-
 from app.schemas.hostel import (
     HostelDashboardStats, StudentHostelStatus, MovementHistory, 
     HostelPermission, CreatePermissionRequest, HostelAlert, EmergencyHeadcount

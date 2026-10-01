@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 import asyncpg
-
 from app.core.database import get_db
 from app.core.keycloak_client import (
     AccountSetupRequiredError,

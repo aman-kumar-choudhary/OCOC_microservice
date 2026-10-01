@@ -4,7 +4,6 @@ import uuid
 import asyncpg
 import logging
 import asyncio
-
 from app.schemas.hostel import ScanResponse
 from app.routers.ws import manager
 

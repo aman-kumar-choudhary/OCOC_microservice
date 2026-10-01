@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field
-
 class RegistrationRequest(BaseModel):
     role: Optional[str] = "student"
     roles: Optional[List[str]] = None

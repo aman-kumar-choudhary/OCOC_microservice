@@ -5,7 +5,6 @@ import logging
 import json
 import asyncio
 import jwt
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ws", tags=["websockets"])

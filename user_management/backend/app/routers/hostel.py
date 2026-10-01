@@ -2,7 +2,6 @@ import uuid
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 import asyncpg
-
 from app.core.database import get_db
 from app.core.security import Claims, require_role, require_permission, resolve_warden_hostel_scope
 from app.schemas.common import success_response, error_response
