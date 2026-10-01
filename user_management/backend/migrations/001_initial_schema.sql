@@ -6,7 +6,6 @@
 -- Required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
 -- ── Lookup tables ────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS departments (

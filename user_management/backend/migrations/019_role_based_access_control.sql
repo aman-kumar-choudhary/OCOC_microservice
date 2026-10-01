@@ -4,7 +4,6 @@ INSERT INTO roles (name, description, user_type)
 SELECT value, 'OCOC operational role', NULL
 FROM unnest(ARRAY['GUARD', 'WARDEN', 'FACULTY']) AS value
 ON CONFLICT (name) DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS warden_hostels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -1,7 +1,6 @@
 -- ============================================================
 -- Migration 008: Ensure directory filter columns exist
 -- ============================================================
-
 -- Migration 007 can be skipped or rolled back on databases created
 -- before the department school field was introduced. Keep this migration
 -- focused and idempotent so directory queries remain compatible.

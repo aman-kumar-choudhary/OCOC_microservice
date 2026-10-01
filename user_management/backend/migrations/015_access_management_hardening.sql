@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS access_group_members (
     PRIMARY KEY (group_id, user_id)
 );
 
+
 CREATE INDEX IF NOT EXISTS idx_access_group_members_user
     ON access_group_members(user_id);
 

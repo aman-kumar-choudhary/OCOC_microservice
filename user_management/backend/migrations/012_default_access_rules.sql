@@ -14,4 +14,5 @@ WHERE (name ILIKE '%main gate%' OR name ILIKE '%out of campus%')
   AND NOT EXISTS (
     SELECT 1 FROM access_rules WHERE name = 'System: Campus Exit Restriction'
   )
+  
 LIMIT 1;

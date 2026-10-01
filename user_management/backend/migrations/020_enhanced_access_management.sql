@@ -7,7 +7,6 @@
 
 -- ── 1. user_location_access ─────────────────────────────────
 -- The core grant table: who can access which location, at what level.
-
 CREATE TABLE IF NOT EXISTS user_location_access (
     id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,

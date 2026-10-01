@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS face_auth_logs (
     ip_address         TEXT,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- Index to support lookups by person and time range (used in List query).
 CREATE INDEX IF NOT EXISTS idx_face_auth_person
     ON face_auth_logs (person_external_id);

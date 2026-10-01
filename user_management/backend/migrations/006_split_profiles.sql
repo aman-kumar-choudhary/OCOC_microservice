@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     photo_reference      TEXT,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS faculty_profiles (
     user_id              UUID        PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     full_name            TEXT        NOT NULL,

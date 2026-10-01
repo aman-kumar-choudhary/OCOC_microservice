@@ -7,7 +7,6 @@
 -- columns removed below, so the column drops must be CASCADE-safe. The
 -- normalized `department_id` columns are retained and are used by runtime
 -- queries.
-
 -- 2. Add 'school' to departments
 ALTER TABLE departments ADD COLUMN IF NOT EXISTS school TEXT;
 

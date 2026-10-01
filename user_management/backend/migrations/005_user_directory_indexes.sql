@@ -5,7 +5,6 @@
 -- Indexes on the users table.
 CREATE INDEX IF NOT EXISTS idx_users_type
     ON users(user_type);
-
 CREATE INDEX IF NOT EXISTS idx_users_status
     ON users(status);
 -- Profile indexes are intentionally NOT created here.

@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS pending_access_verifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     verified_at TIMESTAMPTZ
 );
-
 CREATE INDEX IF NOT EXISTS idx_pending_access_verifications_lookup
     ON pending_access_verifications(user_id, location_id, expires_at DESC)
     WHERE verified_at IS NULL;

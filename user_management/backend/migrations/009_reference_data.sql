@@ -31,4 +31,5 @@ FROM (VALUES
  ('Nivedita', 'NIVEDITA'),
  ('International', 'INTERNATIONAL')
 ) AS v(name, code)
+
 WHERE NOT EXISTS (SELECT 1 FROM hostels h WHERE lower(h.name) = lower(v.name));

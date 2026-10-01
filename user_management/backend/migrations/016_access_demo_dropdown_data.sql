@@ -12,6 +12,7 @@ FROM (VALUES
 ) AS v(name, description, user_type)
 WHERE NOT EXISTS (SELECT 1 FROM roles r WHERE lower(r.name) = lower(v.name));
 
+
 INSERT INTO access_groups (name, description)
 SELECT v.name, v.description
 FROM (VALUES
