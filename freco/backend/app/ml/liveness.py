@@ -15,11 +15,8 @@ from pathlib import Path
 from typing import Sequence
 import cv2
 import numpy as np
-
 from app.config import settings
 from app.ml.runtime import assert_cuda_session, get_inference_runtime
-
-
 class LivenessConfigurationError(RuntimeError):
     """Raised at startup when passive-liveness protection is unusable."""
 

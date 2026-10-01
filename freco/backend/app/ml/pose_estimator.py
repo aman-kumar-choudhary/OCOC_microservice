@@ -4,7 +4,6 @@ def estimate_pose(landmarks: np.ndarray) -> str:
     """Estimate face pose (center, left, right, chin_up, chin_down) based on 5 landmarks."""
     if landmarks.shape != (5, 2):
         return "unknown"
-        
     left_eye, right_eye, nose, left_mouth, right_mouth = landmarks
     
     eye_min_x = min(left_eye[0], right_eye[0])

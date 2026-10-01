@@ -3,7 +3,6 @@ import ctypes
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-
 import onnxruntime as ort
 
 from app.config import settings

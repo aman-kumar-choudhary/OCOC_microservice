@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
-
 from app.ml.pose_estimator import estimate_pose
 from app.ml.face_detector import NoFaceDetectedError
 from app.utils.image_utils import decode_uploaded_image

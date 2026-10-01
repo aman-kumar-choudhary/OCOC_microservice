@@ -11,7 +11,6 @@ EmbeddingCollection = Embedding | list[Embedding]
 class StoredEmbeddings(RootModel[dict[str, EmbeddingCollection]]):
     """Anonymous ArcFace vectors grouped by color variant."""
 
-
 class EmbeddingExtractionResponse(BaseModel):
     embeddings: dict[str, Embedding]
     models: dict[str, str] = Field(default_factory=dict)

@@ -9,12 +9,10 @@ from app.ml.face_align import align_face
 from app.ml.model_manager import ModelManager
 from app.ml.face_detector import DetectedFace, NoFaceDetectedError
 
-
 @dataclass
 class LivenessRejected(Exception):
     score: float
     timings: dict[str, float] | None = None
-
 @dataclass
 class FaceEmbedding:
     bbox: np.ndarray

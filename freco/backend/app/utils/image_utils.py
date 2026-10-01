@@ -13,7 +13,6 @@ def decode_uploaded_image(raw: bytes) -> np.ndarray:
         raise InvalidImageError(
             f"Image exceeds max allowed size of {settings.MAX_UPLOAD_IMAGE_MB} MB"
         )
-
     buffer = np.frombuffer(raw, dtype=np.uint8)
     img = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
     if img is None:

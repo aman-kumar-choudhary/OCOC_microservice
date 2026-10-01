@@ -12,7 +12,6 @@ def l2_normalize(v: np.ndarray) -> np.ndarray:
     if not np.isfinite(v).all() or not np.isfinite(norm) or norm == 0:
         raise ValueError("ArcFace produced an invalid embedding")
     return v / norm
-
 class FaceRecognizer:
     def __init__(self, registry: FaceModelRegistry | None = None):
         self._registry = registry or get_face_model_registry()

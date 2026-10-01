@@ -12,7 +12,6 @@ from app.config import settings
 from app.ml.runtime import InferenceRuntime, assert_cuda_session, get_inference_runtime
 
 logger = logging.getLogger(__name__)
-
 @dataclass(frozen=True)
 class FaceModelRegistry:
     """Prepared detection and recognition models from one Antelope pack."""

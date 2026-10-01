@@ -10,7 +10,6 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-
 from app.config import settings
 from app.ml.face_detector import DetectedFace
 

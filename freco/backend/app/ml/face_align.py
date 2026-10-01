@@ -16,7 +16,6 @@ _ARCFACE_TEMPLATE = np.array(
     dtype=np.float32,
 )
 
-
 def align_face(image_bgr: np.ndarray, landmarks: np.ndarray, image_size: int = 112) -> np.ndarray:
     """Similarity-transform the face region to the canonical ArcFace template."""
     dst = _ARCFACE_TEMPLATE.copy()

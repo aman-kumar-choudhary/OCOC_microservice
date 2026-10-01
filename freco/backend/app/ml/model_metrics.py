@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Iterator
 
 import psutil
-
 logger = logging.getLogger(__name__)
 
 def _gpu_memory_used_mb() -> float | None:

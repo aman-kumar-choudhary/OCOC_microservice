@@ -10,7 +10,6 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.concurrency import run_in_threadpool
-
 from app.config import settings
 from app.db import get_db_session
 from app.ml.face_detector import MultipleFacesDetectedError, NoFaceDetectedError

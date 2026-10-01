@@ -6,7 +6,6 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 from app.db import Base
-
 # ── Stub for the `users` table owned by the user-management service ───────────
 # FRECO shares the same `ococ_users` database. The `users` table is created and
 # owned by the Go user-management migrations.  We only declare a minimal stub

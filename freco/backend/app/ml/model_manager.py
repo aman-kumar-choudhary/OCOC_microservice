@@ -9,11 +9,9 @@ from app.ml.face_recognizer import FaceRecognizer
 from app.ml.liveness import LivenessDetector
 from app.ml.model_metrics import ModelMetrics
 from app.ml.model_registry import get_face_model_registry
-
 DETECTION_MODELS = ("SCRFD",)
 LIVENESS_MODELS = ("MiniFASNet",)
 RECOGNITION_MODELS = ("ArcFace",)
-
 @dataclass(frozen=True)
 class ActiveModels:
     detection: str
