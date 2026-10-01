@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --color-primary: #f5bd19;
   --color-primary-hover: #d99e00;
   --color-navy: #0a2342;
@@ -10,7 +10,6 @@
   --color-ink: #132238;
   --color-muted: #607087;
 }
-
 :root {
   --bg-main: #f5f7fb;
   --bg-card: #ffffff;
@@ -41,86 +40,266 @@
   --status-error-bg: #57272c;
 }
 
-* { box-sizing: border-box; }
-html { background: var(--bg-main); }
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--bg-main);
+}
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
   background: var(--bg-main);
   color: var(--text-main);
-  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, h3, h4 { font-family: 'Manrope', 'DM Sans', sans-serif; letter-spacing: -0.025em; }
-button, input, select { font: inherit; }
-button { cursor: pointer; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 3px solid rgb(245 189 25 / .45);
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Manrope", "DM Sans", sans-serif;
+  letter-spacing: -0.025em;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgb(245 189 25 / 0.45);
   outline-offset: 2px;
 }
 
 /* Slide-in animation for drawer */
 @keyframes slide-in-right {
-  from { transform: translateX(100%); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
-.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(.22,1,.36,1) both; }
+.animate-slide-in-right {
+  animation: slide-in-right 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.animate-fade-in { animation: fade-in .28s ease-out both; }
+.animate-fade-in {
+  animation: fade-in 0.28s ease-out both;
+}
 
 /* Scrollbar styling */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
 
 /* ─── Shim: component shorthand classes ───────────────────────────────────
    Kept for unmigrated components (modals, forms). New views use Tailwind
    utilities directly.                                                    */
 @layer components {
-  .glass-panel { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 1rem; box-shadow: var(--shadow-sm); }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.5rem; border: 1px solid transparent; border-radius: .625rem; padding: .5rem .875rem; font-size: .875rem; font-weight: 700; transition: background-color .15s, border-color .15s, color .15s, transform .15s; }
-  .btn:not(:disabled):hover { transform: translateY(-1px); }
-  .btn:disabled { cursor: not-allowed; opacity: .55; }
-  .btn-primary { background: #f5bd19; color: #0a2342; box-shadow: 0 4px 12px rgb(245 189 25 / .25); }
-  .btn-primary:hover:not(:disabled) { background: #d99e00; }
-  .btn-secondary { background: #0a2342; color: #fff; }
-  .btn-secondary:hover:not(:disabled) { background: #12365f; }
-  .btn-outline { background: transparent; border-color: var(--border-light); color: var(--text-main); }
-  .btn-outline:hover:not(:disabled) { background: rgb(10 35 66 / .04); border-color: #aebdce; }
-  .btn-danger { background: #c43b3b; color: #fff; }
-  .form-group { margin-bottom: 1.1rem; }
-  .form-label { display: block; margin-bottom: .4rem; color: var(--text-main); font-size: .875rem; font-weight: 700; }
-  .form-input { width: 100%; min-height: 2.5rem; border: 1px solid var(--border-light); border-radius: .625rem; background: var(--bg-input); color: var(--text-main); padding: .5rem .875rem; font-size: .875rem; transition: border-color .15s, box-shadow .15s; }
-  .form-input::placeholder { color: #8b99aa; }
-  .form-input:focus { border-color: #d99e00; box-shadow: 0 0 0 3px rgb(245 189 25 / .18); outline: none; }
-  .form-select { appearance: auto; }
-  .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: .2rem .6rem; font-size: .75rem; font-weight: 700; text-transform: capitalize; }
-  .badge-active { background: var(--status-active-bg); color: var(--status-active); }
-  .badge-suspended { background: var(--status-suspended-bg); color: var(--status-suspended); }
-  .badge-deactivated, .badge-revoked, .badge-error { background: var(--status-error-bg); color: var(--status-error); }
-  .badge-primary { background: #fff3cb; color: #7b5600; }
-  .badge-outline { border: 1px solid var(--border-light); color: var(--text-muted); }
-  .table-container { overflow-x: auto; border: 1px solid var(--border-light); border-radius: 1rem; background: var(--bg-card); box-shadow: var(--shadow-sm); }
-  .table { width: 100%; border-collapse: collapse; text-align: left; }
-  .table th { border-bottom: 1px solid var(--border-light); background: #f8fafc; color: var(--text-muted); padding: .75rem 1rem; font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-  .table td { border-bottom: 1px solid var(--border-light); color: var(--text-main); padding: .9rem 1rem; font-size: .875rem; }
-  .table tbody tr:hover { background: #fffbeb; }
+  .glass-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.625rem;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s,
+      transform 0.15s;
+  }
+  .btn:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .btn-primary {
+    background: #f5bd19;
+    color: #0a2342;
+    box-shadow: 0 4px 12px rgb(245 189 25 / 0.25);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #d99e00;
+  }
+  .btn-secondary {
+    background: #0a2342;
+    color: #fff;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: #12365f;
+  }
+  .btn-outline {
+    background: transparent;
+    border-color: var(--border-light);
+    color: var(--text-main);
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: rgb(10 35 66 / 0.04);
+    border-color: #aebdce;
+  }
+  .btn-danger {
+    background: #c43b3b;
+    color: #fff;
+  }
+  .form-group {
+    margin-bottom: 1.1rem;
+  }
+  .form-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: var(--text-main);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+  .form-input {
+    width: 100%;
+    min-height: 2.5rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.625rem;
+    background: var(--bg-input);
+    color: var(--text-main);
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .form-input::placeholder {
+    color: #8b99aa;
+  }
+  .form-input:focus {
+    border-color: #d99e00;
+    box-shadow: 0 0 0 3px rgb(245 189 25 / 0.18);
+    outline: none;
+  }
+  .form-select {
+    appearance: auto;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+  .badge-active {
+    background: var(--status-active-bg);
+    color: var(--status-active);
+  }
+  .badge-suspended {
+    background: var(--status-suspended-bg);
+    color: var(--status-suspended);
+  }
+  .badge-deactivated,
+  .badge-revoked,
+  .badge-error {
+    background: var(--status-error-bg);
+    color: var(--status-error);
+  }
+  .badge-primary {
+    background: #fff3cb;
+    color: #7b5600;
+  }
+  .badge-outline {
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+  }
+  .table-container {
+    overflow-x: auto;
+    border: 1px solid var(--border-light);
+    border-radius: 1rem;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+  }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .table th {
+    border-bottom: 1px solid var(--border-light);
+    background: #f8fafc;
+    color: var(--text-muted);
+    padding: 0.75rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .table td {
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-main);
+    padding: 0.9rem 1rem;
+    font-size: 0.875rem;
+  }
+  .table tbody tr:hover {
+    background: #fffbeb;
+  }
 }
 
-.text-muted { color: var(--text-muted); }
+.text-muted {
+  color: var(--text-muted);
+}
 
 /* Print-friendly styles for Leave Passes and Gate Clearance Slips */
 @media print {
-  header, nav, aside, footer, .no-print, .no-print-backdrop, button {
+  header,
+  nav,
+  aside,
+  footer,
+  .no-print,
+  .no-print-backdrop,
+  button {
     display: none !important;
   }
-  body, html {
+  body,
+  html {
     background: #ffffff !important;
     color: #000000 !important;
   }
@@ -130,8 +309,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
-.animate-scale-in { animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
+.animate-scale-in {
+  animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

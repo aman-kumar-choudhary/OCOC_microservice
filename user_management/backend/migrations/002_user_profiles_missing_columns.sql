@@ -4,7 +4,6 @@
 -- user_profiles is a VIEW, not a physical table.
 -- Therefore columns must exist on the underlying profile tables.
 -- ============================================================
-
 -- Student profile fields
 DO $$
 BEGIN

@@ -1,7 +1,6 @@
 -- ============================================================
 -- Migration 007: Schema Refactoring and Cleanup
 -- ============================================================
-
 -- `user_profiles` is a legacy table on older deployments. Some older
 -- deployments also exposed it (or another directory object) as a view over
 -- the role-specific tables. Those objects can depend on the denormalized

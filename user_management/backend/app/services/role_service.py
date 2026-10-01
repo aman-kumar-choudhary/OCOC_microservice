@@ -10,7 +10,6 @@ from app.schemas.role import CreateRoleRequest, Role
 from app.services.audit_service import audit_service
 from app.core.keycloak_client import keycloak_client
 from app.config import settings
-
 logger = logging.getLogger(__name__)
 
 # This list is intentionally limited to the roles Access Management owns.

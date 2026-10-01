@@ -414,62 +414,65 @@ class RegistrationService:
                 logger.warning("Keycloak role mapping sync warning: %s", e)
 
         # 6. Synchronize denormalized user_profiles table for backwards compatibility
-        await conn.execute(
-            """
-            INSERT INTO user_profiles (
-                user_id, full_name, roll_number, employee_id, department_id, department,
-                course, semester, batch, room_number, designation, courses, assigned_students,
-                hostel_flag, hostel_id, hostel_block, warden_responsibilities,
-                job_type, work_area, shift, assigned_location_id,
-                emergency_contact, guardian_contact, gov_id_type, gov_id_number,
-                visit_purpose, host_person, host_contact, valid_until, updated_at
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6,
-                $7, $8, $9, $10, $11, $12, $13,
-                $14, $15, $16, $17,
-                $18, $19, $20, $21,
-                $22, $23, $24, $25,
-                $26, $27, $28, $29, now()
-            ) ON CONFLICT (user_id) DO UPDATE SET
-                full_name = EXCLUDED.full_name,
-                roll_number = COALESCE(EXCLUDED.roll_number, user_profiles.roll_number),
-                employee_id = COALESCE(EXCLUDED.employee_id, user_profiles.employee_id),
-                department_id = COALESCE(EXCLUDED.department_id, user_profiles.department_id),
-                department = COALESCE(EXCLUDED.department, user_profiles.department),
-                course = COALESCE(EXCLUDED.course, user_profiles.course),
-                semester = COALESCE(EXCLUDED.semester, user_profiles.semester),
-                batch = COALESCE(EXCLUDED.batch, user_profiles.batch),
-                room_number = COALESCE(EXCLUDED.room_number, user_profiles.room_number),
-                designation = COALESCE(EXCLUDED.designation, user_profiles.designation),
-                courses = COALESCE(EXCLUDED.courses, user_profiles.courses),
-                assigned_students = COALESCE(EXCLUDED.assigned_students, user_profiles.assigned_students),
-                hostel_flag = COALESCE(EXCLUDED.hostel_flag, user_profiles.hostel_flag),
-                hostel_id = COALESCE(EXCLUDED.hostel_id, user_profiles.hostel_id),
-                hostel_block = COALESCE(EXCLUDED.hostel_block, user_profiles.hostel_block),
-                warden_responsibilities = COALESCE(EXCLUDED.warden_responsibilities, user_profiles.warden_responsibilities),
-                job_type = COALESCE(EXCLUDED.job_type, user_profiles.job_type),
-                work_area = COALESCE(EXCLUDED.work_area, user_profiles.work_area),
-                shift = COALESCE(EXCLUDED.shift, user_profiles.shift),
-                assigned_location_id = COALESCE(EXCLUDED.assigned_location_id, user_profiles.assigned_location_id),
-                emergency_contact = COALESCE(EXCLUDED.emergency_contact, user_profiles.emergency_contact),
-                guardian_contact = COALESCE(EXCLUDED.guardian_contact, user_profiles.guardian_contact),
-                gov_id_type = COALESCE(EXCLUDED.gov_id_type, user_profiles.gov_id_type),
-                gov_id_number = COALESCE(EXCLUDED.gov_id_number, user_profiles.gov_id_number),
-                visit_purpose = COALESCE(EXCLUDED.visit_purpose, user_profiles.visit_purpose),
-                host_person = COALESCE(EXCLUDED.host_person, user_profiles.host_person),
-                host_contact = COALESCE(EXCLUDED.host_contact, user_profiles.host_contact),
-                valid_until = COALESCE(EXCLUDED.valid_until, user_profiles.valid_until),
-                updated_at = now()
-            """,
-            user_id, req.full_name, req.student_id or req.roll_number, req.faculty_id or req.worker_id or req.employee_id,
-            dept_uuid, req.department, req.course, req.semester, req.batch, req.room_number,
-            req.designation, req.courses, req.assigned_students,
-            bool(hostel_uuid), hostel_uuid, req.hostel_block, req.warden_responsibilities,
-            req.job_type or req.worker_type, req.work_area, req.shift, loc_uuid,
-            req.emergency_contact, req.guardian_contact, req.gov_id_type, req.gov_id_number,
-            req.visit_purpose, req.host_person, req.host_contact,
-            (datetime.now(timezone.utc) + timedelta(days=req.visit_duration_days or 1)) if req.visit_purpose else None,
-        )
+        try:
+            await conn.execute(
+                """
+                INSERT INTO user_profiles (
+                    user_id, full_name, roll_number, employee_id, department_id, department,
+                    course, semester, batch, room_number, designation, courses, assigned_students,
+                    hostel_flag, hostel_id, hostel_block, warden_responsibilities,
+                    job_type, work_area, shift, assigned_location_id,
+                    emergency_contact, guardian_contact, gov_id_type, gov_id_number,
+                    visit_purpose, host_person, host_contact, valid_until, updated_at
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6,
+                    $7, $8, $9, $10, $11, $12, $13,
+                    $14, $15, $16, $17,
+                    $18, $19, $20, $21,
+                    $22, $23, $24, $25,
+                    $26, $27, $28, $29, now()
+                ) ON CONFLICT (user_id) DO UPDATE SET
+                    full_name = EXCLUDED.full_name,
+                    roll_number = COALESCE(EXCLUDED.roll_number, user_profiles.roll_number),
+                    employee_id = COALESCE(EXCLUDED.employee_id, user_profiles.employee_id),
+                    department_id = COALESCE(EXCLUDED.department_id, user_profiles.department_id),
+                    department = COALESCE(EXCLUDED.department, user_profiles.department),
+                    course = COALESCE(EXCLUDED.course, user_profiles.course),
+                    semester = COALESCE(EXCLUDED.semester, user_profiles.semester),
+                    batch = COALESCE(EXCLUDED.batch, user_profiles.batch),
+                    room_number = COALESCE(EXCLUDED.room_number, user_profiles.room_number),
+                    designation = COALESCE(EXCLUDED.designation, user_profiles.designation),
+                    courses = COALESCE(EXCLUDED.courses, user_profiles.courses),
+                    assigned_students = COALESCE(EXCLUDED.assigned_students, user_profiles.assigned_students),
+                    hostel_flag = COALESCE(EXCLUDED.hostel_flag, user_profiles.hostel_flag),
+                    hostel_id = COALESCE(EXCLUDED.hostel_id, user_profiles.hostel_id),
+                    hostel_block = COALESCE(EXCLUDED.hostel_block, user_profiles.hostel_block),
+                    warden_responsibilities = COALESCE(EXCLUDED.warden_responsibilities, user_profiles.warden_responsibilities),
+                    job_type = COALESCE(EXCLUDED.job_type, user_profiles.job_type),
+                    work_area = COALESCE(EXCLUDED.work_area, user_profiles.work_area),
+                    shift = COALESCE(EXCLUDED.shift, user_profiles.shift),
+                    assigned_location_id = COALESCE(EXCLUDED.assigned_location_id, user_profiles.assigned_location_id),
+                    emergency_contact = COALESCE(EXCLUDED.emergency_contact, user_profiles.emergency_contact),
+                    guardian_contact = COALESCE(EXCLUDED.guardian_contact, user_profiles.guardian_contact),
+                    gov_id_type = COALESCE(EXCLUDED.gov_id_type, user_profiles.gov_id_type),
+                    gov_id_number = COALESCE(EXCLUDED.gov_id_number, user_profiles.gov_id_number),
+                    visit_purpose = COALESCE(EXCLUDED.visit_purpose, user_profiles.visit_purpose),
+                    host_person = COALESCE(EXCLUDED.host_person, user_profiles.host_person),
+                    host_contact = COALESCE(EXCLUDED.host_contact, user_profiles.host_contact),
+                    valid_until = COALESCE(EXCLUDED.valid_until, user_profiles.valid_until),
+                    updated_at = now()
+                """,
+                user_id, req.full_name, req.student_id or req.roll_number, req.faculty_id or req.worker_id or req.employee_id,
+                dept_uuid, req.department, req.course, req.semester, req.batch, req.room_number,
+                req.designation, req.courses, req.assigned_students,
+                bool(hostel_uuid), hostel_uuid, req.hostel_block, req.warden_responsibilities,
+                req.job_type or req.worker_type, req.work_area, req.shift, loc_uuid,
+                req.emergency_contact, req.guardian_contact, req.gov_id_type, req.gov_id_number,
+                req.visit_purpose, req.host_person, req.host_contact,
+                (datetime.now(timezone.utc) + timedelta(days=req.visit_duration_days or 1)) if req.visit_purpose else None,
+            )
+        except Exception as e:
+            logger.warning("user_profiles compatibility sync warning: %s", e)
 
         dash_info = role_service.get_dashboard_info(roles)
 

@@ -4,7 +4,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, RootModel
 
-
 Embedding = Annotated[list[float], Field(min_length=512, max_length=512)]
 EmbeddingCollection = Embedding | list[Embedding]
 

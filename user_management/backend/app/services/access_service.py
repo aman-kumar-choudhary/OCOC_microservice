@@ -6,7 +6,6 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 import uuid
-
 import asyncpg
 
 from app.routers.ws import manager

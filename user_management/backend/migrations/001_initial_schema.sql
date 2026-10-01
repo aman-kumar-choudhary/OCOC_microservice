@@ -3,7 +3,6 @@
 -- Idempotent: safe to re-run on an already-initialized database.
 -- Applied by user_management at startup.
 -- ============================================================
-
 -- Required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

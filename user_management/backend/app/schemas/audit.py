@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, List, Optional
 from pydantic import BaseModel
 
-
 class Log(BaseModel):
     id: str
     actor_id: Optional[str] = None

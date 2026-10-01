@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 import uuid
 from pydantic import BaseModel, EmailStr, Field
 
-
 class ProfileRequest(BaseModel):
     full_name: str
     roll_number: Optional[str] = None

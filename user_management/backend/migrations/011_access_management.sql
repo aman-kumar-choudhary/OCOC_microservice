@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS locations (
     parent_id UUID REFERENCES locations(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS access_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,

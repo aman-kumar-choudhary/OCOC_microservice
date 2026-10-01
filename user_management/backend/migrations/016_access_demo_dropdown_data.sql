@@ -1,6 +1,5 @@
 -- Migration 016: development/demo values for the existing Access Management dropdowns.
 -- Idempotent: real records are never replaced and no fake user/Keycloak accounts are created.
-
 -- These roles also appear as selectable Subject Targets.  The evaluator already
 -- recognises the four person types even when no custom role has been assigned.
 INSERT INTO roles (name, description, user_type)

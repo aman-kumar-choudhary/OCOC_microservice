@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["onboarding"])
 
-
 @router.post("")
 async def onboard_generic(
     req: OnboardingRequest,

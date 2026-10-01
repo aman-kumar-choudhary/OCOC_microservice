@@ -15,7 +15,6 @@ from app.services.hostel_service import hostel_service
 from app.services.hostel_rfid_service import hostel_rfid_service
 
 router = APIRouter(prefix="/api/v1/hostel", tags=["hostel"])
-
 @router.get("/assigned-hostels", response_model=Dict[str, Any])
 async def get_assigned_hostels(
     conn: asyncpg.Connection = Depends(get_db),

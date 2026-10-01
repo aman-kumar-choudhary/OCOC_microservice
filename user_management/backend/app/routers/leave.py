@@ -18,7 +18,6 @@ STAGE_PERMISSIONS = {"leave.approve.warden", "leave.approve.chancellor", "leave.
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 ALLOWED_DOCUMENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 
-
 class LeaveInput(BaseModel):
     leave_type_id: uuid.UUID
     start_at: datetime

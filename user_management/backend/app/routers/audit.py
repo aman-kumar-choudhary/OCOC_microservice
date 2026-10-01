@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/audit", tags=["audit"])
 
-
 @router.get("")
 async def list_audit_logs(
     actor_id: Optional[str] = Query(None),

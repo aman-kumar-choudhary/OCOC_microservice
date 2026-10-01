@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 # Fallback to default if not set (which should be set in .env)
 # Using ococ_users database explicitly as requested
 DATABASE_URL = getattr(settings, "DATABASE_URL", "postgresql+asyncpg://ococ:root@localhost:5432/ococ_users")
-
 try:
     engine = create_async_engine(DATABASE_URL, echo=False)
     async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

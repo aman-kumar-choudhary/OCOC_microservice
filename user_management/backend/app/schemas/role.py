@@ -12,7 +12,6 @@ class Role(BaseModel):
     created_at: str
     updated_at: str
 
-
 class CreateRoleRequest(BaseModel):
     name: str
     description: str

@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/rfid", tags=["rfid"])
 
-
 @router.get("")
 async def list_cards(
     status: Optional[str] = Query(None),

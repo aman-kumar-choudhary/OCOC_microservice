@@ -3,7 +3,7 @@
 --
 -- Enables the pgvector extension (installed as postgresql-18-pgvector
 -- v0.8.6) and creates all FRECO SQLAlchemy-managed tables.
---
+
 -- Design notes:
 --   • freco_people.external_id = users.id (logical link, no FK, to
 --     keep FRECO decoupled from user_management lifecycle).

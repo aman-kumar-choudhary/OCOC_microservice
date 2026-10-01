@@ -8,7 +8,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
-
     APP_NAME: str = "freco"
     LOG_LEVEL: str = "INFO"
     # Comma-separated browser origins allowed to call FreCo directly.
@@ -19,7 +18,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     # --- Hardware ---
-    INFERENCE_DEVICE: str = "cpu"
+    INFERENCE_DEVICE: str = "cuda" # "cpu" or "cuda"
     DETECTION_CTX_ID: int = 0
 
     # --- Face Model Packs ---

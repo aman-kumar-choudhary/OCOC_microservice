@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS devices (
     firmware_version VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- 2. Student Leaves Table
 CREATE TABLE IF NOT EXISTS student_leaves (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

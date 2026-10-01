@@ -4,7 +4,6 @@ import datetime
 from typing import List, Optional
 import uuid
 from pydantic import BaseModel, Field
-
 # ── Locations ───────────────────────────────────────────────────────────────
 
 class Location(BaseModel):

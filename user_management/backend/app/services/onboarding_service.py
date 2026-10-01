@@ -13,7 +13,6 @@ from app.services.user_service import user_service
 
 logger = logging.getLogger(__name__)
 
-
 class OnboardingService:
     async def onboard(
         self,

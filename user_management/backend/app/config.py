@@ -8,7 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     SERVER_ADDR: str = "0.0.0.0:8080"
     ENVIRONMENT: str = "development"
-
     # PostgreSQL
     DATABASE_URL: str = "postgres://ococ:root@localhost:5432/ococ_users?sslmode=disable"
     DATABASE_MAX_OPEN_CONNS: int = 25

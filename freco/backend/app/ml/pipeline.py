@@ -15,7 +15,6 @@ class LivenessRejected(Exception):
     score: float
     timings: dict[str, float] | None = None
 
-
 @dataclass
 class FaceEmbedding:
     bbox: np.ndarray

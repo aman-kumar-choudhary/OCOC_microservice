@@ -13,7 +13,6 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 from typing import Sequence
-
 import cv2
 import numpy as np
 

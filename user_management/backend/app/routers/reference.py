@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["reference"])
 
-
 @router.get("/api/v1/departments")
 async def list_departments(conn: asyncpg.Connection = Depends(get_db)):
     try:

@@ -1,63 +1,88 @@
-import React, { useEffect, useState, useMemo } from 'react'
-import api from '@/services/api'
-import { useAuth } from '@/context/AuthContext'
-import LegalModal from '@/components/LegalModal'
-import ConfirmActionModal from '@/components/ConfirmActionModal'
-import DigitalGatePassModal from '@/components/DigitalGatePassModal'
+import React, { useEffect, useState, useMemo } from "react";
+import api from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
+import LegalModal from "@/components/LegalModal";
+import ConfirmActionModal from "@/components/ConfirmActionModal";
+import DigitalGatePassModal from "@/components/DigitalGatePassModal";
 import {
-  CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle,
-  FileText, ShieldCheck, MapPin, Search, ArrowRight, User,
-  CheckCircle, ChevronRight, QrCode, Filter, ExternalLink,
-  RotateCcw, AlertTriangle, Layers, CalendarCheck
-} from 'lucide-react'
-
+  CalendarDays,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  FileText,
+  ShieldCheck,
+  MapPin,
+  Search,
+  ArrowRight,
+  User,
+  CheckCircle,
+  ChevronRight,
+  QrCode,
+  Filter,
+  ExternalLink,
+  RotateCcw,
+  AlertTriangle,
+  Layers,
+  CalendarCheck,
+} from "lucide-react";
 const statusColor = {
-  DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
-  PENDING_APPROVAL: 'bg-amber-100 text-amber-800 border-amber-300',
-  APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-  REJECTED: 'bg-rose-100 text-rose-800 border-rose-300',
-  WITHDRAWN: 'bg-slate-100 text-slate-600 border-slate-300',
-  EXPIRED: 'bg-orange-100 text-orange-800 border-orange-300',
-  COMPLETED: 'bg-blue-100 text-blue-800 border-blue-300',
-}
+  DRAFT: "bg-slate-100 text-slate-700 border-slate-300",
+  PENDING_APPROVAL: "bg-amber-100 text-amber-800 border-amber-300",
+  APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  REJECTED: "bg-rose-100 text-rose-800 border-rose-300",
+  WITHDRAWN: "bg-slate-100 text-slate-600 border-slate-300",
+  EXPIRED: "bg-orange-100 text-orange-800 border-orange-300",
+  COMPLETED: "bg-blue-100 text-blue-800 border-blue-300",
+};
 
 const emptyForm = {
-  leave_type_id: '',
-  start_at: '',
-  end_at: '',
-  destination: '',
-  reason: '',
-  custom_reason: '',
-}
+  leave_type_id: "",
+  start_at: "",
+  end_at: "",
+  destination: "",
+  reason: "",
+  custom_reason: "",
+};
 
 /**
  * 5-Stage Campus Movement Process Flow Pipeline Component
  */
 const ProcessFlowPipeline = () => {
   const steps = [
-    { num: 1, title: 'Application', desc: 'Submit destination & dates' },
-    { num: 2, title: 'Warden Review', desc: 'Authority approval' },
-    { num: 3, title: 'Gate Pass Active', desc: 'Temporary gate access' },
-    { num: 4, title: 'Campus Exit', desc: 'RFID/Face turnstile tap' },
-    { num: 5, title: 'Hostel Return', desc: 'Curfew check-in verification' },
-  ]
+    { num: 1, title: "Application", desc: "Submit destination & dates" },
+    { num: 2, title: "Warden Review", desc: "Authority approval" },
+    { num: 3, title: "Gate Pass Active", desc: "Temporary gate access" },
+    { num: 4, title: "Campus Exit", desc: "RFID/Face turnstile tap" },
+    { num: 5, title: "Hostel Return", desc: "Curfew check-in verification" },
+  ];
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-2xs">
       <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0a2342] flex items-center gap-1.5">
-          <Layers size={14} className="text-amber-600" /> Standard Campus Movement Lifecycle
+          <Layers size={14} className="text-amber-600" /> Standard Campus
+          Movement Lifecycle
         </span>
-        <span className="text-[10px] text-slate-400">Policy: OCOC-LEAVE-PROC-2026</span>
+        <span className="text-[10px] text-slate-400">
+          Policy: OCOC-LEAVE-PROC-2026
+        </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {steps.map((st, idx) => (
-          <div key={st.num} className="relative flex flex-col items-center text-center p-2 rounded-xl bg-white border border-slate-100 shadow-2xs">
+          <div
+            key={st.num}
+            className="relative flex flex-col items-center text-center p-2 rounded-xl bg-white border border-slate-100 shadow-2xs"
+          >
             <div className="w-7 h-7 rounded-full bg-[#0a2342] text-[#f5bd19] flex items-center justify-center font-black text-xs mb-1.5 shadow-xs">
               {st.num}
             </div>
-            <span className="text-xs font-bold text-slate-900 leading-tight">{st.title}</span>
-            <span className="text-[10px] text-slate-500 mt-0.5 leading-tight">{st.desc}</span>
+            <span className="text-xs font-bold text-slate-900 leading-tight">
+              {st.title}
+            </span>
+            <span className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+              {st.desc}
+            </span>
             {idx < 4 && (
               <ChevronRight
                 size={14}
@@ -68,70 +93,78 @@ const ProcessFlowPipeline = () => {
         ))}
       </div>
     </div>
-  )
-}
+  );
+};
 
 /**
  * Guard Read-Only View — shows only approved leave requests for gate security
  */
 function GuardLeaveView() {
-  const [requests, setRequests] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [validFilter, setValidFilter] = useState('all')
-  const [selectedPass, setSelectedPass] = useState(null)
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [validFilter, setValidFilter] = useState("all");
+  const [selectedPass, setSelectedPass] = useState(null);
 
   const fetchLeaves = async () => {
     try {
-      const res = await api.get('/leave/requests?status=APPROVED')
-      setRequests(res.data.data || [])
+      const res = await api.get("/leave/requests?status=APPROVED");
+      setRequests(res.data.data || []);
     } catch (e) {
-      setError(e.response?.data?.error?.message || 'Unable to load approved leave data')
+      setError(
+        e.response?.data?.error?.message ||
+          "Unable to load approved leave data",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchLeaves()
-    const interval = setInterval(fetchLeaves, 20000)
-    return () => clearInterval(interval)
-  }, [])
+    fetchLeaves();
+    const interval = setInterval(fetchLeaves, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
-      const q = search.toLowerCase()
+      const q = search.toLowerCase();
       const matchSearch =
         !q ||
         (r.student_name && r.student_name.toLowerCase().includes(q)) ||
         (r.destination && r.destination.toLowerCase().includes(q)) ||
-        (r.id && r.id.toLowerCase().includes(q))
+        (r.id && r.id.toLowerCase().includes(q));
 
-      const now = new Date()
-      const start = new Date(r.start_at)
-      const end = new Date(r.end_at)
-      const isActive = now >= start && now <= end
-      const isExpired = now > end
-      const isUpcoming = now < start
+      const now = new Date();
+      const start = new Date(r.start_at);
+      const end = new Date(r.end_at);
+      const isActive = now >= start && now <= end;
+      const isExpired = now > end;
+      const isUpcoming = now < start;
 
-      let matchFilter = true
-      if (validFilter === 'active') matchFilter = isActive
-      if (validFilter === 'upcoming') matchFilter = isUpcoming
-      if (validFilter === 'expired') matchFilter = isExpired
+      let matchFilter = true;
+      if (validFilter === "active") matchFilter = isActive;
+      if (validFilter === "upcoming") matchFilter = isUpcoming;
+      if (validFilter === "expired") matchFilter = isExpired;
 
-      return matchSearch && matchFilter
-    })
-  }, [requests, search, validFilter])
+      return matchSearch && matchFilter;
+    });
+  }, [requests, search, validFilter]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8 animate-fade-in">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-600">OCOC • Gate Operations Console</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold text-slate-900">Approved Leave &amp; Pass Register</h1>
+          <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+            OCOC • Gate Operations Console
+          </p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold text-slate-900">
+            Approved Leave &amp; Pass Register
+          </h1>
           <p className="mt-1 text-xs text-slate-600">
-            Real-time validation roster for student gate clearance decisions. Data is read-only.
+            Real-time validation roster for student gate clearance decisions.
+            Data is read-only.
           </p>
         </div>
         <button
@@ -143,7 +176,10 @@ function GuardLeaveView() {
       </header>
 
       {error && (
-        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"
+        >
           {error}
         </div>
       )}
@@ -151,7 +187,10 @@ function GuardLeaveView() {
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
         <div className="relative flex-1 w-full">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -177,7 +216,9 @@ function GuardLeaveView() {
           <h2 className="font-extrabold text-sm text-slate-900">
             Approved Students Roster ({filtered.length})
           </h2>
-          <span className="text-[11px] font-mono text-slate-400">Live 20s Polling</span>
+          <span className="text-[11px] font-mono text-slate-400">
+            Live 20s Polling
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -195,7 +236,9 @@ function GuardLeaveView() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-slate-400">Loading approved gate roster...</td>
+                  <td colSpan="6" className="p-8 text-center text-slate-400">
+                    Loading approved gate roster...
+                  </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
@@ -205,27 +248,42 @@ function GuardLeaveView() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const now = new Date()
-                  const start = new Date(r.start_at)
-                  const end = new Date(r.end_at)
-                  const isActive = now >= start && now <= end
-                  const isExpired = now > end
+                  const now = new Date();
+                  const start = new Date(r.start_at);
+                  const end = new Date(r.end_at);
+                  const isActive = now >= start && now <= end;
+                  const isExpired = now > end;
 
                   return (
-                    <tr key={r.id} className={`hover:bg-slate-50 transition-colors ${isActive ? 'bg-emerald-50/20' : ''}`}>
+                    <tr
+                      key={r.id}
+                      className={`hover:bg-slate-50 transition-colors ${isActive ? "bg-emerald-50/20" : ""}`}
+                    >
                       <td className="p-3">
-                        <div className="font-bold text-slate-900 text-sm">{r.student_name || 'Student'}</div>
-                        <div className="text-[10px] font-mono text-slate-400">{r.id.slice(0, 10)}</div>
+                        <div className="font-bold text-slate-900 text-sm">
+                          {r.student_name || "Student"}
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400">
+                          {r.id.slice(0, 10)}
+                        </div>
                       </td>
                       <td className="p-3">
-                        <span className="font-semibold text-slate-700">{r.leave_type}</span>
+                        <span className="font-semibold text-slate-700">
+                          {r.leave_type}
+                        </span>
                       </td>
                       <td className="p-3 leading-tight">
-                        <span className="font-medium text-slate-800">{start.toLocaleString()}</span>
-                        <div className="text-[10px] text-slate-400">until {end.toLocaleString()}</div>
+                        <span className="font-medium text-slate-800">
+                          {start.toLocaleString()}
+                        </span>
+                        <div className="text-[10px] text-slate-400">
+                          until {end.toLocaleString()}
+                        </div>
                       </td>
                       <td className="p-3">
-                        <span className="font-medium text-slate-700">{r.destination}</span>
+                        <span className="font-medium text-slate-700">
+                          {r.destination}
+                        </span>
                       </td>
                       <td className="p-3">
                         {isActive ? (
@@ -252,7 +310,7 @@ function GuardLeaveView() {
                         </button>
                       </td>
                     </tr>
-                  )
+                  );
                 })
               )}
             </tbody>
@@ -267,79 +325,89 @@ function GuardLeaveView() {
         passData={selectedPass}
       />
     </div>
-  )
+  );
 }
 
 export default function LeaveManagement() {
-  const { roles } = useAuth()
-  const roleSet = new Set(roles.map((r) => String(r).toUpperCase()))
-  const isApprover = ['SUPER_ADMIN', 'ADMIN', 'WARDEN', 'CHANCELLOR', 'MEDICAL_OFFICER'].some((r) => roleSet.has(r))
-  const isAdmin = roleSet.has('SUPER_ADMIN') || roleSet.has('ADMIN')
-  const isStudentRole = roleSet.has('STUDENT')
-  const isGuard = ['GUARD', 'SECURITY_GUARD'].some((r) => roleSet.has(r))
+  const { roles } = useAuth();
+  const roleSet = new Set(roles.map((r) => String(r).toUpperCase()));
+  const isApprover = [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "WARDEN",
+    "CHANCELLOR",
+    "MEDICAL_OFFICER",
+  ].some((r) => roleSet.has(r));
+  const isAdmin = roleSet.has("SUPER_ADMIN") || roleSet.has("ADMIN");
+  const isStudentRole = roleSet.has("STUDENT");
+  const isGuard = ["GUARD", "SECURITY_GUARD"].some((r) => roleSet.has(r));
 
-  const [types, setTypes] = useState([])
-  const [requests, setRequests] = useState([])
-  const [pending, setPending] = useState([])
-  const [balances, setBalances] = useState([])
-  const [form, setForm] = useState(emptyForm)
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [workflowType, setWorkflowType] = useState('')
-  const [workflowText, setWorkflowText] = useState('')
-  const [requestFilterTab, setRequestFilterTab] = useState('all')
+  const [types, setTypes] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [pending, setPending] = useState([]);
+  const [balances, setBalances] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [workflowType, setWorkflowType] = useState("");
+  const [workflowText, setWorkflowText] = useState("");
+  const [requestFilterTab, setRequestFilterTab] = useState("all");
 
   // Modals state
-  const [legalModalOpen, setLegalModalOpen] = useState(false)
-  const [selectedPass, setSelectedPass] = useState(null)
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [selectedPass, setSelectedPass] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     id: null,
-    action: '',
-    title: '',
-    description: '',
+    action: "",
+    title: "",
+    description: "",
     requireReason: false,
     isDanger: false,
-  })
+  });
 
   // Guard-only view: redirect to GuardLeaveView
   if (isGuard && !isStudentRole && !isApprover && !isAdmin) {
-    return <GuardLeaveView />
+    return <GuardLeaveView />;
   }
 
   const refresh = async () => {
     try {
       const [t, r, b, p] = await Promise.all([
-        api.get('/leave/types'),
-        api.get('/leave/requests'),
-        api.get('/leave/balances/me'),
-        isApprover ? api.get('/leave/approvals/pending') : Promise.resolve({ data: { data: [] } }),
-      ])
-      setTypes(t.data.data || [])
-      setRequests(r.data.data || [])
-      setBalances(b.data.data || [])
-      setPending(p.data.data || [])
+        api.get("/leave/types"),
+        api.get("/leave/requests"),
+        api.get("/leave/balances/me"),
+        isApprover
+          ? api.get("/leave/approvals/pending")
+          : Promise.resolve({ data: { data: [] } }),
+      ]);
+      setTypes(t.data.data || []);
+      setRequests(r.data.data || []);
+      setBalances(b.data.data || []);
+      setPending(p.data.data || []);
     } catch (e) {
-      setError(e.response?.data?.error?.message || 'Unable to load leave data')
+      setError(e.response?.data?.error?.message || "Unable to load leave data");
     }
-  }
+  };
 
   useEffect(() => {
-    refresh()
-  }, [])
+    refresh();
+  }, []);
 
   const submit = async (event) => {
-    event.preventDefault()
-    setError('')
-    setNotice('')
-    setBusy(true)
+    event.preventDefault();
+    setError("");
+    setNotice("");
+    setBusy(true);
 
     if (!termsAccepted) {
-      setError('You must acknowledge the terms and gate rules before submitting.')
-      setBusy(false)
-      return
+      setError(
+        "You must acknowledge the terms and gate rules before submitting.",
+      );
+      setBusy(false);
+      return;
     }
 
     try {
@@ -347,137 +415,176 @@ export default function LeaveManagement() {
         ...form,
         start_at: new Date(form.start_at).toISOString(),
         end_at: new Date(form.end_at).toISOString(),
-      }
-      await api.post('/leave/requests?draft=false', payload)
-      setForm(emptyForm)
-      setTermsAccepted(false)
-      setNotice('Leave request successfully submitted! It has been routed to your Warden for review.')
-      await refresh()
+      };
+      await api.post("/leave/requests?draft=false", payload);
+      setForm(emptyForm);
+      setTermsAccepted(false);
+      setNotice(
+        "Leave request successfully submitted! It has been routed to your Warden for review.",
+      );
+      await refresh();
     } catch (e) {
-      setError(e.response?.data?.error?.message || e.response?.data?.detail || 'Could not submit leave request')
+      setError(
+        e.response?.data?.error?.message ||
+          e.response?.data?.detail ||
+          "Could not submit leave request",
+      );
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const saveDraft = async () => {
-    setError('')
-    setNotice('')
-    if (!form.leave_type_id || !form.start_at || !form.end_at || !form.destination.trim() || !form.reason.trim()) {
-      setError('Please complete the required fields before saving a draft.')
-      return
+    setError("");
+    setNotice("");
+    if (
+      !form.leave_type_id ||
+      !form.start_at ||
+      !form.end_at ||
+      !form.destination.trim() ||
+      !form.reason.trim()
+    ) {
+      setError("Please complete the required fields before saving a draft.");
+      return;
     }
     try {
       const payload = {
         ...form,
         start_at: new Date(form.start_at).toISOString(),
         end_at: new Date(form.end_at).toISOString(),
-      }
-      await api.post('/leave/requests?draft=true', payload)
-      setForm(emptyForm)
-      setNotice('Leave draft saved successfully. You can complete and submit it later.')
-      await refresh()
+      };
+      await api.post("/leave/requests?draft=true", payload);
+      setForm(emptyForm);
+      setNotice(
+        "Leave draft saved successfully. You can complete and submit it later.",
+      );
+      await refresh();
     } catch (e) {
-      setError(e.response?.data?.error?.message || 'Could not save draft')
+      setError(e.response?.data?.error?.message || "Could not save draft");
     }
-  }
+  };
 
   // Handle decisions with ConfirmActionModal
   const openDecisionModal = (id, action, studentName) => {
-    if (action === 'approve') {
+    if (action === "approve") {
       setConfirmModal({
         isOpen: true,
         id,
-        action: 'approve',
-        title: `Approve Leave Request for ${studentName || 'Student'}`,
-        description: 'Approving this request will immediately generate an active Digital Gate Pass and provision turnstile exit clearance during the sanctioned window.',
+        action: "approve",
+        title: `Approve Leave Request for ${studentName || "Student"}`,
+        description:
+          "Approving this request will immediately generate an active Digital Gate Pass and provision turnstile exit clearance during the sanctioned window.",
         requireReason: false,
         isDanger: false,
-      })
+      });
     } else {
       setConfirmModal({
         isOpen: true,
         id,
-        action: 'reject',
-        title: `Reject Leave Request for ${studentName || 'Student'}`,
-        description: 'Please specify the official institutional reason for denying this leave request. The student will be notified with this justification.',
+        action: "reject",
+        title: `Reject Leave Request for ${studentName || "Student"}`,
+        description:
+          "Please specify the official institutional reason for denying this leave request. The student will be notified with this justification.",
         requireReason: true,
         isDanger: true,
-      })
+      });
     }
-  }
+  };
 
   const handleExecuteDecision = async (comment) => {
-    const { id, action } = confirmModal
-    setBusy(true)
-    setError('')
+    const { id, action } = confirmModal;
+    setBusy(true);
+    setError("");
     try {
-      await api.post(`/leave/requests/${id}/${action}`, { comment: comment || '' })
-      setNotice(`Request has been successfully ${action}d. Audit record recorded.`)
-      setConfirmModal({ ...confirmModal, isOpen: false })
-      await refresh()
+      await api.post(`/leave/requests/${id}/${action}`, {
+        comment: comment || "",
+      });
+      setNotice(
+        `Request has been successfully ${action}d. Audit record recorded.`,
+      );
+      setConfirmModal({ ...confirmModal, isOpen: false });
+      await refresh();
     } catch (e) {
-      setError(e.response?.data?.error?.message || `Approval action failed`)
+      setError(e.response?.data?.error?.message || `Approval action failed`);
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const withdraw = async (id) => {
-    if (!window.confirm('Are you sure you want to withdraw this leave request?')) return
+    if (
+      !window.confirm("Are you sure you want to withdraw this leave request?")
+    )
+      return;
     try {
-      await api.post(`/leave/requests/${id}/withdraw`, { comment: '' })
-      setNotice('Request withdrawn.')
-      await refresh()
+      await api.post(`/leave/requests/${id}/withdraw`, { comment: "" });
+      setNotice("Request withdrawn.");
+      await refresh();
     } catch (e) {
-      setError(e.response?.data?.error?.message || 'Could not withdraw request')
+      setError(
+        e.response?.data?.error?.message || "Could not withdraw request",
+      );
     }
-  }
+  };
 
   const saveWorkflow = async (event) => {
-    event.preventDefault()
-    setError('')
+    event.preventDefault();
+    setError("");
     try {
       await api.put(`/leave/types/${workflowType}/workflow`, {
-        workflow: workflowText.split(',').map((p) => p.trim()).filter(Boolean),
-      })
-      setNotice('Approval workflow stages updated successfully.')
-      await refresh()
+        workflow: workflowText
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean),
+      });
+      setNotice("Approval workflow stages updated successfully.");
+      await refresh();
     } catch (e) {
-      setError(e.response?.data?.error?.message || 'Could not save workflow')
+      setError(e.response?.data?.error?.message || "Could not save workflow");
     }
-  }
+  };
 
   // Filter requests
   const filteredRequests = useMemo(() => {
-    if (requestFilterTab === 'all') return requests
-    if (requestFilterTab === 'approved') return requests.filter((r) => r.status === 'APPROVED')
-    if (requestFilterTab === 'pending') return requests.filter((r) => r.status === 'PENDING_APPROVAL')
-    if (requestFilterTab === 'draft') return requests.filter((r) => r.status === 'DRAFT')
-    if (requestFilterTab === 'completed') return requests.filter((r) => ['COMPLETED', 'EXPIRED', 'REJECTED'].includes(r.status))
-    return requests
-  }, [requests, requestFilterTab])
+    if (requestFilterTab === "all") return requests;
+    if (requestFilterTab === "approved")
+      return requests.filter((r) => r.status === "APPROVED");
+    if (requestFilterTab === "pending")
+      return requests.filter((r) => r.status === "PENDING_APPROVAL");
+    if (requestFilterTab === "draft")
+      return requests.filter((r) => r.status === "DRAFT");
+    if (requestFilterTab === "completed")
+      return requests.filter((r) =>
+        ["COMPLETED", "EXPIRED", "REJECTED"].includes(r.status),
+      );
+    return requests;
+  }, [requests, requestFilterTab]);
 
   // Active pass detection for student
   const activePass = useMemo(() => {
-    const now = new Date()
+    const now = new Date();
     return requests.find((r) => {
-      if (r.status !== 'APPROVED') return false
-      const start = new Date(r.start_at)
-      const end = new Date(r.end_at)
-      return now >= start && now <= end
-    })
-  }, [requests])
+      if (r.status !== "APPROVED") return false;
+      const start = new Date(r.start_at);
+      const end = new Date(r.end_at);
+      return now >= start && now <= end;
+    });
+  }, [requests]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8 animate-fade-in">
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-600">OCOC • Student &amp; Residential Services</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-slate-900">Campus Leave Management</h1>
+          <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+            OCOC • Student &amp; Residential Services
+          </p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-slate-900">
+            Campus Leave Management
+          </h1>
           <p className="mt-1 text-xs text-slate-600">
-            Submit leave applications, track authority approvals, and access digital gate clearance credentials.
+            Submit leave applications, track authority approvals, and access
+            digital gate clearance credentials.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -496,7 +603,10 @@ export default function LeaveManagement() {
 
       {/* Notifications and Alerts */}
       {error && (
-        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-start gap-2 shadow-2xs animate-fade-in">
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-start gap-2 shadow-2xs animate-fade-in"
+        >
           <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -525,7 +635,8 @@ export default function LeaveManagement() {
                 </h3>
               </div>
               <p className="text-xs text-emerald-800 mt-0.5">
-                Valid until {new Date(activePass.end_at).toLocaleString()} · Turnstiles ready for RFID/Face tap.
+                Valid until {new Date(activePass.end_at).toLocaleString()} ·
+                Turnstiles ready for RFID/Face tap.
               </p>
             </div>
           </div>
@@ -545,8 +656,13 @@ export default function LeaveManagement() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900">Apply for Campus Leave</h2>
-              <p className="text-xs text-slate-500">Provide truthful travel and destination details for hostel authorization.</p>
+              <h2 className="text-base sm:text-lg font-black text-slate-900">
+                Apply for Campus Leave
+              </h2>
+              <p className="text-xs text-slate-500">
+                Provide truthful travel and destination details for hostel
+                authorization.
+              </p>
             </div>
             <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
               Step 1 of 5
@@ -562,7 +678,9 @@ export default function LeaveManagement() {
               <select
                 required
                 value={form.leave_type_id}
-                onChange={(e) => setForm({ ...form, leave_type_id: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, leave_type_id: e.target.value })
+                }
                 className="w-full rounded-xl border border-slate-300 p-2.5 bg-white text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342]"
               >
                 <option value="">Select an approved leave category...</option>
@@ -577,7 +695,8 @@ export default function LeaveManagement() {
             {/* Start Date & Time */}
             <div className="space-y-1">
               <label className="font-bold text-slate-700 block">
-                Start Date &amp; Departure Time <span className="text-red-500">*</span>
+                Start Date &amp; Departure Time{" "}
+                <span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -591,7 +710,8 @@ export default function LeaveManagement() {
             {/* End Date & Time */}
             <div className="space-y-1">
               <label className="font-bold text-slate-700 block">
-                Expected Return Date &amp; Curfew Time <span className="text-red-500">*</span>
+                Expected Return Date &amp; Curfew Time{" "}
+                <span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -605,15 +725,21 @@ export default function LeaveManagement() {
             {/* Destination */}
             <div className="sm:col-span-2 space-y-1">
               <label className="font-bold text-slate-700 block">
-                Destination Address / City <span className="text-red-500">*</span>
+                Destination Address / City{" "}
+                <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <MapPin
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
                 <input
                   required
                   maxLength={300}
                   value={form.destination}
-                  onChange={(e) => setForm({ ...form, destination: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, destination: e.target.value })
+                  }
                   className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342]"
                   placeholder="e.g. Home (Dehradun) or All India Gayatri Teerth Shantikunj"
                 />
@@ -623,7 +749,8 @@ export default function LeaveManagement() {
             {/* Reason */}
             <div className="sm:col-span-2 space-y-1">
               <label className="font-bold text-slate-700 block">
-                Detailed Purpose &amp; Justification <span className="text-red-500">*</span>
+                Detailed Purpose &amp; Justification{" "}
+                <span className="text-red-500">*</span>
               </label>
               <textarea
                 required
@@ -646,7 +773,11 @@ export default function LeaveManagement() {
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0a2342] focus:ring-[#f5bd19]"
                 />
                 <span className="text-[11px] text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors">
-                  I solemnly declare that all destination and contact details provided are accurate. I understand that forged applications or failure to return before the designated curfew will incur immediate disciplinary action and notification to guardians. I abide by the{' '}
+                  I solemnly declare that all destination and contact details
+                  provided are accurate. I understand that forged applications
+                  or failure to return before the designated curfew will incur
+                  immediate disciplinary action and notification to guardians. I
+                  abide by the{" "}
                   <button
                     type="button"
                     onClick={() => setLegalModalOpen(true)}
@@ -673,7 +804,7 @@ export default function LeaveManagement() {
                 disabled={busy || !termsAccepted}
                 className="px-6 py-2.5 rounded-xl bg-[#0a2342] text-white font-extrabold hover:bg-[#12365f] disabled:opacity-50 transition shadow-sm flex items-center gap-1.5"
               >
-                <span>{busy ? 'Processing...' : 'Submit Leave Request'}</span>
+                <span>{busy ? "Processing..." : "Submit Leave Request"}</span>
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -685,22 +816,40 @@ export default function LeaveManagement() {
           <div className="space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <h2 className="text-base font-black text-slate-900 flex items-center gap-1.5">
-                <CalendarCheck size={18} className="text-amber-600" /> My Leave Balances
+                <CalendarCheck size={18} className="text-amber-600" /> My Leave
+                Balances
               </h2>
-              <span className="text-[10px] text-slate-400 font-mono">Current Semester</span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                Current Semester
+              </span>
             </div>
 
             {balances.length ? (
               <div className="space-y-3">
                 {balances.map((b) => {
-                  const remaining = Math.max(0, Number(b.allowed_days) - Number(b.consumed_days))
-                  const percent = Math.min(100, Math.round((remaining / (Number(b.allowed_days) || 1)) * 100))
+                  const remaining = Math.max(
+                    0,
+                    Number(b.allowed_days) - Number(b.consumed_days),
+                  );
+                  const percent = Math.min(
+                    100,
+                    Math.round(
+                      (remaining / (Number(b.allowed_days) || 1)) * 100,
+                    ),
+                  );
 
                   return (
-                    <div key={b.id} className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-2">
+                    <div
+                      key={b.id}
+                      className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-2"
+                    >
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-extrabold text-slate-900">{b.leave_type}</span>
-                        <span className="font-black text-amber-700">{remaining} days left</span>
+                        <span className="font-extrabold text-slate-900">
+                          {b.leave_type}
+                        </span>
+                        <span className="font-black text-amber-700">
+                          {remaining} days left
+                        </span>
                       </div>
                       <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                         <div
@@ -713,20 +862,28 @@ export default function LeaveManagement() {
                         <span>Total Quota: {b.allowed_days} days</span>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400 text-xs">
-                <CalendarDays size={32} className="mx-auto text-slate-300 mb-2" />
-                <p>No quota limits or standard balances configured for this user persona.</p>
+                <CalendarDays
+                  size={32}
+                  className="mx-auto text-slate-300 mb-2"
+                />
+                <p>
+                  No quota limits or standard balances configured for this user
+                  persona.
+                </p>
               </div>
             )}
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center gap-2">
             <Clock size={14} className="text-slate-400 shrink-0" />
-            <span>Curfew resets daily at 21:00 hrs for all hostel occupants.</span>
+            <span>
+              Curfew resets daily at 21:00 hrs for all hostel occupants.
+            </span>
           </div>
         </section>
       </div>
@@ -743,13 +900,16 @@ export default function LeaveManagement() {
                 {pending.length} Waiting
               </span>
             </div>
-            <span className="text-xs text-slate-400 hidden sm:inline">Role Authority Review</span>
+            <span className="text-xs text-slate-400 hidden sm:inline">
+              Role Authority Review
+            </span>
           </div>
 
           <div className="space-y-3">
             {pending.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-6">
-                All assigned student leave requests have been reviewed and resolved.
+                All assigned student leave requests have been reviewed and
+                resolved.
               </p>
             ) : (
               pending.map((r) => (
@@ -759,14 +919,18 @@ export default function LeaveManagement() {
                 >
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="font-black text-slate-900 text-sm">{r.student_name}</span>
+                      <span className="font-black text-slate-900 text-sm">
+                        {r.student_name}
+                      </span>
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a2342] text-[#f5bd19]">
                         {r.leave_type}
                       </span>
                     </div>
                     <div className="text-slate-600">
-                      <strong>Destination:</strong> {r.destination} ·{' '}
-                      <strong>Window:</strong> {new Date(r.start_at).toLocaleString()} – {new Date(r.end_at).toLocaleString()}
+                      <strong>Destination:</strong> {r.destination} ·{" "}
+                      <strong>Window:</strong>{" "}
+                      {new Date(r.start_at).toLocaleString()} –{" "}
+                      {new Date(r.end_at).toLocaleString()}
                     </div>
                     <div className="text-slate-700 bg-white p-2 rounded-lg border border-slate-200 mt-1 italic">
                       "{r.reason}"
@@ -775,14 +939,18 @@ export default function LeaveManagement() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={() => openDecisionModal(r.id, 'approve', r.student_name)}
+                      onClick={() =>
+                        openDecisionModal(r.id, "approve", r.student_name)
+                      }
                       className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition"
                     >
                       Approve Pass
                     </button>
                     <button
                       type="button"
-                      onClick={() => openDecisionModal(r.id, 'reject', r.student_name)}
+                      onClick={() =>
+                        openDecisionModal(r.id, "reject", r.student_name)
+                      }
                       className="px-4 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs transition"
                     >
                       Deny
@@ -799,23 +967,30 @@ export default function LeaveManagement() {
       {isAdmin && (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-base font-black text-slate-900">Configurable Approval Workflow Stages</h2>
-            <p className="text-xs text-slate-500">Configure required administrative permissions per leave category.</p>
+            <h2 className="text-base font-black text-slate-900">
+              Configurable Approval Workflow Stages
+            </h2>
+            <p className="text-xs text-slate-500">
+              Configure required administrative permissions per leave category.
+            </p>
           </div>
-          <form onSubmit={saveWorkflow} className="grid gap-3 sm:grid-cols-[1fr_2fr_auto] text-xs">
+          <form
+            onSubmit={saveWorkflow}
+            className="grid gap-3 sm:grid-cols-[1fr_2fr_auto] text-xs"
+          >
             <select
               required
               value={workflowType}
               onChange={(e) => {
-                const selected = types.find((t) => t.id === e.target.value)
-                setWorkflowType(e.target.value)
+                const selected = types.find((t) => t.id === e.target.value);
+                setWorkflowType(e.target.value);
                 setWorkflowText(
                   Array.isArray(selected?.workflow)
-                    ? selected.workflow.join(', ')
-                    : typeof selected?.workflow === 'string'
-                    ? JSON.parse(selected?.workflow).join(', ')
-                    : ''
-                )
+                    ? selected.workflow.join(", ")
+                    : typeof selected?.workflow === "string"
+                      ? JSON.parse(selected?.workflow).join(", ")
+                      : "",
+                );
               }}
               className="rounded-xl border border-slate-300 p-2.5 bg-white font-semibold text-slate-800 focus:outline-hidden"
             >
@@ -848,22 +1023,26 @@ export default function LeaveManagement() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-900">
-              {isAdmin ? 'Campus Leave Requests Ledger' : 'My Submitted Requests'}
+              {isAdmin
+                ? "Campus Leave Requests Ledger"
+                : "My Submitted Requests"}
             </h2>
-            <p className="text-xs text-slate-500">Track real-time status and view generated gate credentials.</p>
+            <p className="text-xs text-slate-500">
+              Track real-time status and view generated gate credentials.
+            </p>
           </div>
 
           {/* Filter Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto text-xs pb-1 sm:pb-0">
-            {['all', 'approved', 'pending', 'draft', 'completed'].map((tab) => (
+            {["all", "approved", "pending", "draft", "completed"].map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setRequestFilterTab(tab)}
                 className={`px-3 py-1.5 rounded-lg font-bold capitalize transition shrink-0 ${
                   requestFilterTab === tab
-                    ? 'bg-[#0a2342] text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100'
+                    ? "bg-[#0a2342] text-white shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {tab}
@@ -892,23 +1071,38 @@ export default function LeaveManagement() {
                 </tr>
               ) : (
                 filteredRequests.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={r.id}
+                    className="hover:bg-slate-50 transition-colors"
+                  >
                     <td className="p-3">
-                      <div className="font-extrabold text-slate-900">{r.leave_type}</div>
-                      <div className="text-[10px] font-mono text-slate-400">{r.id.slice(0, 10)}</div>
+                      <div className="font-extrabold text-slate-900">
+                        {r.leave_type}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        {r.id.slice(0, 10)}
+                      </div>
                     </td>
                     <td className="p-3 text-slate-700 leading-tight">
-                      <div className="font-semibold">{new Date(r.start_at).toLocaleString()}</div>
-                      <div className="text-[10px] text-slate-400">to {new Date(r.end_at).toLocaleString()}</div>
+                      <div className="font-semibold">
+                        {new Date(r.start_at).toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        to {new Date(r.end_at).toLocaleString()}
+                      </div>
                     </td>
-                    <td className="p-3 font-medium text-slate-800">{r.destination}</td>
+                    <td className="p-3 font-medium text-slate-800">
+                      {r.destination}
+                    </td>
                     <td className="p-3">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border ${statusColor[r.status] || ''}`}>
-                        {r.status.replaceAll('_', ' ')}
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border ${statusColor[r.status] || ""}`}
+                      >
+                        {r.status.replaceAll("_", " ")}
                       </span>
                     </td>
                     <td className="p-3 text-right space-x-2">
-                      {r.status === 'APPROVED' && (
+                      {r.status === "APPROVED" && (
                         <button
                           type="button"
                           onClick={() => setSelectedPass(r)}
@@ -917,7 +1111,7 @@ export default function LeaveManagement() {
                           <QrCode size={13} /> View Gate Pass
                         </button>
                       )}
-                      {['DRAFT', 'PENDING_APPROVAL'].includes(r.status) && (
+                      {["DRAFT", "PENDING_APPROVAL"].includes(r.status) && (
                         <button
                           type="button"
                           onClick={() => withdraw(r.id)}
@@ -942,7 +1136,11 @@ export default function LeaveManagement() {
         onConfirm={handleExecuteDecision}
         title={confirmModal.title}
         description={confirmModal.description}
-        confirmText={confirmModal.action === 'approve' ? 'Approve & Issue Gate Pass' : 'Deny Request'}
+        confirmText={
+          confirmModal.action === "approve"
+            ? "Approve & Issue Gate Pass"
+            : "Deny Request"
+        }
         requireReason={confirmModal.requireReason}
         reasonPlaceholder="Specify the official administrative reason for rejecting this leave..."
         isDanger={confirmModal.isDanger}
@@ -963,5 +1161,5 @@ export default function LeaveManagement() {
         initialTab="terms"
       />
     </div>
-  )
+  );
 }

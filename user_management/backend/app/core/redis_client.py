@@ -4,7 +4,6 @@ import logging
 import time
 from typing import Dict, Optional, Tuple
 import redis.asyncio as aioredis
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)

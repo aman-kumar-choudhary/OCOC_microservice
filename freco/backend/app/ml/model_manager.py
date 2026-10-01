@@ -14,7 +14,6 @@ DETECTION_MODELS = ("SCRFD",)
 LIVENESS_MODELS = ("MiniFASNet",)
 RECOGNITION_MODELS = ("ArcFace",)
 
-
 @dataclass(frozen=True)
 class ActiveModels:
     detection: str

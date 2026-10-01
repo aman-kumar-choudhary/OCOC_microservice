@@ -1,9 +1,8 @@
-import React from 'react'
-import dsvvLogo from '@/assets/Dsvv_logo.png'
-import gurudevImg from '@/assets/Gurudev.png'
-import mashalImg from '@/assets/mashal.png'
-import campusBg from '@/assets/background_image.png'
-
+import React from "react";
+import dsvvLogo from "@/assets/Dsvv_logo.png";
+import gurudevImg from "@/assets/Gurudev.png";
+import mashalImg from "@/assets/mashal.png";
+import campusBg from "@/assets/background_image.png";
 export const AuthLayout = ({ children }) => {
   return (
     <div className="auth-shell">
@@ -47,9 +46,7 @@ export const AuthLayout = ({ children }) => {
 
         {/* Right: Auth Card */}
         <div className="auth-col">
-          <div className="auth-card animate-fade-in">
-            {children}
-          </div>
+          <div className="auth-card animate-fade-in">{children}</div>
         </div>
       </div>
 
@@ -66,7 +63,7 @@ export const AuthLayout = ({ children }) => {
         <div className="particle p4"></div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default AuthLayout
+export default AuthLayout;

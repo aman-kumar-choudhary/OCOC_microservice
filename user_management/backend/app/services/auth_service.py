@@ -23,7 +23,6 @@ from app.schemas.auth import (
     VerifyOTPResponse,
 )
 from app.services.audit_service import audit_service
-
 logger = logging.getLogger(__name__)
 
 PASSWORD_REGEX = re.compile(

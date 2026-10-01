@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from datetime import datetime, timedelta, timezone
 import io
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -109,6 +110,7 @@ class UserService:
             FROM users u
             LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
             LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+            LEFT JOIN warden_profiles wdp ON wdp.user_id = u.id
             LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
             LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
             LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id, wp.department_id)
@@ -128,16 +130,26 @@ class UserService:
                 d.school as school,
                 sp.course,
                 sp.semester,
+                sp.batch,
+                sp.room_number,
+                fp.courses,
+                fp.assigned_students,
+                wdp.hostel_block,
+                wdp.responsibilities as warden_responsibilities,
+                wp.job_type,
+                wp.work_area,
+                wp.shift,
+                wp.assigned_location_id,
                 COALESCE(fp.designation, wp.designation) as designation,
                 CASE WHEN sp.hostel_id IS NOT NULL THEN TRUE ELSE FALSE END as hostel_flag,
-                COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
+                COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact, wdp.emergency_contact) as emergency_contact,
                 sp.guardian_contact,
                 COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
                 sp.nationality, COALESCE(sp.gov_id_type, vp.gov_id_type) AS gov_id_type,
                 COALESCE(sp.gov_id_number, vp.gov_id_number) AS gov_id_number,
-                vp.visit_purpose, vp.host_contact,
+                vp.visit_purpose, vp.host_person, vp.host_contact,
                 vp.visit_start, vp.visit_duration_days,
-                COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
+                COALESCE(sp.updated_at, fp.updated_at, wdp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
                  WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
                 EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id) AS has_face_auth
@@ -163,22 +175,33 @@ class UserService:
                 d.school as school,
                 sp.course,
                 sp.semester,
+                sp.batch,
+                sp.room_number,
+                fp.courses,
+                fp.assigned_students,
+                wdp.hostel_block,
+                wdp.responsibilities as warden_responsibilities,
+                wp.job_type,
+                wp.work_area,
+                wp.shift,
+                wp.assigned_location_id,
                 COALESCE(fp.designation, wp.designation) as designation,
                 CASE WHEN sp.hostel_id IS NOT NULL THEN TRUE ELSE FALSE END as hostel_flag,
-                COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact) as emergency_contact,
+                COALESCE(sp.emergency_contact, fp.emergency_contact, wp.emergency_contact, wdp.emergency_contact) as emergency_contact,
                 sp.guardian_contact,
                 COALESCE(sp.photo_reference, fp.photo_reference, wp.photo_reference, vp.photo_reference) as photo_reference,
                 sp.nationality, COALESCE(sp.gov_id_type, vp.gov_id_type) AS gov_id_type,
                 COALESCE(sp.gov_id_number, vp.gov_id_number) AS gov_id_number,
-                vp.visit_purpose, vp.host_contact,
+                vp.visit_purpose, vp.host_person, vp.host_contact,
                 vp.visit_start, vp.visit_duration_days,
-                COALESCE(sp.updated_at, fp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
+                COALESCE(sp.updated_at, fp.updated_at, wdp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
                  WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
                 EXISTS(SELECT 1 FROM freco_people fp_reco JOIN freco_face_embeddings fe ON fe.person_id = fp_reco.id WHERE fp_reco.external_id = u.id) AS has_face_auth
             FROM users u
             LEFT JOIN student_profiles sp ON sp.user_id = u.id AND u.user_type = 'student'
             LEFT JOIN faculty_profiles fp ON fp.user_id = u.id AND u.user_type = 'faculty'
+            LEFT JOIN warden_profiles wdp ON wdp.user_id = u.id
             LEFT JOIN worker_profiles wp ON wp.user_id = u.id AND u.user_type = 'worker'
             LEFT JOIN visitor_profiles vp ON vp.user_id = u.id AND u.user_type = 'visitor'
             LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id, wp.department_id)
@@ -352,7 +375,7 @@ class UserService:
                     req.profile.photo_reference,
                 )
 
-            if is_faculty_warden or req.profile.hostel_block or req.profile.warden_responsibilities:
+            if is_faculty_warden or user_type == "warden" or req.profile.hostel_block or req.profile.warden_responsibilities:
                 resp = req.profile.warden_responsibilities or "Hostel Caretaker & Disciplinary Warden"
                 await conn.execute(
                     """
@@ -423,12 +446,30 @@ class UserService:
                     )
 
             if user_type == "visitor":
+                v_valid_until = None
+                if req.profile.valid_until:
+                    try:
+                        v_valid_until = datetime.fromisoformat(req.profile.valid_until.replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+                if not v_valid_until and req.profile.visit_duration_days:
+                    v_valid_until = datetime.now(timezone.utc) + timedelta(days=req.profile.visit_duration_days)
+
+                allowed_uuids: List[uuid.UUID] = []
+                if req.profile.allowed_location_ids:
+                    for a_id in req.profile.allowed_location_ids:
+                        try:
+                            allowed_uuids.append(uuid.UUID(str(a_id)))
+                        except Exception:
+                            pass
+
                 await conn.execute(
                     """
                     INSERT INTO visitor_profiles (
                         user_id, full_name, gov_id_type, gov_id_number, visit_purpose,
-                        host_person, host_contact, visit_duration_days, photo_reference, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+                        host_person, host_contact, visit_duration_days, photo_reference,
+                        valid_until, allowed_location_ids, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
                     ON CONFLICT (user_id) DO UPDATE SET
                         full_name = EXCLUDED.full_name,
                         gov_id_type = COALESCE(EXCLUDED.gov_id_type, visitor_profiles.gov_id_type),
@@ -438,6 +479,8 @@ class UserService:
                         host_contact = COALESCE(EXCLUDED.host_contact, visitor_profiles.host_contact),
                         visit_duration_days = COALESCE(EXCLUDED.visit_duration_days, visitor_profiles.visit_duration_days),
                         photo_reference = COALESCE(EXCLUDED.photo_reference, visitor_profiles.photo_reference),
+                        valid_until = COALESCE(EXCLUDED.valid_until, visitor_profiles.valid_until),
+                        allowed_location_ids = COALESCE(EXCLUDED.allowed_location_ids, visitor_profiles.allowed_location_ids),
                         updated_at = now()
                     """,
                     user_id,
@@ -449,7 +492,23 @@ class UserService:
                     req.profile.host_contact,
                     req.profile.visit_duration_days,
                     req.profile.photo_reference,
+                    v_valid_until,
+                    allowed_uuids if allowed_uuids else None,
                 )
+
+                for a_uuid in allowed_uuids:
+                    await conn.execute(
+                        """
+                        INSERT INTO user_location_access (
+                            id, user_id, location_id, access_level, status, valid_until, reason, created_at, updated_at
+                        ) VALUES (gen_random_uuid(), $1, $2, 'ENTRY', 'active', $3, $4, now(), now())
+                        ON CONFLICT (user_id, location_id, access_level) DO UPDATE SET
+                            status = EXCLUDED.status,
+                            valid_until = EXCLUDED.valid_until,
+                            updated_at = now()
+                        """,
+                        user_id, a_uuid, v_valid_until, f"Visitor Pass: {req.profile.visit_purpose or 'Campus Visit'}",
+                    )
 
             # Assign roles in user_roles
             roles_to_assign = set()
@@ -550,6 +609,8 @@ class UserService:
                 dept_uuid = uuid.UUID(str(p.department_id)) if p.department_id else None
                 hostel_uuid = uuid.UUID(str(p.hostel_id)) if p.hostel_id else None
 
+                loc_uuid = uuid.UUID(str(p.assigned_location_id)) if p.assigned_location_id else None
+
                 if user_type == "student":
                     await conn.execute(
                         """
@@ -559,13 +620,15 @@ class UserService:
                             department_id = COALESCE($4, department_id),
                             course = COALESCE($5, course),
                             semester = COALESCE($6, semester),
-                            hostel_id = COALESCE($7, hostel_id),
-                            emergency_contact = COALESCE($8, emergency_contact),
-                            guardian_contact = COALESCE($9, guardian_contact),
-                            photo_reference = COALESCE($10, photo_reference),
-                            nationality = COALESCE($11, nationality),
-                            gov_id_type = COALESCE($12, gov_id_type),
-                            gov_id_number = COALESCE($13, gov_id_number),
+                            batch = COALESCE($7, batch),
+                            hostel_id = COALESCE($8, hostel_id),
+                            room_number = COALESCE($9, room_number),
+                            emergency_contact = COALESCE($10, emergency_contact),
+                            guardian_contact = COALESCE($11, guardian_contact),
+                            photo_reference = COALESCE($12, photo_reference),
+                            nationality = COALESCE($13, nationality),
+                            gov_id_type = COALESCE($14, gov_id_type),
+                            gov_id_number = COALESCE($15, gov_id_number),
                             updated_at = now()
                         WHERE user_id = $1
                         """,
@@ -575,7 +638,9 @@ class UserService:
                         dept_uuid,
                         p.course,
                         p.semester,
+                        p.batch,
                         hostel_uuid,
+                        p.room_number,
                         p.emergency_contact,
                         p.guardian_contact,
                         p.photo_reference,
@@ -591,8 +656,10 @@ class UserService:
                             employee_id = COALESCE($3, employee_id),
                             department_id = COALESCE($4, department_id),
                             designation = COALESCE($5, designation),
-                            emergency_contact = COALESCE($6, emergency_contact),
-                            photo_reference = COALESCE($7, photo_reference),
+                            courses = COALESCE($6, courses),
+                            assigned_students = COALESCE($7, assigned_students),
+                            emergency_contact = COALESCE($8, emergency_contact),
+                            photo_reference = COALESCE($9, photo_reference),
                             updated_at = now()
                         WHERE user_id = $1
                         """,
@@ -601,6 +668,8 @@ class UserService:
                         p.employee_id,
                         dept_uuid,
                         p.designation,
+                        p.courses,
+                        p.assigned_students,
                         p.emergency_contact,
                         p.photo_reference,
                     )
@@ -612,8 +681,12 @@ class UserService:
                             employee_id = COALESCE($3, employee_id),
                             department_id = COALESCE($4, department_id),
                             designation = COALESCE($5, designation),
-                            emergency_contact = COALESCE($6, emergency_contact),
-                            photo_reference = COALESCE($7, photo_reference),
+                            job_type = COALESCE($6, job_type),
+                            work_area = COALESCE($7, work_area),
+                            shift = COALESCE($8, shift),
+                            assigned_location_id = COALESCE($9, assigned_location_id),
+                            emergency_contact = COALESCE($10, emergency_contact),
+                            photo_reference = COALESCE($11, photo_reference),
                             updated_at = now()
                         WHERE user_id = $1
                         """,
@@ -622,6 +695,10 @@ class UserService:
                         p.employee_id,
                         dept_uuid,
                         p.designation,
+                        p.job_type,
+                        p.work_area,
+                        p.shift,
+                        loc_uuid,
                         p.emergency_contact,
                         p.photo_reference,
                     )
@@ -633,9 +710,10 @@ class UserService:
                             gov_id_type = COALESCE($3, gov_id_type),
                             gov_id_number = COALESCE($4, gov_id_number),
                             visit_purpose = COALESCE($5, visit_purpose),
-                            host_contact = COALESCE($6, host_contact),
-                            visit_duration_days = COALESCE($7, visit_duration_days),
-                            photo_reference = COALESCE($8, photo_reference),
+                            host_person = COALESCE($6, host_person),
+                            host_contact = COALESCE($7, host_contact),
+                            visit_duration_days = COALESCE($8, visit_duration_days),
+                            photo_reference = COALESCE($9, photo_reference),
                             updated_at = now()
                         WHERE user_id = $1
                         """,
@@ -644,9 +722,32 @@ class UserService:
                         p.gov_id_type,
                         p.gov_id_number,
                         p.visit_purpose,
+                        p.host_person,
                         p.host_contact,
                         p.visit_duration_days,
                         p.photo_reference,
+                    )
+
+                has_warden_role = user_type == "warden" or any(
+                    role.upper() == "WARDEN" for role in current_user.roles
+                )
+                is_warden_assignment = (
+                    p.hostel_block is not None or p.warden_responsibilities is not None
+                )
+                if has_warden_role or is_warden_assignment:
+                    await conn.execute(
+                        """
+                        INSERT INTO warden_profiles (
+                            user_id, hostel_id, hostel_block, responsibilities, emergency_contact, updated_at
+                        ) VALUES ($1, $2, $3, COALESCE($4, 'Hostel Caretaker & Disciplinary Warden'), $5, now())
+                        ON CONFLICT (user_id) DO UPDATE SET
+                            hostel_id = COALESCE(EXCLUDED.hostel_id, warden_profiles.hostel_id),
+                            hostel_block = COALESCE(EXCLUDED.hostel_block, warden_profiles.hostel_block),
+                            responsibilities = COALESCE($4, warden_profiles.responsibilities),
+                            emergency_contact = COALESCE(EXCLUDED.emergency_contact, warden_profiles.emergency_contact),
+                            updated_at = now()
+                        """,
+                        user_id, hostel_uuid, p.hostel_block, p.warden_responsibilities, p.emergency_contact,
                     )
 
         updated_user = await self.get_by_id(conn, user_id)

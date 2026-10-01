@@ -1,9 +1,14 @@
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { useLiveFaceInference } from '@/hooks/useLiveFaceInference'
-import { Loader2, VideoOff } from 'lucide-react'
+import React, {
+  useRef,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import { useLiveFaceInference } from "@/hooks/useLiveFaceInference";
+import { Loader2, VideoOff } from "lucide-react";
 
 export const FaceWideCamera = forwardRef((_props, ref) => {
-  const videoRef = useRef(null)
+  const videoRef = useRef(null);
   const {
     isStreaming,
     error,
@@ -12,19 +17,18 @@ export const FaceWideCamera = forwardRef((_props, ref) => {
     frameSize,
     startStream,
     stopStream,
-    captureInferenceImage
-  } = useLiveFaceInference(videoRef, 'multi_recognition')
-
+    captureInferenceImage,
+  } = useLiveFaceInference(videoRef, "multi_recognition");
   useImperativeHandle(ref, () => ({
-    capture: captureInferenceImage
-  }))
+    capture: captureInferenceImage,
+  }));
 
   useEffect(() => {
-    startStream()
+    startStream();
     return () => {
-      stopStream()
-    }
-  }, [startStream, stopStream])
+      stopStream();
+    };
+  }, [startStream, stopStream]);
 
   return (
     <div className="relative w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden shadow-inner border border-slate-700">
@@ -39,9 +43,15 @@ export const FaceWideCamera = forwardRef((_props, ref) => {
       {/* Offline overlay */}
       {!isStreaming && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white backdrop-blur-sm">
-          {!error && !wsError && <Loader2 className="animate-spin mb-2" size={32} />}
-          {(error || wsError) && <VideoOff className="mb-2 text-red-400" size={48} />}
-          <p className="text-sm font-medium">{error || wsError || 'Starting Camera...'}</p>
+          {!error && !wsError && (
+            <Loader2 className="animate-spin mb-2" size={32} />
+          )}
+          {(error || wsError) && (
+            <VideoOff className="mb-2 text-red-400" size={48} />
+          )}
+          <p className="text-sm font-medium">
+            {error || wsError || "Starting Camera..."}
+          </p>
         </div>
       )}
 
@@ -65,7 +75,9 @@ export const FaceWideCamera = forwardRef((_props, ref) => {
                   strokeWidth="3"
                   rx="4"
                 />
-                <g transform={`translate(${frameSize.width - face.bbox[0]}, ${face.bbox[1] - 8}) scale(-1, 1)`}>
+                <g
+                  transform={`translate(${frameSize.width - face.bbox[0]}, ${face.bbox[1] - 8}) scale(-1, 1)`}
+                >
                   <text
                     x="0"
                     y="0"
@@ -73,7 +85,7 @@ export const FaceWideCamera = forwardRef((_props, ref) => {
                     fontSize="16"
                     fontWeight="bold"
                     fontFamily="sans-serif"
-                    style={{ textShadow: '1px 1px 2px black' }}
+                    style={{ textShadow: "1px 1px 2px black" }}
                   >
                     Live: {(face.liveness_score * 100).toFixed(0)}%
                   </text>
@@ -95,9 +107,9 @@ export const FaceWideCamera = forwardRef((_props, ref) => {
         </div>
       )}
     </div>
-  )
-})
+  );
+});
 
-FaceWideCamera.displayName = 'FaceWideCamera'
+FaceWideCamera.displayName = "FaceWideCamera";
 
-export default FaceWideCamera
+export default FaceWideCamera;

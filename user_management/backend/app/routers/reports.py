@@ -27,7 +27,6 @@ async def export_events_csv(
         LEFT JOIN worker_profiles p_wor ON u.id = p_wor.user_id
         LEFT JOIN visitor_profiles p_vis ON u.id = p_vis.user_id
     """
-    
     if only_denied:
         query += " WHERE e.status = 'DENIED'"
         

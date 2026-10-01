@@ -132,26 +132,46 @@ async def get_current_user_profile(
         }
 
     # Role-specific profiles
-    sp = await conn.fetchrow(
-        "SELECT sp.*, h.name as hostel_name, d.name as department_name FROM student_profiles sp LEFT JOIN hostels h ON h.id = sp.hostel_id LEFT JOIN departments d ON d.id = sp.department_id WHERE sp.user_id = $1",
-        user_id,
-    )
-    fp = await conn.fetchrow(
-        "SELECT fp.*, d.name as department_name FROM faculty_profiles fp LEFT JOIN departments d ON d.id = fp.department_id WHERE fp.user_id = $1",
-        user_id,
-    )
-    warden = await conn.fetchrow(
-        "SELECT wp.*, h.name as hostel_name FROM warden_profiles wp LEFT JOIN hostels h ON h.id = wp.hostel_id WHERE wp.user_id = $1",
-        user_id,
-    )
-    wp = await conn.fetchrow(
-        "SELECT wp.*, d.name as department_name, l.name as location_name FROM worker_profiles wp LEFT JOIN departments d ON d.id = wp.department_id LEFT JOIN locations l ON l.id = wp.assigned_location_id WHERE wp.user_id = $1",
-        user_id,
-    )
-    vp = await conn.fetchrow(
-        "SELECT * FROM visitor_profiles WHERE user_id = $1",
-        user_id,
-    )
+    sp = fp = warden = wp = vp = None
+    try:
+        sp = await conn.fetchrow(
+            "SELECT sp.*, h.name as hostel_name, d.name as department_name FROM student_profiles sp LEFT JOIN hostels h ON h.id = sp.hostel_id LEFT JOIN departments d ON d.id = sp.department_id WHERE sp.user_id = $1",
+            user_id,
+        )
+    except Exception as e:
+        logger.warning("Could not fetch student_profiles for %s: %s", user_id, e)
+
+    try:
+        fp = await conn.fetchrow(
+            "SELECT fp.*, d.name as department_name FROM faculty_profiles fp LEFT JOIN departments d ON d.id = fp.department_id WHERE fp.user_id = $1",
+            user_id,
+        )
+    except Exception as e:
+        logger.warning("Could not fetch faculty_profiles for %s: %s", user_id, e)
+
+    try:
+        warden = await conn.fetchrow(
+            "SELECT wp.*, h.name as hostel_name FROM warden_profiles wp LEFT JOIN hostels h ON h.id = wp.hostel_id WHERE wp.user_id = $1",
+            user_id,
+        )
+    except Exception as e:
+        logger.warning("Could not fetch warden_profiles for %s: %s", user_id, e)
+
+    try:
+        wp = await conn.fetchrow(
+            "SELECT wp.*, d.name as department_name, l.name as location_name FROM worker_profiles wp LEFT JOIN departments d ON d.id = wp.department_id LEFT JOIN locations l ON l.id = wp.assigned_location_id WHERE wp.user_id = $1",
+            user_id,
+        )
+    except Exception as e:
+        logger.warning("Could not fetch worker_profiles for %s: %s", user_id, e)
+
+    try:
+        vp = await conn.fetchrow(
+            "SELECT * FROM visitor_profiles WHERE user_id = $1",
+            user_id,
+        )
+    except Exception as e:
+        logger.warning("Could not fetch visitor_profiles for %s: %s", user_id, e)
 
     role_profiles = {}
     if sp:

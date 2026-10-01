@@ -26,7 +26,6 @@ class DashboardService:
             FROM users
             """
         )
-
         rfid_row = await conn.fetchrow(
             """
             SELECT

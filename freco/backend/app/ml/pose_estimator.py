@@ -12,8 +12,7 @@ def estimate_pose(landmarks: np.ndarray) -> str:
     
     eye_width = eye_max_x - eye_min_x
     if eye_width <= 0:
-        return "unknown"
-        
+        return "unknown"   
     h_ratio = (nose[0] - eye_min_x) / eye_width
     
     eye_midpoint_y = (left_eye[1] + right_eye[1]) / 2.0

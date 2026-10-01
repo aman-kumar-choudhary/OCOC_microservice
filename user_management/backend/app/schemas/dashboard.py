@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List
 from pydantic import BaseModel
 
-
 class Overview(BaseModel):
     total_users: int
     active_users: int

@@ -7,7 +7,6 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
 from app.config import settings
 import asyncio
 from app.core.database import close_db, init_db, run_migrations, get_db_pool

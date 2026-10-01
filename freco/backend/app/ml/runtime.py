@@ -8,7 +8,6 @@ import onnxruntime as ort
 
 from app.config import settings
 
-
 class GpuUnavailableError(RuntimeError):
     """Raised when CUDA was explicitly required but is not usable."""
 

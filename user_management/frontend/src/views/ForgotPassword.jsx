@@ -1,114 +1,128 @@
-import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import api from '@/services/api'
-import PasswordStrengthMeter from '@/components/PasswordStrengthMeter'
-import LegalModal from '@/components/LegalModal'
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import api from "@/services/api";
+import PasswordStrengthMeter from "@/components/PasswordStrengthMeter";
+import LegalModal from "@/components/LegalModal";
 import {
-  Mail, KeyRound, Lock, Loader2, ArrowLeft, CheckCircle2,
-  ShieldCheck, ArrowRight, RotateCcw, Eye, EyeOff, Shield
-} from 'lucide-react'
-
+  Mail,
+  KeyRound,
+  Lock,
+  Loader2,
+  ArrowLeft,
+  CheckCircle2,
+  ShieldCheck,
+  ArrowRight,
+  RotateCcw,
+  Eye,
+  EyeOff,
+  Shield,
+} from "lucide-react";
 export const ForgotPassword = () => {
-  const [step, setStep] = useState(1)
-  const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState('')
-  const [resetToken, setResetToken] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [legalModalOpen, setLegalModalOpen] = useState(false)
-  const [legalModalTab, setLegalModalTab] = useState('terms')
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState("terms");
 
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [formReady, setFormReady] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formReady, setFormReady] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setFormReady(true), 50)
-    return () => clearTimeout(timer)
-  }, [])
+    const timer = setTimeout(() => setFormReady(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   const stepLabel = () => {
     switch (step) {
       case 1:
-        return 'Verify Email'
+        return "Verify Email";
       case 2:
-        return 'Enter OTP'
+        return "Enter OTP";
       case 3:
-        return 'New Password'
+        return "New Password";
       case 4:
-        return 'Complete'
+        return "Complete";
       default:
-        return ''
+        return "";
     }
-  }
+  };
 
-  const stepProgress = Math.min(step, 3)
+  const stepProgress = Math.min(step, 3);
 
   const requestOTP = async (e) => {
-    if (e) e.preventDefault()
-    if (!email) return
-    setIsLoading(true)
-    setError('')
+    if (e) e.preventDefault();
+    if (!email) return;
+    setIsLoading(true);
+    setError("");
     try {
-      await api.post('/auth/forgot-password', { email })
-      setStep(2)
+      await api.post("/auth/forgot-password", { email });
+      setStep(2);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Failed to request OTP')
+      setError(err.response?.data?.error?.message || "Failed to request OTP");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const verifyOTP = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!otp || otp.length !== 6) {
-      setError('Please enter a valid 6-digit OTP')
-      return
+      setError("Please enter a valid 6-digit OTP");
+      return;
     }
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError("");
     try {
-      const { data } = await api.post('/auth/verify-otp', { email, otp })
-      setResetToken(data.data.reset_token)
-      setStep(3)
+      const { data } = await api.post("/auth/verify-otp", { email, otp });
+      setResetToken(data.data.reset_token);
+      setStep(3);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Invalid OTP')
+      setError(err.response?.data?.error?.message || "Invalid OTP");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const resetPassword = async (e) => {
-    e.preventDefault()
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,128}$/
+    e.preventDefault();
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,128}$/;
     if (!passwordRegex.test(newPassword)) {
-      setError('Password must be 8-128 chars, with uppercase, lowercase, number, and special symbol.')
-      return
+      setError(
+        "Password must be 8-128 chars, with uppercase, lowercase, number, and special symbol.",
+      );
+      return;
     }
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match')
-      return
+      setError("Passwords do not match");
+      return;
     }
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError("");
     try {
-      await api.post('/auth/reset-password', {
+      await api.post("/auth/reset-password", {
         email,
         reset_token: resetToken,
-        new_password: newPassword
-      })
-      setStep(4)
+        new_password: newPassword,
+      });
+      setStep(4);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Failed to reset password')
+      setError(
+        err.response?.data?.error?.message || "Failed to reset password",
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className={`forgot-view ${formReady ? 'is-ready' : ''}`}>
+    <div className={`forgot-view ${formReady ? "is-ready" : ""}`}>
       {/* Top bar: Back + Step indicator */}
       <div className="forgot-topbar">
         <Link id="back-to-login" to="/login" className="forgot-back">
@@ -154,7 +168,9 @@ export const ForgotPassword = () => {
             </div>
             <h2 className="step-title">Reset Password</h2>
             <p className="step-desc">
-              Enter your registered university email address. If an active account matches, we'll send a 6-digit one-time password (OTP) valid for 10 minutes.
+              Enter your registered university email address. If an active
+              account matches, we'll send a 6-digit one-time password (OTP)
+              valid for 10 minutes.
             </p>
           </div>
 
@@ -180,7 +196,12 @@ export const ForgotPassword = () => {
             </div>
           </div>
 
-          <button id="forgot-submit-email" type="submit" className="forgot-btn" disabled={isLoading}>
+          <button
+            id="forgot-submit-email"
+            type="submit"
+            className="forgot-btn"
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="animate-spin" size={18} />
@@ -205,7 +226,8 @@ export const ForgotPassword = () => {
             </div>
             <h2 className="step-title">Check Your Email</h2>
             <p className="step-desc">
-              We've sent a 6-digit OTP to <strong>{email}</strong>. It expires in 10 minutes.
+              We've sent a 6-digit OTP to <strong>{email}</strong>. It expires
+              in 10 minutes.
             </p>
           </div>
 
@@ -232,7 +254,12 @@ export const ForgotPassword = () => {
             </div>
           </div>
 
-          <button id="forgot-submit-otp" type="submit" className="forgot-btn" disabled={isLoading}>
+          <button
+            id="forgot-submit-otp"
+            type="submit"
+            className="forgot-btn"
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="animate-spin" size={18} />
@@ -260,14 +287,19 @@ export const ForgotPassword = () => {
 
       {/* ═══ Step 3: New Password ═══ */}
       {step === 3 && (
-        <form id="forgot-step3" onSubmit={resetPassword} className="forgot-step">
+        <form
+          id="forgot-step3"
+          onSubmit={resetPassword}
+          className="forgot-step"
+        >
           <div className="step-header">
             <div className="step-icon-wrap step-icon-lock">
               <Lock size={24} />
             </div>
             <h2 className="step-title">Create New Password</h2>
             <p className="step-desc">
-              Your new password must be at least 8 characters long and should be different from your previous password.
+              Your new password must be at least 8 characters long and should be
+              different from your previous password.
             </p>
           </div>
 
@@ -283,7 +315,7 @@ export const ForgotPassword = () => {
                 id="forgot-new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                type={showNewPassword ? 'text' : 'password'}
+                type={showNewPassword ? "text" : "password"}
                 required
                 minLength={8}
                 maxLength={128}
@@ -297,7 +329,7 @@ export const ForgotPassword = () => {
                 className="field-toggle"
                 onClick={() => setShowNewPassword(!showNewPassword)}
                 tabIndex={-1}
-                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                aria-label={showNewPassword ? "Hide password" : "Show password"}
               >
                 {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -316,7 +348,7 @@ export const ForgotPassword = () => {
                 id="forgot-confirm-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? "text" : "password"}
                 required
                 minLength={8}
                 className="field-input"
@@ -329,7 +361,9 @@ export const ForgotPassword = () => {
                 className="field-toggle"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 tabIndex={-1}
-                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                aria-label={
+                  showConfirmPassword ? "Hide password" : "Show password"
+                }
               >
                 {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -337,9 +371,17 @@ export const ForgotPassword = () => {
           </div>
 
           {/* Password Strength Meter & Real-Time Checklist */}
-          <PasswordStrengthMeter password={newPassword} confirmPassword={confirmPassword} />
+          <PasswordStrengthMeter
+            password={newPassword}
+            confirmPassword={confirmPassword}
+          />
 
-          <button id="forgot-submit-password" type="submit" className="forgot-btn" disabled={isLoading}>
+          <button
+            id="forgot-submit-password"
+            type="submit"
+            className="forgot-btn"
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="animate-spin" size={18} />
@@ -364,7 +406,9 @@ export const ForgotPassword = () => {
             </div>
           </div>
           <h2 className="step-title text-center">Password Reset Complete</h2>
-          <p className="step-desc text-center">You can now sign in with your new password.</p>
+          <p className="step-desc text-center">
+            You can now sign in with your new password.
+          </p>
           <Link to="/login" className="forgot-btn no-underline">
             <span>Go to Login</span>
             <ArrowRight size={18} className="forgot-btn-arrow" />
@@ -377,14 +421,33 @@ export const ForgotPassword = () => {
         <ShieldCheck size={14} className="forgot-trust-icon" />
         <span>Secured by Keycloak SSO · TLS Encrypted</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '12px', fontSize: '11px', color: '#8795a8' }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px",
+          marginTop: "12px",
+          fontSize: "11px",
+          color: "#8795a8",
+        }}
+      >
         <button
           type="button"
           onClick={() => {
-            setLegalModalTab('terms')
-            setLegalModalOpen(true)
+            setLegalModalTab("terms");
+            setLegalModalOpen(true);
           }}
-          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            color: "#8795a8",
+            textDecoration: "underline",
+            fontWeight: 500,
+            cursor: "pointer",
+            fontSize: "11px",
+          }}
         >
           Terms &amp; Conditions
         </button>
@@ -392,15 +455,31 @@ export const ForgotPassword = () => {
         <button
           type="button"
           onClick={() => {
-            setLegalModalTab('privacy')
-            setLegalModalOpen(true)
+            setLegalModalTab("privacy");
+            setLegalModalOpen(true);
           }}
-          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            color: "#8795a8",
+            textDecoration: "underline",
+            fontWeight: 500,
+            cursor: "pointer",
+            fontSize: "11px",
+          }}
         >
           Privacy Policy
         </button>
         <span>·</span>
-        <Link to="/login" style={{ color: '#8795a8', textDecoration: 'underline', fontWeight: 500 }}>
+        <Link
+          to="/login"
+          style={{
+            color: "#8795a8",
+            textDecoration: "underline",
+            fontWeight: 500,
+          }}
+        >
           Back to Sign In
         </Link>
       </div>
@@ -412,7 +491,7 @@ export const ForgotPassword = () => {
         initialTab={legalModalTab}
       />
     </div>
-  )
-}
+  );
+};
 
-export default ForgotPassword
+export default ForgotPassword;

@@ -15,7 +15,6 @@ import psutil
 
 logger = logging.getLogger(__name__)
 
-
 def _gpu_memory_used_mb() -> float | None:
     """Total device VRAM in use; only used as a load-time delta."""
     try:

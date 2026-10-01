@@ -10,7 +10,6 @@ from app.services.audit_service import audit_service
 
 logger = logging.getLogger(__name__)
 
-
 class FaceAuthService:
     async def create_log(
         self,

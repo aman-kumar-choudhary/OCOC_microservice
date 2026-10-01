@@ -4,7 +4,6 @@ import {
   CheckCircle2, AlertTriangle, Building, Phone, QrCode
 } from 'lucide-react'
 import dsvvLogo from '@/assets/Dsvv.png'
-
 export const DigitalGatePassModal = ({ isOpen, onClose, passData }) => {
   if (!isOpen || !passData) return null
 

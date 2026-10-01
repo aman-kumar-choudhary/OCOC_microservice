@@ -1,32 +1,41 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
-  X, MapPin, Shield, Calendar, Clock, ChevronRight, Check,
-  AlertCircle, Loader2, Sparkles, Building2, Layers
-} from 'lucide-react'
-import accessService from '@/services/accessService'
-
+  X,
+  MapPin,
+  Shield,
+  Calendar,
+  Clock,
+  ChevronRight,
+  Check,
+  AlertCircle,
+  Loader2,
+  Sparkles,
+  Building2,
+  Layers,
+} from "lucide-react";
+import accessService from "@/services/accessService";
 const ACCESS_LEVEL_INFO = {
   ENTRY: {
-    label: 'Entry Access',
-    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    desc: 'Authorized to tap card/face for RFID gate entry & door unlocks'
+    label: "Entry Access",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    desc: "Authorized to tap card/face for RFID gate entry & door unlocks",
   },
   VIEW: {
-    label: 'View Only',
-    badge: 'bg-blue-50 text-blue-700 border-blue-200',
-    desc: 'Read-only access to location status, occupancy, and public areas'
+    label: "View Only",
+    badge: "bg-blue-50 text-blue-700 border-blue-200",
+    desc: "Read-only access to location status, occupancy, and public areas",
   },
   MANAGE: {
-    label: 'Manager',
-    badge: 'bg-amber-50 text-amber-700 border-amber-200',
-    desc: 'Operate area, approve student movement/leaves, manage passes'
+    label: "Manager",
+    badge: "bg-amber-50 text-amber-700 border-amber-200",
+    desc: "Operate area, approve student movement/leaves, manage passes",
   },
   ADMIN: {
-    label: 'Admin',
-    badge: 'bg-purple-50 text-purple-700 border-purple-200',
-    desc: 'Full administrative control over devices, rules, and sub-locations'
-  }
-}
+    label: "Admin",
+    badge: "bg-purple-50 text-purple-700 border-purple-200",
+    desc: "Full administrative control over devices, rules, and sub-locations",
+  },
+};
 
 export const AssignAccessModal = ({
   isOpen,
@@ -34,126 +43,135 @@ export const AssignAccessModal = ({
   user,
   locations = [],
   locationTree = [],
-  onSuccess
+  onSuccess,
 }) => {
-  const [selectedLocationId, setSelectedLocationId] = useState('')
-  const [accessLevel, setAccessLevel] = useState('ENTRY')
-  const [isTemporary, setIsTemporary] = useState(false)
-  const [validFrom, setValidFrom] = useState('')
-  const [validUntil, setValidUntil] = useState('')
-  const [reason, setReason] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [locationSearch, setLocationSearch] = useState('')
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [accessLevel, setAccessLevel] = useState("ENTRY");
+  const [isTemporary, setIsTemporary] = useState(false);
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
 
   // Flattened tree with indent & paths
-  const [flattenedLocations, setFlattenedLocations] = useState([])
+  const [flattenedLocations, setFlattenedLocations] = useState([]);
 
   useEffect(() => {
     if (!isOpen) {
       // reset form
-      setSelectedLocationId('')
-      setAccessLevel('ENTRY')
-      setIsTemporary(false)
-      setValidFrom('')
-      setValidUntil('')
-      setReason('')
-      setError('')
-      setLocationSearch('')
-      return
+      setSelectedLocationId("");
+      setAccessLevel("ENTRY");
+      setIsTemporary(false);
+      setValidFrom("");
+      setValidUntil("");
+      setReason("");
+      setError("");
+      setLocationSearch("");
+      return;
     }
 
     // Build flattened location list from locationTree or flat locations
     if (locationTree && locationTree.length > 0) {
-      const list = []
-      const walk = (nodes, depth = 0, path = '') => {
-        nodes.forEach(node => {
-          const currentPath = path ? `${path} > ${node.name}` : node.name
+      const list = [];
+      const walk = (nodes, depth = 0, path = "") => {
+        nodes.forEach((node) => {
+          const currentPath = path ? `${path} > ${node.name}` : node.name;
           list.push({
             id: node.id,
             name: node.name,
             type: node.type,
             depth,
             path: currentPath,
-            childrenCount: node.children ? node.children.length : 0
-          })
+            childrenCount: node.children ? node.children.length : 0,
+          });
           if (node.children && node.children.length > 0) {
-            walk(node.children, depth + 1, currentPath)
+            walk(node.children, depth + 1, currentPath);
           }
-        })
-      }
-      walk(locationTree)
-      setFlattenedLocations(list)
+        });
+      };
+      walk(locationTree);
+      setFlattenedLocations(list);
     } else if (locations && locations.length > 0) {
       setFlattenedLocations(
-        locations.map(loc => ({
+        locations.map((loc) => ({
           id: loc.id,
           name: loc.name,
           type: loc.type,
           depth: 0,
           path: loc.name,
-          childrenCount: 0
-        }))
-      )
+          childrenCount: 0,
+        })),
+      );
     }
-  }, [isOpen, locationTree, locations])
+  }, [isOpen, locationTree, locations]);
 
-  if (!isOpen || !user) return null
+  if (!isOpen || !user) return null;
 
   // Quick preset helper for temporary valid_until
   const applyPreset = (hours) => {
-    setIsTemporary(true)
-    const now = new Date()
-    const fromStr = now.toISOString().slice(0, 16)
-    setValidFrom(fromStr)
+    setIsTemporary(true);
+    const now = new Date();
+    const fromStr = now.toISOString().slice(0, 16);
+    setValidFrom(fromStr);
 
-    const until = new Date(now.getTime() + hours * 3600 * 1000)
-    setValidUntil(until.toISOString().slice(0, 16))
-  }
+    const until = new Date(now.getTime() + hours * 3600 * 1000);
+    setValidUntil(until.toISOString().slice(0, 16));
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!selectedLocationId) {
-      setError('Please select a location.')
-      return
+      setError("Please select a location.");
+      return;
     }
     if (isTemporary && !validUntil) {
-      setError('Please provide an expiration date/time for temporary access.')
-      return
+      setError("Please provide an expiration date/time for temporary access.");
+      return;
     }
 
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
       await accessService.createLocationGrant({
         user_id: user.id,
         location_id: selectedLocationId,
         access_level: accessLevel,
-        valid_from: isTemporary && validFrom ? new Date(validFrom).toISOString() : null,
-        valid_until: isTemporary && validUntil ? new Date(validUntil).toISOString() : null,
-        reason: reason.trim() || 'Assigned via Access Management console'
-      })
+        valid_from:
+          isTemporary && validFrom ? new Date(validFrom).toISOString() : null,
+        valid_until:
+          isTemporary && validUntil ? new Date(validUntil).toISOString() : null,
+        reason: reason.trim() || "Assigned via Access Management console",
+      });
 
-      if (onSuccess) onSuccess()
-      onClose()
+      if (onSuccess) onSuccess();
+      onClose();
     } catch (err) {
-      const msg = err.response?.data?.error?.message || err.message || 'Failed to grant access.'
-      setError(msg)
+      const msg =
+        err.response?.data?.error?.message ||
+        err.message ||
+        "Failed to grant access.";
+      setError(msg);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const normalizedLocationSearch = locationSearch.trim().toLocaleLowerCase()
-  const filteredLocations = flattenedLocations.filter(loc => {
-    if (!normalizedLocationSearch) return true
+  const normalizedLocationSearch = locationSearch.trim().toLocaleLowerCase();
+  const filteredLocations = flattenedLocations.filter((loc) => {
+    if (!normalizedLocationSearch) return true;
     // Match location name, type, and full path so nested locations remain easy to find.
     return [loc.name, loc.type, loc.path]
       .filter(Boolean)
-      .some(value => value.toLocaleLowerCase().includes(normalizedLocationSearch))
-  })
+      .some((value) =>
+        value.toLocaleLowerCase().includes(normalizedLocationSearch),
+      );
+  });
 
-  const selectedLoc = flattenedLocations.find(l => l.id === selectedLocationId)
+  const selectedLoc = flattenedLocations.find(
+    (l) => l.id === selectedLocationId,
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -172,9 +190,14 @@ export const AssignAccessModal = ({
               <Shield size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-[var(--color-navy)]">Assign Location Access</h2>
+              <h2 className="text-lg font-extrabold text-[var(--color-navy)]">
+                Assign Location Access
+              </h2>
               <p className="text-xs text-[var(--text-muted)]">
-                Grant facility, building, hostel or gate access for <span className="font-semibold text-slate-800">{user.full_name || user.email}</span>
+                Grant facility, building, hostel or gate access for{" "}
+                <span className="font-semibold text-slate-800">
+                  {user.full_name || user.email}
+                </span>
               </p>
             </div>
           </div>
@@ -187,7 +210,10 @@ export const AssignAccessModal = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto p-6 space-y-5"
+        >
           {error && (
             <div className="flex items-center gap-2 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
               <AlertCircle size={18} className="shrink-0" />
@@ -199,16 +225,20 @@ export const AssignAccessModal = ({
           <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-[#0a2342] text-white flex items-center justify-center font-bold text-xs">
-                {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
+                {(user.full_name || user.email || "U").charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="font-bold text-slate-800">{user.full_name || 'Unnamed User'}</p>
-                <p className="text-[var(--text-muted)]">{user.email} • ID: {user.university_id || 'N/A'}</p>
+                <p className="font-bold text-slate-800">
+                  {user.full_name || "Unnamed User"}
+                </p>
+                <p className="text-[var(--text-muted)]">
+                  {user.email} • ID: {user.university_id || "N/A"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] bg-slate-200 text-slate-700">
-                {user.user_type || 'User'}
+                {user.user_type || "User"}
               </span>
             </div>
           </div>
@@ -216,7 +246,9 @@ export const AssignAccessModal = ({
           {/* Location Selector */}
           <div>
             <label className="form-label flex items-center justify-between text-xs font-bold text-slate-700 mb-1.5">
-              <span>Location / Facility <span className="text-rose-500">*</span></span>
+              <span>
+                Location / Facility <span className="text-rose-500">*</span>
+              </span>
               {selectedLoc && (
                 <span className="text-[11px] font-normal text-amber-700 flex items-center gap-1">
                   <Sparkles size={12} /> Cascades to all child areas
@@ -233,7 +265,10 @@ export const AssignAccessModal = ({
                 onChange={(e) => setLocationSearch(e.target.value)}
                 className="w-full text-xs py-2 pl-8 pr-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
               />
-              <MapPin size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+              <MapPin
+                size={14}
+                className="absolute left-2.5 top-2.5 text-slate-400"
+              />
             </div>
 
             {/* Select Dropdown */}
@@ -244,12 +279,15 @@ export const AssignAccessModal = ({
               size={Math.min(6, Math.max(3, filteredLocations.length + 1))}
               className="w-full rounded-xl border border-[var(--border-light)] p-2 text-xs font-medium focus:ring-2 focus:ring-amber-500 bg-white"
             >
-              <option value="" disabled>-- Select a target location --</option>
+              <option value="" disabled>
+                -- Select a target location --
+              </option>
               {filteredLocations.map((loc) => (
                 <option key={loc.id} value={loc.id} className="py-1 px-2">
-                  {'\u00A0\u00A0'.repeat(loc.depth)}
-                  {loc.depth > 0 ? '↳ ' : '🏛 '}
-                  {loc.name} ({loc.type}) {loc.childrenCount > 0 ? `[+${loc.childrenCount} areas]` : ''}
+                  {"\u00A0\u00A0".repeat(loc.depth)}
+                  {loc.depth > 0 ? "↳ " : "🏛 "}
+                  {loc.name} ({loc.type}){" "}
+                  {loc.childrenCount > 0 ? `[+${loc.childrenCount} areas]` : ""}
                 </option>
               ))}
             </select>
@@ -257,7 +295,10 @@ export const AssignAccessModal = ({
             {selectedLoc && (
               <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
                 <ChevronRight size={13} className="text-amber-500 shrink-0" />
-                Selected Path: <span className="font-semibold text-slate-700">{selectedLoc.path}</span>
+                Selected Path:{" "}
+                <span className="font-semibold text-slate-700">
+                  {selectedLoc.path}
+                </span>
               </p>
             )}
           </div>
@@ -269,7 +310,7 @@ export const AssignAccessModal = ({
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {Object.entries(ACCESS_LEVEL_INFO).map(([key, info]) => {
-                const isSelected = accessLevel === key
+                const isSelected = accessLevel === key;
                 return (
                   <button
                     type="button"
@@ -277,24 +318,28 @@ export const AssignAccessModal = ({
                     onClick={() => setAccessLevel(key)}
                     className={`text-left p-3 rounded-xl border transition relative flex flex-col justify-between ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                        ? "border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] border font-bold ${info.badge}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] border font-bold ${info.badge}`}
+                        >
                           {key}
                         </span>
                         {info.label}
                       </span>
-                      {isSelected && <Check size={16} className="text-amber-600 shrink-0" />}
+                      {isSelected && (
+                        <Check size={16} className="text-amber-600 shrink-0" />
+                      )}
                     </div>
                     <p className="text-[11px] text-[var(--text-muted)] line-clamp-2">
                       {info.desc}
                     </p>
                   </button>
-                )
+                );
               })}
             </div>
           </div>
@@ -312,8 +357,8 @@ export const AssignAccessModal = ({
                   onClick={() => setIsTemporary(false)}
                   className={`px-3 py-1 rounded-lg font-bold border transition ${
                     !isTemporary
-                      ? 'bg-white border-amber-500 text-slate-800 shadow-sm'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                      ? "bg-white border-amber-500 text-slate-800 shadow-sm"
+                      : "border-transparent text-slate-500 hover:text-slate-700"
                   }`}
                 >
                   Permanent
@@ -321,13 +366,13 @@ export const AssignAccessModal = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setIsTemporary(true)
-                    if (!validUntil) applyPreset(24)
+                    setIsTemporary(true);
+                    if (!validUntil) applyPreset(24);
                   }}
                   className={`px-3 py-1 rounded-lg font-bold border transition ${
                     isTemporary
-                      ? 'bg-white border-amber-500 text-slate-800 shadow-sm'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                      ? "bg-white border-amber-500 text-slate-800 shadow-sm"
+                      : "border-transparent text-slate-500 hover:text-slate-700"
                   }`}
                 >
                   Temporary / Expiring
@@ -339,13 +384,15 @@ export const AssignAccessModal = ({
               <div className="space-y-3 pt-2 border-t border-slate-200 animate-fade-in">
                 {/* Presets */}
                 <div className="flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[11px] text-slate-500 mr-1 font-semibold">Quick Presets:</span>
+                  <span className="text-[11px] text-slate-500 mr-1 font-semibold">
+                    Quick Presets:
+                  </span>
                   {[
-                    { label: '+4 Hours', hours: 4 },
-                    { label: '+24 Hours', hours: 24 },
-                    { label: '+7 Days', hours: 168 },
-                    { label: '+30 Days', hours: 720 },
-                    { label: '+1 Semester (120d)', hours: 2880 }
+                    { label: "+4 Hours", hours: 4 },
+                    { label: "+24 Hours", hours: 24 },
+                    { label: "+7 Days", hours: 168 },
+                    { label: "+30 Days", hours: 720 },
+                    { label: "+1 Semester (120d)", hours: 2880 },
                   ].map((preset) => (
                     <button
                       key={preset.label}
@@ -372,7 +419,8 @@ export const AssignAccessModal = ({
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                      Valid Until (Expiration) <span className="text-rose-500">*</span>
+                      Valid Until (Expiration){" "}
+                      <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="datetime-local"
@@ -418,13 +466,17 @@ export const AssignAccessModal = ({
             disabled={loading || !selectedLocationId}
             className="btn btn-primary text-xs"
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
+            {loading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Shield size={16} />
+            )}
             Grant Access
           </button>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default AssignAccessModal
+export default AssignAccessModal;

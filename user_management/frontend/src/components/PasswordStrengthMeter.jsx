@@ -1,53 +1,64 @@
-import React from 'react'
-import { CheckCircle2, Circle, ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
+import React from "react";
+import {
+  CheckCircle2,
+  Circle,
+  ShieldCheck,
+  ShieldAlert,
+  Shield,
+} from "lucide-react";
 
-export const PasswordStrengthMeter = ({ password = '', confirmPassword = null }) => {
-  const hasMinLength = password.length >= 8 && password.length <= 128
-  const hasUpper = /[A-Z]/.test(password)
-  const hasLower = /[a-z]/.test(password)
-  const hasNumber = /[0-9]/.test(password)
-  const hasSpecial = /[@$!%*?&#]/.test(password)
+export const PasswordStrengthMeter = ({
+  password = "",
+  confirmPassword = null,
+}) => {
+  const hasMinLength = password.length >= 8 && password.length <= 128;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[@$!%*?&#]/.test(password);
 
   const checks = [
-    { label: '8–128 characters', valid: hasMinLength },
-    { label: 'Uppercase letter (A-Z)', valid: hasUpper },
-    { label: 'Lowercase letter (a-z)', valid: hasLower },
-    { label: 'Number (0-9)', valid: hasNumber },
-    { label: 'Special symbol (@$!%*?&#)', valid: hasSpecial },
-  ]
+    { label: "8–128 characters", valid: hasMinLength },
+    { label: "Uppercase letter (A-Z)", valid: hasUpper },
+    { label: "Lowercase letter (a-z)", valid: hasLower },
+    { label: "Number (0-9)", valid: hasNumber },
+    { label: "Special symbol (@$!%*?&#)", valid: hasSpecial },
+  ];
+  const passedCount = checks.filter((c) => c.valid).length;
 
-  const passedCount = checks.filter((c) => c.valid).length
-
-  let strengthLabel = 'Very Weak'
-  let strengthColor = 'bg-red-500'
-  let textColor = 'text-red-600'
-  let percent = 20
+  let strengthLabel = "Very Weak";
+  let strengthColor = "bg-red-500";
+  let textColor = "text-red-600";
+  let percent = 20;
 
   if (passedCount === 5) {
-    strengthLabel = 'Strong'
-    strengthColor = 'bg-emerald-500'
-    textColor = 'text-emerald-700'
-    percent = 100
+    strengthLabel = "Strong";
+    strengthColor = "bg-emerald-500";
+    textColor = "text-emerald-700";
+    percent = 100;
   } else if (passedCount === 4) {
-    strengthLabel = 'Good'
-    strengthColor = 'bg-amber-500'
-    textColor = 'text-amber-700'
-    percent = 80
+    strengthLabel = "Good";
+    strengthColor = "bg-amber-500";
+    textColor = "text-amber-700";
+    percent = 80;
   } else if (passedCount === 3) {
-    strengthLabel = 'Fair'
-    strengthColor = 'bg-orange-500'
-    textColor = 'text-orange-700'
-    percent = 60
+    strengthLabel = "Fair";
+    strengthColor = "bg-orange-500";
+    textColor = "text-orange-700";
+    percent = 60;
   } else if (passedCount >= 1) {
-    strengthLabel = 'Weak'
-    strengthColor = 'bg-red-400'
-    textColor = 'text-red-600'
-    percent = 40
+    strengthLabel = "Weak";
+    strengthColor = "bg-red-400";
+    textColor = "text-red-600";
+    percent = 40;
   } else {
-    percent = 0
+    percent = 0;
   }
 
-  const isMatching = confirmPassword !== null && confirmPassword.length > 0 && confirmPassword === password
+  const isMatching =
+    confirmPassword !== null &&
+    confirmPassword.length > 0 &&
+    confirmPassword === password;
 
   return (
     <div className="mt-2 space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-xs animate-fade-in">
@@ -58,8 +69,10 @@ export const PasswordStrengthMeter = ({ password = '', confirmPassword = null })
             <Shield size={12} className={textColor} />
             Password Strength:
           </span>
-          <span className={`font-extrabold uppercase tracking-wider ${textColor}`}>
-            {password ? strengthLabel : 'Not set'}
+          <span
+            className={`font-extrabold uppercase tracking-wider ${textColor}`}
+          >
+            {password ? strengthLabel : "Not set"}
           </span>
         </div>
         <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
@@ -76,7 +89,7 @@ export const PasswordStrengthMeter = ({ password = '', confirmPassword = null })
           <div
             key={idx}
             className={`flex items-center gap-1.5 text-[11px] transition-colors ${
-              check.valid ? 'text-emerald-700 font-semibold' : 'text-slate-400'
+              check.valid ? "text-emerald-700 font-semibold" : "text-slate-400"
             }`}
           >
             {check.valid ? (
@@ -96,20 +109,24 @@ export const PasswordStrengthMeter = ({ password = '', confirmPassword = null })
           {confirmPassword ? (
             isMatching ? (
               <span className="text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 size={13} className="text-emerald-600" /> Passwords match
+                <CheckCircle2 size={13} className="text-emerald-600" />{" "}
+                Passwords match
               </span>
             ) : (
               <span className="text-red-600 font-bold flex items-center gap-1">
-                <ShieldAlert size={13} className="text-red-500" /> Passwords do not match
+                <ShieldAlert size={13} className="text-red-500" /> Passwords do
+                not match
               </span>
             )
           ) : (
-            <span className="text-slate-400 italic">Re-enter password above</span>
+            <span className="text-slate-400 italic">
+              Re-enter password above
+            </span>
           )}
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default PasswordStrengthMeter
+export default PasswordStrengthMeter;

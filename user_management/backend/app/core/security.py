@@ -9,7 +9,6 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import httpx
 import jwt
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)

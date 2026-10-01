@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 from app.schemas.user import CreateUserRequest, User
 from app.schemas.rfid import Card
 
-
 class OnboardingRequest(BaseModel):
     persona: str = Field(..., pattern="^(student|faculty|faculty_warden|warden|worker|visitor)$")
     roles: Optional[List[str]] = None

@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/face-auth", tags=["face-auth"])
 
-
 @router.post("/log", status_code=status.HTTP_201_CREATED)
 async def create_log(
     req: LogRequest,

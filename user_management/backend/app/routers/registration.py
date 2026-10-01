@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["registration"])
 
-
 @router.post("/api/v1/register", status_code=status.HTTP_201_CREATED)
 async def public_register(
     req: RegistrationRequest,

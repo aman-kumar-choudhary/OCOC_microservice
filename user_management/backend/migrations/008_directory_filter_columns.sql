@@ -6,7 +6,6 @@
 -- before the department school field was introduced. Keep this migration
 -- focused and idempotent so directory queries remain compatible.
 ALTER TABLE departments ADD COLUMN IF NOT EXISTS school TEXT;
-
 -- Backfill schools for the standard onboarding department catalogue when
 -- the department rows already exist but have no school assigned.
 UPDATE departments

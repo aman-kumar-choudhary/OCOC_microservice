@@ -1,78 +1,98 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { auditService } from '@/services/miscService'
-import { formatDateTime } from '@/utils/date'
-import { Loader2, Activity, ArrowRight, UserCircle2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from "react";
+import { auditService } from "@/services/miscService";
+import { formatDateTime } from "@/utils/date";
+import {
+  Loader2,
+  Activity,
+  ArrowRight,
+  UserCircle2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 export const AuditView = () => {
-  const [logs, setLogs] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [limit] = useState(25)
-  const [totalPages, setTotalPages] = useState(1)
-  const [diffLog, setDiffLog] = useState(null)
+  const [logs, setLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  const [diffLog, setDiffLog] = useState(null);
+  const [filters, setFilters] = useState({ operation: "", entity_type: "" });
 
-  const [filters, setFilters] = useState({ operation: '', entity_type: '' })
-
-  const fetchLogs = useCallback(async (customPage) => {
-    setIsLoading(true)
-    try {
-      const data = await auditService.list({
-        page: customPage || page,
-        limit,
-        ...filters
-      })
-      setLogs(data.logs || [])
-      setTotal(data.total)
-      setTotalPages(data.total_pages || 1)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [page, limit, filters])
+  const fetchLogs = useCallback(
+    async (customPage) => {
+      setIsLoading(true);
+      try {
+        const data = await auditService.list({
+          page: customPage || page,
+          limit,
+          ...filters,
+        });
+        setLogs(data.logs || []);
+        setTotal(data.total);
+        setTotalPages(data.total_pages || 1);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [page, limit, filters],
+  );
 
   useEffect(() => {
-    fetchLogs(1)
-  }, [filters.operation, filters.entity_type])
+    fetchLogs(1);
+  }, [filters.operation, filters.entity_type]);
 
-  const formatOperation = (op) => op.split('_').join(' ')
+  const formatOperation = (op) => op.split("_").join(" ");
 
   const getOperationColor = (op) => {
-    if (op.includes('CREATE') || op.includes('ISSUE') || op.includes('AUTH_SUCCESS')) {
-      return 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+    if (
+      op.includes("CREATE") ||
+      op.includes("ISSUE") ||
+      op.includes("AUTH_SUCCESS")
+    ) {
+      return "text-emerald-700 bg-emerald-50 border border-emerald-200";
     }
-    if (op.includes('UPDATE')) {
-      return 'text-blue-700 bg-blue-50 border border-blue-200'
+    if (op.includes("UPDATE")) {
+      return "text-blue-700 bg-blue-50 border border-blue-200";
     }
     if (
-      op.includes('DELETE') ||
-      op.includes('REVOKE') ||
-      op.includes('DEACTIVATE') ||
-      op.includes('AUTH_FAILED')
+      op.includes("DELETE") ||
+      op.includes("REVOKE") ||
+      op.includes("DEACTIVATE") ||
+      op.includes("AUTH_FAILED")
     ) {
-      return 'text-red-700 bg-red-50 border border-red-200'
+      return "text-red-700 bg-red-50 border border-red-200";
     }
-    if (op.includes('SUSPEND') || op.includes('LIVENESS')) {
-      return 'text-amber-700 bg-amber-50 border border-amber-200'
+    if (op.includes("SUSPEND") || op.includes("LIVENESS")) {
+      return "text-amber-700 bg-amber-50 border border-amber-200";
     }
-    return 'text-muted bg-[var(--border-light)] border border-transparent'
-  }
+    return "text-muted bg-[var(--border-light)] border border-transparent";
+  };
 
   const fmtJson = (v) => {
-    if (!v) return '—'
+    if (!v) return "—";
     try {
-      return JSON.stringify(JSON.parse(typeof v === 'string' ? v : JSON.stringify(v)), null, 2)
+      return JSON.stringify(
+        JSON.parse(typeof v === "string" ? v : JSON.stringify(v)),
+        null,
+        2,
+      );
     } catch {
-      return String(v)
+      return String(v);
     }
-  }
+  };
 
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Audit Log</h1>
-        <p className="text-muted text-sm mt-1">Immutable ledger of all administrative and authentication actions.</p>
+        <p className="text-muted text-sm mt-1">
+          Immutable ledger of all administrative and authentication actions.
+        </p>
       </div>
 
       {/* Filters */}
@@ -80,8 +100,8 @@ export const AuditView = () => {
         <select
           value={filters.operation}
           onChange={(e) => {
-            setFilters({ ...filters, operation: e.target.value })
-            setPage(1)
+            setFilters({ ...filters, operation: e.target.value });
+            setPage(1);
           }}
           className="form-input form-select flex-1"
           id="op-filter"
@@ -109,8 +129,8 @@ export const AuditView = () => {
         <select
           value={filters.entity_type}
           onChange={(e) => {
-            setFilters({ ...filters, entity_type: e.target.value })
-            setPage(1)
+            setFilters({ ...filters, entity_type: e.target.value });
+            setPage(1);
           }}
           className="form-input form-select flex-1"
           id="entity-filter"
@@ -153,7 +173,9 @@ export const AuditView = () => {
 
               {/* Operation */}
               <div className="w-44 flex-shrink-0">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-md tracking-wide ${getOperationColor(log.operation)}`}>
+                <span
+                  className={`text-xs font-bold px-2.5 py-1 rounded-md tracking-wide ${getOperationColor(log.operation)}`}
+                >
                   {formatOperation(log.operation)}
                 </span>
               </div>
@@ -162,15 +184,17 @@ export const AuditView = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-semibold capitalize">
-                    {log.entity_type?.replace('_', ' ')}
+                    {log.entity_type?.replace("_", " ")}
                   </span>
                   <ArrowRight className="text-muted" size={14} />
-                  <span className="text-sm font-mono text-muted truncate">{log.entity_id}</span>
+                  <span className="text-sm font-mono text-muted truncate">
+                    {log.entity_id}
+                  </span>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted">
                   <span className="flex items-center gap-1" title="Actor ID">
                     <UserCircle2 size={14} />
-                    {log.actor_id || 'System'}
+                    {log.actor_id || "System"}
                   </span>
                   {log.ip_address && (
                     <span className="border-l border-[var(--border-light)] pl-4">
@@ -203,9 +227,9 @@ export const AuditView = () => {
               className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted hover:border-[#f5bd19] disabled:opacity-40"
               disabled={page <= 1}
               onClick={() => {
-                const prev = page - 1
-                setPage(prev)
-                fetchLogs(prev)
+                const prev = page - 1;
+                setPage(prev);
+                fetchLogs(prev);
               }}
             >
               <ChevronLeft size={15} />
@@ -214,9 +238,9 @@ export const AuditView = () => {
               className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted hover:border-[#f5bd19] disabled:opacity-40"
               disabled={page >= totalPages}
               onClick={() => {
-                const next = page + 1
-                setPage(next)
-                fetchLogs(next)
+                const next = page + 1;
+                setPage(next);
+                fetchLogs(next);
               }}
             >
               <ChevronRight size={15} />
@@ -228,7 +252,10 @@ export const AuditView = () => {
       {/* Diff Modal */}
       {diffLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDiffLog(null)} />
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setDiffLog(null)}
+          />
           <div className="relative z-10 glass-panel w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl bg-[var(--bg-card)]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)] shrink-0">
@@ -252,7 +279,8 @@ export const AuditView = () => {
             <div className="flex-1 overflow-auto grid grid-cols-2 divide-x divide-[var(--border-light)]">
               <div className="p-4">
                 <div className="text-xs font-bold uppercase tracking-widest text-muted mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-400"></span> Before
+                  <span className="w-2 h-2 rounded-full bg-red-400"></span>{" "}
+                  Before
                 </div>
                 <pre className="text-xs font-mono whitespace-pre-wrap text-red-500 leading-relaxed bg-red-50/50 p-3 rounded-lg">
                   {fmtJson(diffLog.before_state)}
@@ -260,7 +288,8 @@ export const AuditView = () => {
               </div>
               <div className="p-4">
                 <div className="text-xs font-bold uppercase tracking-widest text-muted mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span> After
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>{" "}
+                  After
                 </div>
                 <pre className="text-xs font-mono whitespace-pre-wrap text-emerald-600 leading-relaxed bg-emerald-50/50 p-3 rounded-lg">
                   {fmtJson(diffLog.after_state)}
@@ -271,20 +300,27 @@ export const AuditView = () => {
             {/* Meta row */}
             <div className="px-6 py-3 border-t border-[var(--border-light)] text-xs text-muted flex gap-6 shrink-0">
               <span>
-                Actor: <span className="font-mono text-[var(--text-main)]">{diffLog.actor_id || 'System'}</span>
+                Actor:{" "}
+                <span className="font-mono text-[var(--text-main)]">
+                  {diffLog.actor_id || "System"}
+                </span>
               </span>
               <span>
-                IP: <span className="font-mono">{diffLog.ip_address || '—'}</span>
+                IP:{" "}
+                <span className="font-mono">{diffLog.ip_address || "—"}</span>
               </span>
               <span>
-                Time: <span className="font-mono">{formatDateTime(diffLog.created_at)}</span>
+                Time:{" "}
+                <span className="font-mono">
+                  {formatDateTime(diffLog.created_at)}
+                </span>
               </span>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default AuditView
+export default AuditView;

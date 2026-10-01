@@ -20,7 +20,6 @@ FROM (VALUES
  ('Department of Yogic Sciences and Human Consciousness','YSH','School of Indology')
 ) AS v(name, code, school)
 WHERE NOT EXISTS (SELECT 1 FROM departments d WHERE lower(d.name) = lower(v.name));
-
 -- Initial selectable residences. Administrators may add further reference rows;
 -- user registration always uses their IDs rather than creating rows itself.
 INSERT INTO hostels (name, code)

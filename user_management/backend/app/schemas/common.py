@@ -4,7 +4,6 @@ from typing import Any, Dict, Generic, Optional, TypeVar
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-
 T = TypeVar("T")
 
 

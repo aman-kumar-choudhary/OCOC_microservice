@@ -9,7 +9,6 @@ from app.schemas.hostel import ScanResponse
 from app.routers.ws import manager
 
 logger = logging.getLogger(__name__)
-
 class HostelRFIDService:
 
     async def handle_scan(self, conn: asyncpg.Connection, uid: str, reader_id: str) -> ScanResponse:

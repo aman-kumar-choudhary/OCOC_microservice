@@ -1,49 +1,61 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/context/AuthContext'
-import { roleDashboardPath } from '@/utils/roleDashboard'
-import LegalModal from '@/components/LegalModal'
-import { Lock, Mail, Loader2, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { roleDashboardPath } from "@/utils/roleDashboard";
+import LegalModal from "@/components/LegalModal";
+import {
+  Lock,
+  Mail,
+  Loader2,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+} from "lucide-react";
 
 export const Login = () => {
-  const navigate = useNavigate()
-  const { login } = useAuth()
-
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [formReady, setFormReady] = useState(false)
-  const [legalModalOpen, setLegalModalOpen] = useState(false)
-  const [legalModalTab, setLegalModalTab] = useState('terms')
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formReady, setFormReady] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState("terms");
 
   useEffect(() => {
-    const timer = setTimeout(() => setFormReady(true), 50)
-    return () => clearTimeout(timer)
-  }, [])
+    const timer = setTimeout(() => setFormReady(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!email || !password) {
-      setError('Please enter email and password')
-      return
+      setError("Please enter email and password");
+      return;
     }
 
-    setError('')
-    setIsLoading(true)
+    setError("");
+    setIsLoading(true);
     try {
-      const claims = await login({ username: email.trim(), password })
-      navigate(roleDashboardPath(claims?.realm_access?.roles), { replace: true })
+      const claims = await login({ username: email.trim(), password });
+      navigate(roleDashboardPath(claims?.realm_access?.roles), {
+        replace: true,
+      });
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Login failed. Please check your credentials.')
+      setError(
+        err.response?.data?.error?.message ||
+          "Login failed. Please check your credentials.",
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className={`login-view ${formReady ? 'is-ready' : ''}`}>
+    <div className={`login-view ${formReady ? "is-ready" : ""}`}>
       {/* Brand */}
       <div className="login-brand">
         <div className="login-brand-icon">
@@ -60,7 +72,9 @@ export const Login = () => {
         <h2 id="login-heading" className="login-title">
           Welcome Back
         </h2>
-        <p className="login-subtitle">Sign in to access the campus operations dashboard</p>
+        <p className="login-subtitle">
+          Sign in to access the campus operations dashboard
+        </p>
       </div>
 
       {/* Error banner */}
@@ -72,7 +86,12 @@ export const Login = () => {
       )}
 
       {/* Login Form */}
-      <form id="login-form" onSubmit={handleLogin} className="login-form" autoComplete="on">
+      <form
+        id="login-form"
+        onSubmit={handleLogin}
+        className="login-form"
+        autoComplete="on"
+      >
         {/* Email / University ID */}
         <div className="field-group">
           <label htmlFor="login-email" className="field-label">
@@ -102,7 +121,11 @@ export const Login = () => {
             <label htmlFor="login-password" className="field-label">
               Password
             </label>
-            <Link id="forgot-password-link" to="/forgot-password" className="field-link">
+            <Link
+              id="forgot-password-link"
+              to="/forgot-password"
+              className="field-link"
+            >
               Forgot?
             </Link>
           </div>
@@ -114,7 +137,7 @@ export const Login = () => {
               id="login-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               required
               className="field-input"
               placeholder="password"
@@ -126,7 +149,7 @@ export const Login = () => {
               id="toggle-password"
               className="field-toggle"
               onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? "Hide password" : "Show password"}
               tabIndex={-1}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -135,7 +158,12 @@ export const Login = () => {
         </div>
 
         {/* Submit */}
-        <button id="login-submit" type="submit" className="login-btn" disabled={isLoading}>
+        <button
+          id="login-submit"
+          type="submit"
+          className="login-btn"
+          disabled={isLoading}
+        >
           {!isLoading ? (
             <>
               <span>Sign In</span>
@@ -155,14 +183,33 @@ export const Login = () => {
         <ShieldCheck size={14} className="login-trust-icon" />
         <span>Secured by Keycloak SSO · TLS Encrypted</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '12px', fontSize: '11px', color: '#8795a8' }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px",
+          marginTop: "12px",
+          fontSize: "11px",
+          color: "#8795a8",
+        }}
+      >
         <button
           type="button"
           onClick={() => {
-            setLegalModalTab('terms')
-            setLegalModalOpen(true)
+            setLegalModalTab("terms");
+            setLegalModalOpen(true);
           }}
-          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            color: "#8795a8",
+            textDecoration: "underline",
+            fontWeight: 500,
+            cursor: "pointer",
+            fontSize: "11px",
+          }}
         >
           Terms &amp; Conditions
         </button>
@@ -170,15 +217,31 @@ export const Login = () => {
         <button
           type="button"
           onClick={() => {
-            setLegalModalTab('privacy')
-            setLegalModalOpen(true)
+            setLegalModalTab("privacy");
+            setLegalModalOpen(true);
           }}
-          style={{ background: 'none', border: 'none', padding: 0, color: '#8795a8', textDecoration: 'underline', fontWeight: 500, cursor: 'pointer', fontSize: '11px' }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            color: "#8795a8",
+            textDecoration: "underline",
+            fontWeight: 500,
+            cursor: "pointer",
+            fontSize: "11px",
+          }}
         >
           Privacy Policy
         </button>
         <span>·</span>
-        <Link to="/register" style={{ color: '#8795a8', textDecoration: 'underline', fontWeight: 500 }}>
+        <Link
+          to="/register"
+          style={{
+            color: "#8795a8",
+            textDecoration: "underline",
+            fontWeight: 500,
+          }}
+        >
           Register
         </Link>
       </div>
@@ -190,7 +253,7 @@ export const Login = () => {
         initialTab={legalModalTab}
       />
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;

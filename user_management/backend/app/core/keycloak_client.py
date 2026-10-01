@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 import httpx
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)

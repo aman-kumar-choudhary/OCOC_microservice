@@ -2,8 +2,7 @@
 -- Migration 006: Split monolithic user_profiles into role-specific tables
 -- ============================================================
 
--- 1. Create role-specific tables
-
+-- 1. Create role-specific tabless
 CREATE TABLE IF NOT EXISTS student_profiles (
     user_id              UUID        PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     full_name            TEXT        NOT NULL,

@@ -31,6 +31,5 @@ CREATE INDEX IF NOT EXISTS idx_face_auth_person
 
 CREATE INDEX IF NOT EXISTS idx_face_auth_result
     ON face_auth_logs (result);
-
 CREATE INDEX IF NOT EXISTS idx_face_auth_created_at
     ON face_auth_logs (created_at DESC);

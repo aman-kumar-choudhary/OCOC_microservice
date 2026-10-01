@@ -8,7 +8,6 @@ from app.schemas.hostel import (
     HostelDashboardStats, StudentHostelStatus, MovementHistory, 
     HostelPermission, CreatePermissionRequest, HostelAlert, EmergencyHeadcount
 )
-
 logger = logging.getLogger(__name__)
 
 class HostelService:

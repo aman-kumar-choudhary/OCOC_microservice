@@ -10,7 +10,6 @@ from app.schemas.audit import AuditListResult, Log
 
 logger = logging.getLogger(__name__)
 
-
 class AuditService:
     async def log(
         self,

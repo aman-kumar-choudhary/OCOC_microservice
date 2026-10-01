@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS hostel_gates (
     gate_type VARCHAR(50) DEFAULT 'MAIN', -- 'MAIN', 'SIDE', etc.
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- 2. Gate Rules
 CREATE TABLE IF NOT EXISTS gate_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

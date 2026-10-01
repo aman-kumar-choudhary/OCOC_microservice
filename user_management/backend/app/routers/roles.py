@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/roles", tags=["roles"])
 
-
 @router.get("")
 async def list_roles(
     conn: asyncpg.Connection = Depends(get_db),

@@ -15,7 +15,6 @@ class DeviceCreate(BaseModel):
     type: str
     location_id: uuid.UUID
     firmware_version: str = "1.0.0"
-
 class DeviceHeartbeat(BaseModel):
     status: str = "ONLINE"
     firmware_version: Optional[str] = None

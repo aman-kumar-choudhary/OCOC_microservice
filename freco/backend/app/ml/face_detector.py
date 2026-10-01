@@ -9,7 +9,6 @@ from app.ml.model_registry import FaceModelRegistry, get_face_model_registry
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class DetectedFace:
     bbox: np.ndarray          # [x1, y1, x2, y2]

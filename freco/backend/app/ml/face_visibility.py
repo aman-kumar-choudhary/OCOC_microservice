@@ -14,7 +14,6 @@ import numpy as np
 from app.config import settings
 from app.ml.face_detector import DetectedFace
 
-
 @dataclass(frozen=True)
 class FaceVisibilityAssessment:
     score: float

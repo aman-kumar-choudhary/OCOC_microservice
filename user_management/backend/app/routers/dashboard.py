@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
-
 @router.get("/overview")
 async def get_overview(
     claims: Claims = Depends(require_role("SUPER_ADMIN")),

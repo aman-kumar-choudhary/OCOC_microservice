@@ -4,7 +4,6 @@ from app.config import settings
 
 class InvalidImageError(ValueError):
     pass
-
 def decode_uploaded_image(raw: bytes) -> np.ndarray:
     """Decode uploaded image bytes into the BGR array consumed by OpenCV."""
     max_bytes = settings.MAX_UPLOAD_IMAGE_MB * 1024 * 1024

@@ -13,7 +13,6 @@ async def main():
         INSERT INTO access_rules (name, description, subject_type, subject_id, effect, priority, is_active)
         VALUES ('System: Own Hostel Access', 'Automatically grants students access to their assigned hostel. Do not delete.', 'student_own_hostel', 'student', 'ALLOW', 100, true)
     """)
-    
     # 2. Insert Campus Exit Rule if we have a main gate
     if main_gate_id:
         await conn.execute("""

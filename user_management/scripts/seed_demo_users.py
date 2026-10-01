@@ -131,6 +131,11 @@ async def seed():
             await conn.execute("""
                 INSERT INTO warden_hostels (user_id, hostel_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
             """, w_user["id"], hostel_shivalik)
+            await conn.execute("""
+                INSERT INTO warden_profiles (user_id, hostel_id, responsibilities)
+                VALUES ($1, $2, 'Chief Warden & Hostel Caretaker')
+                ON CONFLICT (user_id) DO NOTHING
+            """, w_user["id"], hostel_shivalik)
 
         print("Successfully seeded 4 demo users:")
         print("  1. Arjun Sharma (Student) - arjun.sharma@dsvv.ac.in")

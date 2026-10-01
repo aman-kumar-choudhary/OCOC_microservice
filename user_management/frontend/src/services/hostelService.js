@@ -1,20 +1,19 @@
-import api from './api';
+import api from "./api";
 
 export const hostelService = {
   getDashboardStats: async (hostelId) => {
     const params = hostelId ? { hostel_id: hostelId } : {};
-    const response = await api.get('/hostel/dashboard', { params });
+    const response = await api.get("/hostel/dashboard", { params });
     return response.data;
   },
 
   getLiveStatus: async (hostelId) => {
     const params = hostelId ? { hostel_id: hostelId } : {};
-    const response = await api.get('/hostel/students/live', { params });
+    const response = await api.get("/hostel/students/live", { params });
     return response.data;
   },
-
   getPermissions: async (hostelId = null) => {
-    let url = '/hostel/permissions';
+    let url = "/hostel/permissions";
     if (hostelId) {
       url += `?hostel_id=${hostelId}`;
     }
@@ -23,7 +22,7 @@ export const hostelService = {
   },
 
   grantPermission: async (data) => {
-    const response = await api.post('/hostel/permissions', data);
+    const response = await api.post("/hostel/permissions", data);
     return response.data;
   },
 
@@ -34,19 +33,19 @@ export const hostelService = {
 
   getMovementHistory: async (hostelId) => {
     const params = hostelId ? { hostel_id: hostelId } : {};
-    const response = await api.get('/hostel/movement', { params });
+    const response = await api.get("/hostel/movement", { params });
     return response.data;
   },
 
   getAlerts: async (hostelId) => {
     const params = hostelId ? { hostel_id: hostelId } : {};
-    const response = await api.get('/hostel/alerts', { params });
+    const response = await api.get("/hostel/alerts", { params });
     return response.data;
   },
 
   getEmergencyHeadcount: async (hostelId) => {
     const params = hostelId ? { hostel_id: hostelId } : {};
-    const response = await api.get('/hostel/emergency-headcount', { params });
+    const response = await api.get("/hostel/emergency-headcount", { params });
     return response.data;
-  }
+  },
 };

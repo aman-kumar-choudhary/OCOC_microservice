@@ -22,7 +22,6 @@ from app.schemas.common import error_response, success_response
 from app.services.auth_service import auth_service
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 

@@ -9,7 +9,6 @@ import jwt
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ws", tags=["websockets"])
-
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []

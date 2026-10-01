@@ -4,7 +4,6 @@ template using the 5-point landmarks from SCRFD, as expected by ArcFace.
 """
 import cv2
 import numpy as np
-
 # Canonical ArcFace 112x112 reference landmarks
 _ARCFACE_TEMPLATE = np.array(
     [

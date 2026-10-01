@@ -1,87 +1,118 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/context/AuthContext'
-import { roleDashboardPath, isAuthorizedForRoute } from '@/utils/roleDashboard'
-import dsvvLogo from '@/assets/Dsvv.png'
-import LegalModal from '@/components/LegalModal'
+import React, { useState, useEffect, useRef } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { roleDashboardPath, isAuthorizedForRoute } from "@/utils/roleDashboard";
+import dsvvLogo from "@/assets/Dsvv.png";
+import LegalModal from "@/components/LegalModal";
 import {
-  Activity, BarChart3, CreditCard, LayoutDashboard, LogOut, Menu,
-  ShieldAlert, UserPlus, Users, X, ScanFace, ChevronDown, Mail, Lock,
-  Shield, Home, Server, CalendarDays, ShieldCheck, Clock, Key,
-  ExternalLink, FileText, Cpu, AlertTriangle
-} from 'lucide-react'
-
+  Activity,
+  BarChart3,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  ShieldAlert,
+  UserPlus,
+  Users,
+  X,
+  ScanFace,
+  ChevronDown,
+  Mail,
+  Lock,
+  Shield,
+  Home,
+  Server,
+  CalendarDays,
+  ShieldCheck,
+  Clock,
+  Key,
+  ExternalLink,
+  FileText,
+  Cpu,
+  AlertTriangle,
+} from "lucide-react";
 export const DashboardLayout = ({ children }) => {
-  const navigate = useNavigate()
-  const { user, roles, email, hasRole, logout } = useAuth()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
-  const [isSecurityMenuOpen, setIsSecurityMenuOpen] = useState(false)
-  const [legalModalOpen, setLegalModalOpen] = useState(false)
-  const [legalModalTab, setLegalModalTab] = useState('terms')
+  const navigate = useNavigate();
+  const { user, roles, email, hasRole, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isSecurityMenuOpen, setIsSecurityMenuOpen] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState("terms");
 
   // Inactivity watchdog (15 minutes threshold, 60s warning)
-  const [showIdleWarning, setShowIdleWarning] = useState(false)
-  const [idleSecondsRemaining, setIdleSecondsRemaining] = useState(60)
-  const idleTimerRef = useRef(null)
-  const countdownIntervalRef = useRef(null)
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const [idleSecondsRemaining, setIdleSecondsRemaining] = useState(60);
+  const idleTimerRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
 
-  const userInitial = email?.charAt(0).toUpperCase() || 'A'
-  const userRoles = roles.filter((role) => !role.startsWith('default-')).slice(0, 3)
+  const userInitial = email?.charAt(0).toUpperCase() || "A";
+  const userRoles = roles
+    .filter((role) => !role.startsWith("default-"))
+    .slice(0, 3);
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Access Control', path: '/access', icon: Lock },
-    { name: 'Hostel Management', path: '/hostel', icon: Home },
-    { name: 'Leave Management', path: '/leave', icon: CalendarDays },
-    { name: 'Guard Console', path: '/guard', icon: Shield },
-    { name: 'RFID Cards', path: '/rfid', icon: CreditCard },
-    { name: 'Face Lab', path: '/face-recognition', icon: ScanFace },
-    { name: 'Auth Monitor', path: '/face-auth-log', icon: ShieldAlert },
-    { name: 'User Directory', path: '/users', icon: Users },
-    { name: 'Onboard Person', path: '/onboarding', icon: UserPlus },
-    { name: 'Device Registry', path: '/devices', icon: Server },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'Audit Log', path: '/audit', icon: Activity },
-  ]
+    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { name: "Access Control", path: "/access", icon: Lock },
+    { name: "Hostel Management", path: "/hostel", icon: Home },
+    { name: "Leave Management", path: "/leave", icon: CalendarDays },
+    { name: "Guard Console", path: "/guard", icon: Shield },
+    { name: "RFID Cards", path: "/rfid", icon: CreditCard },
+    { name: "Face Lab", path: "/face-recognition", icon: ScanFace },
+    { name: "Auth Monitor", path: "/face-auth-log", icon: ShieldAlert },
+    { name: "User Directory", path: "/users", icon: Users },
+    { name: "Onboard Person", path: "/onboarding", icon: UserPlus },
+    { name: "Device Registry", path: "/devices", icon: Server },
+    { name: "Analytics", path: "/analytics", icon: BarChart3 },
+    { name: "Audit Log", path: "/audit", icon: Activity },
+  ];
 
-  const filteredNavItems = navItems.filter((item) => isAuthorizedForRoute(item.path, roles))
+  const filteredNavItems = navItems.filter((item) =>
+    isAuthorizedForRoute(item.path, roles),
+  );
 
   const handleLogout = async () => {
-    setIsProfileMenuOpen(false)
-    setIsSecurityMenuOpen(false)
-    await logout()
-    navigate('/login')
-  }
+    setIsProfileMenuOpen(false);
+    setIsSecurityMenuOpen(false);
+    await logout();
+    navigate("/login");
+  };
 
   const openLegalModalWithTab = (tab) => {
-    setLegalModalTab(tab)
-    setLegalModalOpen(true)
-    setIsSecurityMenuOpen(false)
-  }
+    setLegalModalTab(tab);
+    setLegalModalOpen(true);
+    setIsSecurityMenuOpen(false);
+  };
 
   // Idle timeout watchdog
   const resetIdleTimer = () => {
-    if (showIdleWarning) return
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-    idleTimerRef.current = setTimeout(() => {
-      setShowIdleWarning(true)
-      setIdleSecondsRemaining(60)
-    }, 15 * 60 * 1000) // 15 minutes of inactivity
-  }
+    if (showIdleWarning) return;
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(
+      () => {
+        setShowIdleWarning(true);
+        setIdleSecondsRemaining(60);
+      },
+      15 * 60 * 1000,
+    ); // 15 minutes of inactivity
+  };
 
   useEffect(() => {
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
-    const handleUserActivity = () => resetIdleTimer()
+    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    const handleUserActivity = () => resetIdleTimer();
 
-    events.forEach((ev) => window.addEventListener(ev, handleUserActivity, { passive: true }))
-    resetIdleTimer()
+    events.forEach((ev) =>
+      window.addEventListener(ev, handleUserActivity, { passive: true }),
+    );
+    resetIdleTimer();
 
     return () => {
-      events.forEach((ev) => window.removeEventListener(ev, handleUserActivity))
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-    }
-  }, [showIdleWarning])
+      events.forEach((ev) =>
+        window.removeEventListener(ev, handleUserActivity),
+      );
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [showIdleWarning]);
 
   // Countdown timer when idle warning is visible
   useEffect(() => {
@@ -89,39 +120,41 @@ export const DashboardLayout = ({ children }) => {
       countdownIntervalRef.current = setInterval(() => {
         setIdleSecondsRemaining((prev) => {
           if (prev <= 1) {
-            clearInterval(countdownIntervalRef.current)
-            handleLogout()
-            return 0
+            clearInterval(countdownIntervalRef.current);
+            handleLogout();
+            return 0;
           }
-          return prev - 1
-        })
-      }, 1000)
+          return prev - 1;
+        });
+      }, 1000);
     } else {
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+      if (countdownIntervalRef.current)
+        clearInterval(countdownIntervalRef.current);
     }
     return () => {
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
-    }
-  }, [showIdleWarning])
+      if (countdownIntervalRef.current)
+        clearInterval(countdownIntervalRef.current);
+    };
+  }, [showIdleWarning]);
 
   const handleStayActive = () => {
-    setShowIdleWarning(false)
-    resetIdleTimer()
-  }
+    setShowIdleWarning(false);
+    resetIdleTimer();
+  };
 
   // Close menus on outside click
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      if (!e.target.closest('[data-profile-menu]')) {
-        setIsProfileMenuOpen(false)
+      if (!e.target.closest("[data-profile-menu]")) {
+        setIsProfileMenuOpen(false);
       }
-      if (!e.target.closest('[data-security-menu]')) {
-        setIsSecurityMenuOpen(false)
+      if (!e.target.closest("[data-security-menu]")) {
+        setIsSecurityMenuOpen(false);
       }
-    }
-    document.addEventListener('click', handleOutsideClick)
-    return () => document.removeEventListener('click', handleOutsideClick)
-  }, [])
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] lg:flex flex-col">
@@ -137,7 +170,7 @@ export const DashboardLayout = ({ children }) => {
         {/* Sidebar */}
         <aside
           className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-[#0a2342] text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           <div className="flex h-24 items-center justify-between border-b border-white/10 px-5">
@@ -147,7 +180,11 @@ export const DashboardLayout = ({ children }) => {
               aria-label="DSVV dashboard"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <img src={dsvvLogo} alt="Dev Sanskriti Vishwavidyalaya" className="h-[78px] w-[78px] object-contain" />
+              <img
+                src={dsvvLogo}
+                alt="Dev Sanskriti Vishwavidyalaya"
+                className="h-[78px] w-[78px] object-contain"
+              />
             </Link>
             <button
               className="rounded-md p-2 text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
@@ -162,9 +199,12 @@ export const DashboardLayout = ({ children }) => {
             Workspace
           </div>
 
-          <nav className="flex-1 space-y-1 px-3 py-3 overflow-y-auto" aria-label="Primary navigation">
+          <nav
+            className="flex-1 space-y-1 px-3 py-3 overflow-y-auto"
+            aria-label="Primary navigation"
+          >
             {filteredNavItems.map((item) => {
-              const Icon = item.icon
+              const Icon = item.icon;
               return (
                 <NavLink
                   key={item.path}
@@ -173,15 +213,15 @@ export const DashboardLayout = ({ children }) => {
                   className={({ isActive }) =>
                     `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
                       isActive
-                        ? '!bg-[#f5bd19] !text-[#0a2342] shadow-sm'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                        ? "!bg-[#f5bd19] !text-[#0a2342] shadow-sm"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white"
                     }`
                   }
                 >
                   <Icon size={18} strokeWidth={2} />
                   <span>{item.name}</span>
                 </NavLink>
-              )
+              );
             })}
           </nav>
 
@@ -189,7 +229,7 @@ export const DashboardLayout = ({ children }) => {
           <div className="border-t border-white/10 p-3 space-y-1 text-xs">
             <button
               type="button"
-              onClick={() => openLegalModalWithTab('terms')}
+              onClick={() => openLegalModalWithTab("terms")}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition font-medium"
             >
               <FileText size={15} className="text-[#f5bd19]" />
@@ -197,7 +237,7 @@ export const DashboardLayout = ({ children }) => {
             </button>
             <button
               type="button"
-              onClick={() => openLegalModalWithTab('privacy')}
+              onClick={() => openLegalModalWithTab("privacy")}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition font-medium"
             >
               <Lock size={15} className="text-emerald-400" />
@@ -235,8 +275,8 @@ export const DashboardLayout = ({ children }) => {
                   <button
                     type="button"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      setIsSecurityMenuOpen(!isSecurityMenuOpen)
+                      e.stopPropagation();
+                      setIsSecurityMenuOpen(!isSecurityMenuOpen);
                     }}
                     className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:border-slate-400 shadow-2xs transition"
                     title="View Session Security Information"
@@ -261,27 +301,43 @@ export const DashboardLayout = ({ children }) => {
 
                       <div className="space-y-2 text-[11px] text-slate-600">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Authentication:</span>
-                          <span className="font-semibold text-slate-800">Keycloak OIDC JWT</span>
+                          <span className="text-slate-400">
+                            Authentication:
+                          </span>
+                          <span className="font-semibold text-slate-800">
+                            Keycloak OIDC JWT
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Transport Layer:</span>
-                          <span className="font-semibold text-slate-800">TLS 1.3 (Encrypted)</span>
+                          <span className="text-slate-400">
+                            Transport Layer:
+                          </span>
+                          <span className="font-semibold text-slate-800">
+                            TLS 1.3 (Encrypted)
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Database Encryption:</span>
-                          <span className="font-semibold text-slate-800">AES-256 (At rest)</span>
+                          <span className="text-slate-400">
+                            Database Encryption:
+                          </span>
+                          <span className="font-semibold text-slate-800">
+                            AES-256 (At rest)
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Idle Protection:</span>
-                          <span className="font-semibold text-emerald-700">15 min Inactivity Watchdog</span>
+                          <span className="text-slate-400">
+                            Idle Protection:
+                          </span>
+                          <span className="font-semibold text-emerald-700">
+                            15 min Inactivity Watchdog
+                          </span>
                         </div>
                       </div>
 
                       <div className="border-t border-slate-100 pt-2 flex flex-col gap-1.5">
                         <button
                           type="button"
-                          onClick={() => openLegalModalWithTab('security')}
+                          onClick={() => openLegalModalWithTab("security")}
                           className="w-full text-left font-bold text-[#0a2342] hover:underline flex items-center justify-between"
                         >
                           <span>Review ISO 27001 Controls</span>
@@ -289,7 +345,7 @@ export const DashboardLayout = ({ children }) => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => openLegalModalWithTab('privacy')}
+                          onClick={() => openLegalModalWithTab("privacy")}
                           className="w-full text-left font-bold text-[#0a2342] hover:underline flex items-center justify-between"
                         >
                           <span>Biometric Privacy &amp; Vector Info</span>
@@ -308,8 +364,8 @@ export const DashboardLayout = ({ children }) => {
                     aria-haspopup="menu"
                     aria-label="Open account menu"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      setIsProfileMenuOpen(!isProfileMenuOpen)
+                      e.stopPropagation();
+                      setIsProfileMenuOpen(!isProfileMenuOpen);
                     }}
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-full bg-[#0a2342] text-sm font-bold text-[#f5bd19]">
@@ -318,7 +374,7 @@ export const DashboardLayout = ({ children }) => {
                     <ChevronDown
                       size={15}
                       className={`hidden text-muted sm:block transition-transform duration-200 ${
-                        isProfileMenuOpen ? 'rotate-180' : ''
+                        isProfileMenuOpen ? "rotate-180" : ""
                       }`}
                     />
                   </button>
@@ -334,8 +390,12 @@ export const DashboardLayout = ({ children }) => {
                             {userInitial}
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold">{email || 'Administrator'}</p>
-                            <p className="mt-0.5 text-xs text-slate-300">Verified Session</p>
+                            <p className="truncate text-sm font-bold">
+                              {email || "Administrator"}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-300">
+                              Verified Session
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -344,7 +404,9 @@ export const DashboardLayout = ({ children }) => {
                         <div className="flex items-center gap-2 text-xs font-semibold text-muted">
                           <Mail size={14} /> Account identity
                         </div>
-                        <p className="mt-2 break-all text-sm font-semibold">{email || 'Administrator'}</p>
+                        <p className="mt-2 break-all text-sm font-semibold">
+                          {email || "Administrator"}
+                        </p>
                         {userRoles.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {userRoles.map((role) => (
@@ -352,7 +414,7 @@ export const DashboardLayout = ({ children }) => {
                                 key={role}
                                 className="rounded-full bg-[#f5bd19]/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#7b5600]"
                               >
-                                {role.replace(/_/g, ' ')}
+                                {role.replace(/_/g, " ")}
                               </span>
                             ))}
                           </div>
@@ -363,8 +425,8 @@ export const DashboardLayout = ({ children }) => {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsProfileMenuOpen(false)
-                            openLegalModalWithTab('terms')
+                            setIsProfileMenuOpen(false);
+                            openLegalModalWithTab("terms");
                           }}
                           className="w-full text-left py-1 text-slate-600 hover:text-slate-900 font-medium flex items-center justify-between"
                         >
@@ -374,8 +436,8 @@ export const DashboardLayout = ({ children }) => {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsProfileMenuOpen(false)
-                            openLegalModalWithTab('privacy')
+                            setIsProfileMenuOpen(false);
+                            openLegalModalWithTab("privacy");
                           }}
                           className="w-full text-left py-1 text-slate-600 hover:text-slate-900 font-medium flex items-center justify-between"
                         >
@@ -415,14 +477,15 @@ export const DashboardLayout = ({ children }) => {
                 </div>
                 <span className="hidden sm:inline text-slate-300">|</span>
                 <span className="text-[11px] text-slate-500">
-                  ISO/IEC 27001 Aligned · DPDP Act Compliant · v2.4 Enterprise Release
+                  ISO/IEC 27001 Aligned · DPDP Act Compliant · v2.4 Enterprise
+                  Release
                 </span>
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
                 <button
                   type="button"
-                  onClick={() => openLegalModalWithTab('terms')}
+                  onClick={() => openLegalModalWithTab("terms")}
                   className="hover:text-slate-900 hover:underline font-medium"
                 >
                   Terms &amp; Conditions
@@ -430,7 +493,7 @@ export const DashboardLayout = ({ children }) => {
                 <span>·</span>
                 <button
                   type="button"
-                  onClick={() => openLegalModalWithTab('privacy')}
+                  onClick={() => openLegalModalWithTab("privacy")}
                   className="hover:text-slate-900 hover:underline font-medium"
                 >
                   Biometric &amp; Privacy Policy
@@ -438,17 +501,23 @@ export const DashboardLayout = ({ children }) => {
                 <span>·</span>
                 <button
                   type="button"
-                  onClick={() => openLegalModalWithTab('security')}
+                  onClick={() => openLegalModalWithTab("security")}
                   className="hover:text-slate-900 hover:underline font-medium"
                 >
                   Security Controls
                 </button>
                 <span>·</span>
-                <Link to="/terms" className="hover:text-slate-900 hover:underline font-medium">
+                <Link
+                  to="/terms"
+                  className="hover:text-slate-900 hover:underline font-medium"
+                >
                   Portal View
                 </Link>
                 <span>·</span>
-                <a href="mailto:dpo@dsvv.ac.in" className="hover:text-slate-900 hover:underline font-medium">
+                <a
+                  href="mailto:dpo@dsvv.ac.in"
+                  className="hover:text-slate-900 hover:underline font-medium"
+                >
                   Contact DPO
                 </a>
               </div>
@@ -473,18 +542,24 @@ export const DashboardLayout = ({ children }) => {
                 <AlertTriangle size={24} className="text-amber-600" />
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">Session Security Notice</h3>
-                <p className="text-xs text-slate-500">Inactivity timeout protocol</p>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Session Security Notice
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Inactivity timeout protocol
+                </p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Your workstation has been idle for 15 minutes. In compliance with campus security policy, your session will automatically terminate in:
+              Your workstation has been idle for 15 minutes. In compliance with
+              campus security policy, your session will automatically terminate
+              in:
             </p>
 
             <div className="text-center py-2">
               <span className="font-mono text-3xl font-black text-amber-600">
-                00:{String(idleSecondsRemaining).padStart(2, '0')}
+                00:{String(idleSecondsRemaining).padStart(2, "0")}
               </span>
             </div>
 
@@ -508,7 +583,7 @@ export const DashboardLayout = ({ children }) => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default DashboardLayout
+export default DashboardLayout;

@@ -1,7 +1,6 @@
 -- Migration 017: gate workflow extensions for the existing access module.
 ALTER TABLE locations
     ADD COLUMN IF NOT EXISTS requires_two_factor BOOLEAN NOT NULL DEFAULT FALSE;
-
 -- RFID is held briefly for high-security zones until the camera/FRECO result
 -- confirms the same person.  No second access system is introduced.
 CREATE TABLE IF NOT EXISTS pending_access_verifications (

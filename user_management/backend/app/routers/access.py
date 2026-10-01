@@ -18,7 +18,6 @@ from app.services.role_service import role_service
 import asyncpg
 
 router = APIRouter(prefix="/api/v1/access", tags=["access_management"])
-
 # ── Operational role, Keycloak Sync & Credential Management ───────────────────
 
 @router.get("/users/{user_id}/access", response_model=Dict[str, Any])

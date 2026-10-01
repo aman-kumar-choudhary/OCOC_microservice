@@ -1,103 +1,156 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import dashboardService from '@/services/dashboardService'
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import dashboardService from "@/services/dashboardService";
 import {
-  ArrowRight, CreditCard, Loader2, RefreshCw, ShieldCheck,
-  TrendingUp, UserCheck, UserPlus, Users, UserX, BarChart3
-} from 'lucide-react'
+  ArrowRight,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  TrendingUp,
+  UserCheck,
+  UserPlus,
+  Users,
+  UserX,
+  BarChart3,
+} from "lucide-react";
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
-  LineElement, Filler, Tooltip, Legend
-} from 'chart.js'
-import { Line } from 'react-chartjs-2'
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+);
 
 export const Dashboard = () => {
-  const navigate = useNavigate()
-  const [overview, setOverview] = useState(null)
-  const [analytics, setAnalytics] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const navigate = useNavigate();
+  const [overview, setOverview] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Animated counters
-  const [animatedStats, setAnimatedStats] = useState({ total: 0, active: 0, suspended: 0, rfid: 0 })
-  const animRef = useRef(animatedStats)
-  animRef.current = animatedStats
+  const [animatedStats, setAnimatedStats] = useState({
+    total: 0,
+    active: 0,
+    suspended: 0,
+    rfid: 0,
+  });
+  const animRef = useRef(animatedStats);
+  animRef.current = animatedStats;
 
   const animateTo = (key, target) => {
-    const duration = 800
-    const start = animRef.current[key]
-    const diff = target - start
-    const startTime = performance.now()
+    const duration = 800;
+    const start = animRef.current[key];
+    const diff = target - start;
+    const startTime = performance.now();
 
     const step = (now) => {
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
       setAnimatedStats((prev) => ({
         ...prev,
-        [key]: Math.round(start + diff * eased)
-      }))
-      if (progress < 1) requestAnimationFrame(step)
-    }
-    requestAnimationFrame(step)
-  }
+        [key]: Math.round(start + diff * eased),
+      }));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
 
   useEffect(() => {
-    if (!overview) return
-    animateTo('total', overview.total_users)
-    animateTo('active', overview.active_users)
-    animateTo('suspended', overview.suspended_users)
-    animateTo('rfid', overview.rfid_active)
-  }, [overview])
+    if (!overview) return;
+    animateTo("total", overview.total_users);
+    animateTo("active", overview.active_users);
+    animateTo("suspended", overview.suspended_users);
+    animateTo("rfid", overview.rfid_active);
+  }, [overview]);
 
   const personas = useMemo(() => {
-    if (!overview) return []
-    const total = Math.max(overview.total_users, 1)
+    if (!overview) return [];
+    const total = Math.max(overview.total_users, 1);
     return [
-      { label: 'Students', value: overview.students, color: 'bg-[#f5bd19]', text: 'text-[#0a2342]' },
-      { label: 'Faculty', value: overview.faculty, color: 'bg-sky-500', text: 'text-sky-700' },
-      { label: 'Staff', value: overview.workers, color: 'bg-emerald-500', text: 'text-emerald-700' },
-      { label: 'Visitors', value: overview.visitors, color: 'bg-violet-500', text: 'text-violet-700' },
-    ].map((p) => ({ ...p, percent: Math.round((p.value / total) * 100) }))
-  }, [overview])
+      {
+        label: "Students",
+        value: overview.students,
+        color: "bg-[#f5bd19]",
+        text: "text-[#0a2342]",
+      },
+      {
+        label: "Faculty",
+        value: overview.faculty,
+        color: "bg-sky-500",
+        text: "text-sky-700",
+      },
+      {
+        label: "Staff",
+        value: overview.workers,
+        color: "bg-emerald-500",
+        text: "text-emerald-700",
+      },
+      {
+        label: "Visitors",
+        value: overview.visitors,
+        color: "bg-violet-500",
+        text: "text-violet-700",
+      },
+    ].map((p) => ({ ...p, percent: Math.round((p.value / total) * 100) }));
+  }, [overview]);
 
   const trendChartData = useMemo(() => {
-    const trend = analytics?.onboarding_trend ?? []
+    const trend = analytics?.onboarding_trend ?? [];
     const labels = trend.length
       ? trend.map((t) => {
-          const d = new Date(t.date)
-          return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+          const d = new Date(t.date);
+          return d.toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+          });
         })
       : Array.from({ length: 14 }, (_, i) => {
-          const d = new Date()
-          d.setDate(d.getDate() - (13 - i))
-          return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-        })
+          const d = new Date();
+          d.setDate(d.getDate() - (13 - i));
+          return d.toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+          });
+        });
     const values = trend.length
       ? trend.map((t) => t.count)
-      : [2, 5, 3, 8, 6, 12, 9, 15, 11, 18, 14, 20, 17, 22]
+      : [2, 5, 3, 8, 6, 12, 9, 15, 11, 18, 14, 20, 17, 22];
 
     return {
       labels,
       datasets: [
         {
-          label: 'New Registrations',
+          label: "New Registrations",
           data: values,
-          borderColor: '#f5bd19',
-          backgroundColor: 'rgba(245,189,25,0.12)',
+          borderColor: "#f5bd19",
+          backgroundColor: "rgba(245,189,25,0.12)",
           borderWidth: 2.5,
           fill: true,
           tension: 0.45,
           pointRadius: 3,
-          pointBackgroundColor: '#d99e00',
-          pointBorderColor: '#fff',
+          pointBackgroundColor: "#d99e00",
+          pointBorderColor: "#fff",
           pointBorderWidth: 2,
         },
       ],
-    }
-  }, [analytics])
+    };
+  }, [analytics]);
 
   const trendChartOptions = {
     responsive: true,
@@ -105,9 +158,9 @@ export const Dashboard = () => {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#0a2342',
-        titleColor: '#f5bd19',
-        bodyColor: '#fff',
+        backgroundColor: "#0a2342",
+        titleColor: "#f5bd19",
+        bodyColor: "#fff",
         padding: 10,
         cornerRadius: 8,
       },
@@ -115,38 +168,38 @@ export const Dashboard = () => {
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#607087', font: { size: 11 }, maxTicksLimit: 7 },
+        ticks: { color: "#607087", font: { size: 11 }, maxTicksLimit: 7 },
         border: { display: false },
       },
       y: {
-        grid: { color: 'rgba(220,227,236,0.5)' },
-        ticks: { color: '#607087', font: { size: 11 }, precision: 0 },
+        grid: { color: "rgba(220,227,236,0.5)" },
+        ticks: { color: "#607087", font: { size: 11 }, precision: 0 },
         border: { display: false },
       },
     },
-  }
+  };
 
   const loadOverview = async () => {
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError("");
     try {
       const [ov, an] = await Promise.allSettled([
         dashboardService.getOverview(),
         dashboardService.getAnalytics(),
-      ])
-      if (ov.status === 'fulfilled') setOverview(ov.value)
-      if (an.status === 'fulfilled') setAnalytics(an.value)
-      if (ov.status === 'rejected') throw ov.reason
+      ]);
+      if (ov.status === "fulfilled") setOverview(ov.value);
+      if (an.status === "fulfilled") setAnalytics(an.value);
+      if (ov.status === "rejected") throw ov.reason;
     } catch {
-      setError('We could not load the latest campus access data.')
+      setError("We could not load the latest campus access data.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadOverview()
-  }, [])
+    loadOverview();
+  }, []);
 
   return (
     <section className="animate-fade-in">
@@ -167,16 +220,20 @@ export const Dashboard = () => {
                 Identity operations, made clear.
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-                Monitor people, credentials, and access status from one secure workspace built for day-to-day university operations.
+                Monitor people, credentials, and access status from one secure
+                workspace built for day-to-day university operations.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button className="btn btn-primary" onClick={() => navigate('/onboarding')}>
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate("/onboarding")}
+              >
                 <UserPlus size={17} /> Onboard person
               </button>
               <button
                 className="btn border border-white/20 bg-white/5 text-white hover:bg-white/10"
-                onClick={() => navigate('/users')}
+                onClick={() => navigate("/users")}
               >
                 Open directory <ArrowRight size={17} />
               </button>
@@ -190,7 +247,9 @@ export const Dashboard = () => {
         <div className="grid min-h-[420px] place-items-center">
           <div className="flex flex-col items-center gap-3 text-muted">
             <Loader2 className="animate-spin text-[#f5bd19]" size={32} />
-            <span className="text-sm font-semibold">Loading your dashboard…</span>
+            <span className="text-sm font-semibold">
+              Loading your dashboard…
+            </span>
           </div>
         </div>
       ) : error ? (
@@ -209,7 +268,9 @@ export const Dashboard = () => {
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
               <div className="flex items-start justify-between">
-                <p className="text-sm font-bold text-muted">People in directory</p>
+                <p className="text-sm font-bold text-muted">
+                  People in directory
+                </p>
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#0a2342]/8 text-[#0a2342]">
                   <Users size={20} />
                 </div>
@@ -217,7 +278,9 @@ export const Dashboard = () => {
               <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
                 {animatedStats.total.toLocaleString()}
               </p>
-              <p className="mt-1 text-xs font-semibold text-muted">All campus identities</p>
+              <p className="mt-1 text-xs font-semibold text-muted">
+                All campus identities
+              </p>
             </article>
 
             <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
@@ -230,7 +293,9 @@ export const Dashboard = () => {
               <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
                 {animatedStats.active.toLocaleString()}
               </p>
-              <p className="mt-1 text-xs font-semibold text-emerald-700">Enabled for access</p>
+              <p className="mt-1 text-xs font-semibold text-emerald-700">
+                Enabled for access
+              </p>
             </article>
 
             <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
@@ -243,12 +308,16 @@ export const Dashboard = () => {
               <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
                 {animatedStats.suspended.toLocaleString()}
               </p>
-              <p className="mt-1 text-xs font-semibold text-muted">Require review</p>
+              <p className="mt-1 text-xs font-semibold text-muted">
+                Require review
+              </p>
             </article>
 
             <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
               <div className="flex items-start justify-between">
-                <p className="text-sm font-bold text-muted">Active RFID cards</p>
+                <p className="text-sm font-bold text-muted">
+                  Active RFID cards
+                </p>
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#f5bd19]/20 text-[#0a2342]">
                   <CreditCard size={20} />
                 </div>
@@ -256,7 +325,9 @@ export const Dashboard = () => {
               <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
                 {animatedStats.rfid.toLocaleString()}
               </p>
-              <p className="mt-1 text-xs font-semibold text-muted">Ready for campus access</p>
+              <p className="mt-1 text-xs font-semibold text-muted">
+                Ready for campus access
+              </p>
             </article>
           </div>
 
@@ -267,13 +338,16 @@ export const Dashboard = () => {
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h2 className="text-lg font-extrabold flex items-center gap-2">
-                    <TrendingUp size={18} className="text-[#f5bd19]" /> Daily Registration Activity
+                    <TrendingUp size={18} className="text-[#f5bd19]" /> Daily
+                    Registration Activity
                   </h2>
-                  <p className="mt-1 text-sm text-muted">New onboarding events over the last 14 days</p>
+                  <p className="mt-1 text-sm text-muted">
+                    New onboarding events over the last 14 days
+                  </p>
                 </div>
                 <button
                   className="text-xs font-bold text-[#0a2342] hover:text-[#f5bd19] transition-colors flex items-center gap-1"
-                  onClick={() => navigate('/analytics')}
+                  onClick={() => navigate("/analytics")}
                 >
                   Full analytics <ArrowRight size={14} />
                 </button>
@@ -288,8 +362,12 @@ export const Dashboard = () => {
               <section className="app-panel p-5 sm:p-6 flex-1">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-extrabold">Campus population</h2>
-                    <p className="mt-1 text-sm text-muted">Directory composition</p>
+                    <h2 className="text-lg font-extrabold">
+                      Campus population
+                    </h2>
+                    <p className="mt-1 text-sm text-muted">
+                      Directory composition
+                    </p>
                   </div>
                   <span className="rounded-full bg-[#f5bd19]/20 px-3 py-1 text-xs font-bold text-[#0a2342]">
                     {overview.total_users} total
@@ -301,7 +379,10 @@ export const Dashboard = () => {
                       <div className="mb-1.5 flex items-center justify-between text-sm">
                         <span className="font-bold">{persona.label}</span>
                         <span className={`font-bold ${persona.text}`}>
-                          {persona.value} <span className="font-medium text-muted">({persona.percent}%)</span>
+                          {persona.value}{" "}
+                          <span className="font-medium text-muted">
+                            ({persona.percent}%)
+                          </span>
                         </span>
                       </div>
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -318,27 +399,36 @@ export const Dashboard = () => {
               <section className="app-panel p-5 sm:p-6">
                 <div>
                   <h2 className="text-lg font-extrabold flex items-center gap-2">
-                    <BarChart3 size={18} className="text-sky-500" /> Credential health
+                    <BarChart3 size={18} className="text-sky-500" /> Credential
+                    health
                   </h2>
                   <p className="mt-1 text-sm text-muted">RFID card lifecycle</p>
                 </div>
                 <div className="mt-4 divide-y divide-[var(--border-light)]">
                   <div className="flex items-center justify-between py-3">
                     <span className="text-sm font-semibold">Cards issued</span>
-                    <span className="font-display text-xl font-extrabold">{overview.rfid_issued}</span>
+                    <span className="font-display text-xl font-extrabold">
+                      {overview.rfid_issued}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-3">
                     <span className="text-sm font-semibold">Cards active</span>
-                    <span className="font-display text-xl font-extrabold text-emerald-700">{overview.rfid_active}</span>
+                    <span className="font-display text-xl font-extrabold text-emerald-700">
+                      {overview.rfid_active}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-3">
-                    <span className="text-sm font-semibold">Revoked or replaced</span>
-                    <span className="font-display text-xl font-extrabold text-red-700">{overview.rfid_revoked}</span>
+                    <span className="text-sm font-semibold">
+                      Revoked or replaced
+                    </span>
+                    <span className="font-display text-xl font-extrabold text-red-700">
+                      {overview.rfid_revoked}
+                    </span>
                   </div>
                 </div>
                 <button
                   className="mt-3 flex items-center gap-2 text-sm font-bold text-[#0a2342] hover:text-[#d99e00] transition-colors"
-                  onClick={() => navigate('/rfid')}
+                  onClick={() => navigate("/rfid")}
                 >
                   Manage RFID cards <ArrowRight size={16} />
                 </button>
@@ -348,7 +438,7 @@ export const Dashboard = () => {
         </>
       ) : null}
     </section>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;

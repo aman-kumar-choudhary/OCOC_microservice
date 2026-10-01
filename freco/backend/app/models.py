@@ -5,7 +5,6 @@ from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, St
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
-
 from app.db import Base
 
 # ── Stub for the `users` table owned by the user-management service ───────────

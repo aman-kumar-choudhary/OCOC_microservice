@@ -9,7 +9,6 @@ import asyncpg
 
 from app.schemas.rfid import Card, RFIDListResult
 from app.services.audit_service import audit_service
-
 logger = logging.getLogger(__name__)
 
 UID_REGEX = re.compile(r"^[0-9A-Fa-f]{8,14}$")

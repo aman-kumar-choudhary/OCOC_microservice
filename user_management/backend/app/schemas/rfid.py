@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-
 class Card(BaseModel):
     id: str
     uid: str
