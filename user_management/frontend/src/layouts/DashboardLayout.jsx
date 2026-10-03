@@ -5,32 +5,32 @@ import { roleDashboardPath, isAuthorizedForRoute } from "@/utils/roleDashboard";
 import dsvvLogo from "@/assets/Dsvv.png";
 import LegalModal from "@/components/LegalModal";
 import {
-  Activity,
-  BarChart3,
+  ChartLineUp,
+  ChartBar,
   CreditCard,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  ShieldAlert,
+  SquaresFour,
+  SignOut,
+  List,
+  ShieldWarning,
   UserPlus,
   Users,
   X,
-  ScanFace,
-  ChevronDown,
-  Mail,
+  UserFocus,
+  CaretDown,
+  Envelope,
   Lock,
   Shield,
-  Home,
-  Server,
-  CalendarDays,
+  House,
+  HardDrives,
+  CalendarDots,
   ShieldCheck,
   Clock,
   Key,
-  ExternalLink,
+  ArrowSquareOut,
   FileText,
   Cpu,
-  AlertTriangle,
-} from "lucide-react";
+  Warning,
+} from "@phosphor-icons/react";
 export const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const { user, roles, email, hasRole, logout } = useAuth();
@@ -52,19 +52,19 @@ export const DashboardLayout = ({ children }) => {
     .slice(0, 3);
 
   const navItems = [
-    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { name: "Dashboard", path: "/dashboard", icon: SquaresFour },
     { name: "Access Control", path: "/access", icon: Lock },
-    { name: "Hostel Management", path: "/hostel", icon: Home },
-    { name: "Leave Management", path: "/leave", icon: CalendarDays },
+    { name: "Hostel Management", path: "/hostel", icon: House },
+    { name: "Leave Management", path: "/leave", icon: CalendarDots },
     { name: "Guard Console", path: "/guard", icon: Shield },
     { name: "RFID Cards", path: "/rfid", icon: CreditCard },
-    { name: "Face Lab", path: "/face-recognition", icon: ScanFace },
-    { name: "Auth Monitor", path: "/face-auth-log", icon: ShieldAlert },
+    { name: "Face Lab", path: "/face-recognition", icon: UserFocus },
+    { name: "Auth Monitor", path: "/face-auth-log", icon: ShieldWarning },
     { name: "User Directory", path: "/users", icon: Users },
     { name: "Onboard Person", path: "/onboarding", icon: UserPlus },
-    { name: "Device Registry", path: "/devices", icon: Server },
-    { name: "Analytics", path: "/analytics", icon: BarChart3 },
-    { name: "Audit Log", path: "/audit", icon: Activity },
+    { name: "Device Registry", path: "/devices", icon: HardDrives },
+    { name: "Analytics", path: "/analytics", icon: ChartBar },
+    { name: "Audit Log", path: "/audit", icon: ChartLineUp },
   ];
 
   const filteredNavItems = navItems.filter((item) =>
@@ -169,34 +169,45 @@ export const DashboardLayout = ({ children }) => {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-[#0a2342] text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-gradient-to-b from-[#06182e] via-[#0a2342] to-[#071d38] text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex h-24 items-center justify-between border-b border-white/10 px-5">
+          <div className="flex h-24 items-center justify-between border-b border-white/10 px-5 bg-black/10">
             <Link
               to={roleDashboardPath(roles)}
-              className="flex items-center justify-center text-white no-underline mx-auto"
+              className="flex items-center gap-3 text-white no-underline group"
               aria-label="DSVV dashboard"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               <img
                 src={dsvvLogo}
                 alt="Dev Sanskriti Vishwavidyalaya"
-                className="h-[78px] w-[78px] object-contain"
+                className="h-[68px] w-[68px] object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-transform duration-200 group-hover:scale-105"
               />
+              <div className="flex flex-col">
+                <span className="font-display font-extrabold text-sm tracking-wide text-white leading-tight">
+                  DSVV · OCOC
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#f5bd19] mt-0.5">
+                  Campus Platform
+                </span>
+              </div>
             </Link>
             <button
-              className="rounded-md p-2 text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
+              className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition lg:hidden icon-touch"
               aria-label="Close navigation"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <X size={20} />
+              <X size={20} weight="bold" />
             </button>
           </div>
 
-          <div className="px-4 pt-6 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-            Workspace
+          <div className="px-5 pt-5 pb-1 flex items-center justify-between text-[11px] font-black uppercase tracking-[0.16em] text-slate-400/80">
+            <span>Workspace Modules</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-bold">
+              {filteredNavItems.length}
+            </span>
           </div>
 
           <nav
@@ -211,36 +222,44 @@ export const DashboardLayout = ({ children }) => {
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                    `group flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-bold transition-all duration-150 ${
                       isActive
-                        ? "!bg-[#f5bd19] !text-[#0a2342] shadow-sm"
-                        : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        ? "!bg-gradient-to-r !from-[#f5bd19] !to-[#ebb110] !text-[#0a2342] shadow-[0_4px_14px_rgba(245,189,25,0.3)] font-black"
+                        : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
                     }`
                   }
                 >
-                  <Icon size={18} strokeWidth={2} />
-                  <span>{item.name}</span>
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        size={19}
+                        weight={isActive ? "fill" : "bold"}
+                        className="transition-transform duration-200 group-hover:scale-110"
+                      />
+                      <span>{item.name}</span>
+                    </>
+                  )}
                 </NavLink>
               );
             })}
           </nav>
 
           {/* Quick Legal & Security links inside sidebar */}
-          <div className="border-t border-white/10 p-3 space-y-1 text-xs">
+          <div className="border-t border-white/10 p-3 space-y-1 text-xs bg-black/10">
             <button
               type="button"
               onClick={() => openLegalModalWithTab("terms")}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition font-medium"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition font-semibold"
             >
-              <FileText size={15} className="text-[#f5bd19]" />
+              <FileText size={15} weight="bold" className="text-[#f5bd19]" />
               <span>Terms of Campus Use</span>
             </button>
             <button
               type="button"
               onClick={() => openLegalModalWithTab("privacy")}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition font-medium"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition font-semibold"
             >
-              <Lock size={15} className="text-emerald-400" />
+              <Lock size={15} weight="bold" className="text-emerald-400" />
               <span>Biometric Privacy Policy</span>
             </button>
           </div>
@@ -250,21 +269,23 @@ export const DashboardLayout = ({ children }) => {
         <main className="min-w-0 flex-1 flex flex-col justify-between">
           <div>
             {/* Sticky Header */}
-            <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-[var(--border-light)] bg-[var(--bg-main)]/95 px-4 backdrop-blur lg:px-8">
-              <div className="flex items-center gap-3">
+            <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-md lg:px-8 shadow-[0_1px_3px_rgba(10,35,66,0.03)]">
+              <div className="flex items-center gap-3.5">
                 <button
-                  className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] text-[#0a2342] lg:hidden"
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-white text-[#0a2342] shadow-xs hover:bg-slate-50 transition lg:hidden icon-touch"
                   aria-label="Open navigation"
                   onClick={() => setIsMobileMenuOpen(true)}
                 >
-                  <Menu size={21} />
+                  <List size={22} weight="bold" />
                 </button>
                 <div>
-                  <p className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-amber-700">
-                    OCOC PLATFORM
-                  </p>
-                  <h2 className="font-display text-base font-extrabold text-[var(--text-main)] sm:text-lg">
-                    University Identity &amp; Access Control
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f5bd19]/15 text-[#7b5600] text-[11px] font-black uppercase tracking-wider">
+                      <Shield size={13} weight="fill" className="text-[#d99e00]" /> OCOC Platform
+                    </span>
+                  </div>
+                  <h2 className="font-display text-base font-extrabold text-[var(--text-main)] sm:text-lg tracking-tight">
+                    Campus Identity &amp; Access Control
                   </h2>
                 </div>
               </div>
@@ -278,23 +299,23 @@ export const DashboardLayout = ({ children }) => {
                       e.stopPropagation();
                       setIsSecurityMenuOpen(!isSecurityMenuOpen);
                     }}
-                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:border-slate-400 shadow-2xs transition"
+                    className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-slate-200/90 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 shadow-xs transition hover:bg-slate-50"
                     title="View Session Security Information"
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <ShieldCheck size={14} className="text-emerald-600" />
+                    <ShieldCheck size={16} weight="fill" className="text-emerald-600" />
                     <span>TLS 1.3 Active</span>
                   </button>
 
                   {/* Security Popover */}
                   {isSecurityMenuOpen && (
-                    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl text-slate-800 text-xs space-y-3 animate-fade-in">
+                    <div className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl text-slate-800 text-xs space-y-3 animate-fade-in">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                         <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                          <ShieldCheck size={16} className="text-emerald-600" />
+                          <ShieldCheck size={17} weight="fill" className="text-emerald-600" />
                           <span>Session Security Status</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
                           Verified
                         </span>
                       </div>
@@ -338,18 +359,18 @@ export const DashboardLayout = ({ children }) => {
                         <button
                           type="button"
                           onClick={() => openLegalModalWithTab("security")}
-                          className="w-full text-left font-bold text-[#0a2342] hover:underline flex items-center justify-between"
+                          className="w-full text-left font-bold text-[#0a2342] hover:underline flex items-center justify-between py-1"
                         >
                           <span>Review ISO 27001 Controls</span>
-                          <ExternalLink size={12} />
+                          <ArrowSquareOut size={13} weight="bold" />
                         </button>
                         <button
                           type="button"
                           onClick={() => openLegalModalWithTab("privacy")}
-                          className="w-full text-left font-bold text-[#0a2342] hover:underline flex items-center justify-between"
+                          className="w-full text-left font-bold text-[#0a2342] hover:underline flex items-center justify-between py-1"
                         >
                           <span>Biometric Privacy &amp; Vector Info</span>
-                          <ExternalLink size={12} />
+                          <ArrowSquareOut size={13} weight="bold" />
                         </button>
                       </div>
                     </div>
@@ -359,7 +380,7 @@ export const DashboardLayout = ({ children }) => {
                 {/* User Profile Menu */}
                 <div className="relative" data-profile-menu>
                   <button
-                    className="flex items-center gap-2 rounded-full border border-[var(--border-light)] bg-[var(--bg-card)] p-1 pr-2 text-[#0a2342] shadow-sm transition hover:border-[#f5bd19] hover:shadow-md"
+                    className="flex items-center gap-2 rounded-full border border-slate-200/90 bg-white p-1 pr-2.5 text-[#0a2342] shadow-xs transition hover:border-[#f5bd19] hover:shadow-sm"
                     aria-expanded={isProfileMenuOpen}
                     aria-haspopup="menu"
                     aria-label="Open account menu"
@@ -368,11 +389,12 @@ export const DashboardLayout = ({ children }) => {
                       setIsProfileMenuOpen(!isProfileMenuOpen);
                     }}
                   >
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-[#0a2342] text-sm font-bold text-[#f5bd19]">
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-tr from-[#0a2342] to-[#163a66] text-sm font-black text-[#f5bd19] shadow-xs">
                       {userInitial}
                     </span>
-                    <ChevronDown
-                      size={15}
+                    <CaretDown
+                      size={14}
+                      weight="bold"
                       className={`hidden text-muted sm:block transition-transform duration-200 ${
                         isProfileMenuOpen ? "rotate-180" : ""
                       }`}
@@ -381,20 +403,20 @@ export const DashboardLayout = ({ children }) => {
 
                   {isProfileMenuOpen && (
                     <div
-                      className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-72 overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[var(--bg-card)] p-2 text-[var(--text-main)] shadow-[0_18px_48px_rgb(10_35_66/0.18)]"
+                      className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-72 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2 text-[var(--text-main)] shadow-[0_20px_48px_rgba(10,35,66,0.18)]"
                       role="menu"
                     >
-                      <div className="rounded-xl bg-[#0a2342] px-4 py-4 text-white">
+                      <div className="rounded-xl bg-gradient-to-r from-[#06182e] to-[#0a2342] px-4 py-4 text-white shadow-xs">
                         <div className="flex items-center gap-3">
-                          <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f5bd19] font-bold text-[#0a2342]">
+                          <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f5bd19] font-black text-[#0a2342] shadow-xs">
                             {userInitial}
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold">
+                            <p className="truncate text-sm font-bold text-white">
                               {email || "Administrator"}
                             </p>
-                            <p className="mt-0.5 text-xs text-slate-300">
-                              Verified Session
+                            <p className="mt-0.5 text-xs text-slate-300 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Verified Session
                             </p>
                           </div>
                         </div>
@@ -402,17 +424,17 @@ export const DashboardLayout = ({ children }) => {
 
                       <div className="px-3 py-3">
                         <div className="flex items-center gap-2 text-xs font-semibold text-muted">
-                          <Mail size={14} /> Account identity
+                          <Envelope size={15} weight="bold" /> Account identity
                         </div>
-                        <p className="mt-2 break-all text-sm font-semibold">
+                        <p className="mt-1.5 break-all text-sm font-bold text-slate-800">
                           {email || "Administrator"}
                         </p>
                         {userRoles.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
+                          <div className="mt-2.5 flex flex-wrap gap-1.5">
                             {userRoles.map((role) => (
                               <span
                                 key={role}
-                                className="rounded-full bg-[#f5bd19]/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#7b5600]"
+                                className="rounded-full bg-[#f5bd19]/15 border border-[#f5bd19]/30 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#7b5600]"
                               >
                                 {role.replace(/_/g, " ")}
                               </span>
@@ -428,10 +450,10 @@ export const DashboardLayout = ({ children }) => {
                             setIsProfileMenuOpen(false);
                             openLegalModalWithTab("terms");
                           }}
-                          className="w-full text-left py-1 text-slate-600 hover:text-slate-900 font-medium flex items-center justify-between"
+                          className="w-full text-left py-1.5 text-slate-600 hover:text-slate-900 font-semibold flex items-center justify-between"
                         >
                           <span>Terms &amp; Campus Rules</span>
-                          <ExternalLink size={12} />
+                          <ArrowSquareOut size={13} weight="bold" />
                         </button>
                         <button
                           type="button"
@@ -439,19 +461,19 @@ export const DashboardLayout = ({ children }) => {
                             setIsProfileMenuOpen(false);
                             openLegalModalWithTab("privacy");
                           }}
-                          className="w-full text-left py-1 text-slate-600 hover:text-slate-900 font-medium flex items-center justify-between"
+                          className="w-full text-left py-1.5 text-slate-600 hover:text-slate-900 font-semibold flex items-center justify-between"
                         >
                           <span>Biometric Data Policy</span>
-                          <ExternalLink size={12} />
+                          <ArrowSquareOut size={13} weight="bold" />
                         </button>
                       </div>
 
                       <button
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-700 transition hover:bg-red-50 border-t border-slate-100"
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 border-t border-slate-100"
                         role="menuitem"
                         onClick={handleLogout}
                       >
-                        <LogOut size={16} /> Sign out
+                        <SignOut size={16} weight="bold" /> Sign out
                       </button>
                     </div>
                   )}
@@ -460,17 +482,17 @@ export const DashboardLayout = ({ children }) => {
             </header>
 
             {/* Page Content */}
-            <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8 page-enter">
               {children}
             </div>
           </div>
 
           {/* Institutional Compliance & Governance Footer */}
-          <footer className="mt-12 border-t border-slate-200/80 bg-white py-6 text-xs text-slate-500">
+          <footer className="mt-12 border-t border-slate-200/80 bg-white/90 py-6 text-xs text-slate-500 backdrop-blur-xs">
             <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-emerald-600" />
+                  <ShieldCheck size={17} weight="fill" className="text-emerald-600" />
                   <span className="font-extrabold text-slate-800">
                     Dev Sanskriti Vishwavidyalaya · OCOC
                   </span>
@@ -539,7 +561,7 @@ export const DashboardLayout = ({ children }) => {
           <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-amber-200 space-y-4 animate-scale-in">
             <div className="flex items-center gap-3 text-amber-700">
               <div className="p-2 rounded-xl bg-amber-100">
-                <AlertTriangle size={24} className="text-amber-600" />
+                <Warning size={24} weight="fill" className="text-amber-600" />
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">

@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { recognizeFace, recognizeFaces } from "@/services/frecoService";
 import api from "@/services/api";
-import { ScanFace, Users, Loader2, ShieldCheck, ShieldX } from "lucide-react";
+import {
+  ShieldCheck,
+  ShieldSlash,
+  SpinnerGap,
+  UserFocus,
+  Users
+} from "@phosphor-icons/react";
 import FaceOvalCamera from "@/components/FaceOvalCamera";
 import FaceWideCamera from "@/components/FaceWideCamera";
 export const FaceRecognition = () => {
@@ -100,7 +106,7 @@ export const FaceRecognition = () => {
               : "text-muted hover:text-[#0a2342]"
           }`}
         >
-          <ScanFace size={16} /> Single Face
+          <UserFocus size={16} /> Single Face
         </button>
         <button
           onClick={() => setActiveTab("mass")}
@@ -131,7 +137,7 @@ export const FaceRecognition = () => {
 
           <div className="glass-panel p-5 flex flex-col justify-center text-center">
             {singleBusy ? (
-              <Loader2
+              <SpinnerGap
                 className="animate-spin mx-auto mb-3 text-[#f5bd19]"
                 size={40}
               />
@@ -141,7 +147,7 @@ export const FaceRecognition = () => {
                 size={54}
               />
             ) : singleResult ? (
-              <ShieldX className="text-red-500 mx-auto mb-3" size={54} />
+              <ShieldSlash className="text-red-500 mx-auto mb-3" size={54} />
             ) : null}
 
             <p className="font-bold text-xl">{singleState}</p>
@@ -172,7 +178,7 @@ export const FaceRecognition = () => {
           <div className="glass-panel p-5">
             <div className="flex gap-2 items-center mb-4">
               {multiBusy && (
-                <Loader2 className="animate-spin text-[#f5bd19]" size={18} />
+                <SpinnerGap className="animate-spin text-[#f5bd19]" size={18} />
               )}
               <h2 className="font-bold text-lg">Live results</h2>
             </div>

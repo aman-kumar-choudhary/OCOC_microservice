@@ -2,33 +2,33 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import DigitalGatePassModal from "@/components/DigitalGatePassModal";
 import {
-  ShieldCheck,
-  UserRound,
-  Building2,
-  Home,
-  Shield,
-  MapPin,
-  CreditCard,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Loader2,
-  Sparkles,
-  Phone,
-  Mail,
-  Award,
+  ArrowSquareOut,
   BookOpen,
-  Layers,
-  GraduationCap,
-  Wrench,
-  UserCheck,
-  Hash,
   Briefcase,
+  BuildingOffice,
+  CalendarDots,
+  CheckCircle,
+  Clock,
+  CreditCard,
+  Envelope,
   FileText,
-  CalendarClock,
+  GraduationCap,
+  Hash,
+  House,
+  MapPin,
+  Medal,
+  Phone,
   QrCode,
-} from "lucide-react";
+  Shield,
+  ShieldCheck,
+  Sparkle,
+  SpinnerGap,
+  Stack,
+  UserCheck,
+  UserCircle,
+  WarningCircle,
+  Wrench
+} from "@phosphor-icons/react";
 import { useAuth } from "@/context/AuthContext";
 import userService from "@/services/userService";
 const OPERATIONAL_ROLES = new Set([
@@ -117,42 +117,40 @@ export const PersonalDashboard = () => {
             : "Personal Workspace");
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6 pb-12 animate-fade-in">
+    <section className="mx-auto max-w-6xl space-y-6 pb-12 page-enter">
       {/* ── Top Hero Banner ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0a2342] via-[#0f2e54] to-[#163a66] text-white shadow-xl">
-        <div className="absolute right-0 top-0 -mt-12 -mr-12 h-64 w-64 rounded-full bg-[#f5bd19]/10 blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#06182e] via-[#0a2342] to-[#12365f] text-white shadow-xl border border-white/10">
+        <div className="absolute right-0 top-0 -mt-12 -mr-12 h-64 w-64 rounded-full bg-[#f5bd19]/15 blur-3xl pointer-events-none" />
         <div className="px-6 py-8 sm:px-10 sm:py-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#f5bd19]">
-                <ShieldCheck size={16} /> OCOC · {workspaceTitle}
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="space-y-2.5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#f5bd19] backdrop-blur-sm border border-white/10">
+                <ShieldCheck size={16} weight="fill" /> OCOC · {workspaceTitle}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              <h1 className="text-2xl sm:text-4xl font-display font-black tracking-tight text-white">
                 Welcome, {displayName}
               </h1>
               <p className="max-w-2xl text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Your campus digital identity is verified and active. View your
-                authorized locations, RFID card status, and academic/operational
-                profile below.
+                Your campus digital identity is verified and active. Access your authorized university locations, RFID credentials, and academic profile.
               </p>
             </div>
 
             {/* Quick Action Badges */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
               {isWarden && (
                 <Link
                   to="/hostel"
-                  className="btn bg-[#f5bd19] text-[#0a2342] hover:bg-[#e0ab12] font-extrabold text-xs shadow-md flex items-center gap-1.5"
+                  className="btn btn-primary font-black text-xs shadow-md flex items-center gap-1.5"
                 >
-                  <Home size={15} /> Launch Hostel Console
+                  <House size={15} weight="bold" /> Launch Hostel Console
                 </Link>
               )}
               {isGuard && (
                 <Link
                   to="/guard"
-                  className="btn bg-red-500 text-white hover:bg-red-600 font-extrabold text-xs shadow-md flex items-center gap-1.5"
+                  className="btn btn-danger font-black text-xs shadow-md flex items-center gap-1.5"
                 >
-                  <Shield size={15} /> Open Guard Console
+                  <Shield size={15} weight="bold" /> Open Guard Console
                 </Link>
               )}
             </div>
@@ -161,10 +159,10 @@ export const PersonalDashboard = () => {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 space-y-3 bg-white rounded-2xl border border-slate-200 shadow-xs min-h-[300px]">
-          <Loader2 size={32} className="animate-spin text-amber-500" />
-          <p className="text-xs font-bold text-slate-600">
-            Loading your personalized campus profile...
+        <div className="flex flex-col items-center justify-center p-16 space-y-3 bg-white rounded-3xl border border-slate-200/80 shadow-xs min-h-[300px]">
+          <SpinnerGap size={36} weight="bold" className="animate-spin text-[#f5bd19]" />
+          <p className="text-sm font-bold text-slate-700">
+            Loading your personalized campus profile…
           </p>
         </div>
       ) : (
@@ -172,27 +170,27 @@ export const PersonalDashboard = () => {
           {/* ── Left 2 Columns: Identity & Location Grants ── */}
           <div className="md:col-span-2 space-y-6">
             {/* Identity & Persona Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0a2342] text-amber-400 font-extrabold text-xl flex items-center justify-center shadow-xs">
+            <div className="app-panel p-6 sm:p-7 space-y-6 border-slate-200/80">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#0a2342] to-[#163a66] text-[#f5bd19] font-display font-black text-2xl flex items-center justify-center shadow-md border border-[#f5bd19]/30">
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h2 className="font-extrabold text-base text-slate-900">
+                    <h2 className="font-display font-black text-lg text-slate-900 leading-snug">
                       {displayName}
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs font-semibold text-slate-500">
                       {profile?.email || email}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                     {profile?.status || "active"}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-slate-100 text-slate-800 border border-slate-200">
+                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-100 text-slate-800 border border-slate-200">
                     {profile?.user_type || "user"}
                   </span>
                 </div>
@@ -201,21 +199,21 @@ export const PersonalDashboard = () => {
               {/* Profile Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
                 {profile?.roll_number && (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70">
+                    <span className="text-xs font-bold text-slate-500 block mb-1">
                       Roll Number
                     </span>
-                    <span className="font-mono font-bold text-slate-900">
+                    <span className="font-mono font-black text-sm text-slate-900">
                       {profile.roll_number}
                     </span>
                   </div>
                 )}
                 {profile?.employee_id && (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70">
+                    <span className="text-xs font-bold text-slate-500 block mb-1">
                       Employee ID
                     </span>
-                    <span className="font-mono font-bold text-slate-900">
+                    <span className="font-mono font-black text-sm text-slate-900">
                       {profile.employee_id}
                     </span>
                   </div>
@@ -247,7 +245,7 @@ export const PersonalDashboard = () => {
                       Assigned Hostel
                     </span>
                     <span className="font-extrabold text-amber-950 flex items-center gap-1.5">
-                      <Home size={13} className="text-amber-600" />{" "}
+                      <House size={13} className="text-amber-600" />{" "}
                       {profile.hostel}
                     </span>
                   </div>
@@ -315,7 +313,7 @@ export const PersonalDashboard = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
-                      <Layers size={18} className="text-amber-500" />
+                      <Stack size={18} className="text-amber-500" />
                       <h3 className="font-extrabold text-sm text-slate-900">
                         Role-Specific Details & Permissions (
                         {Object.keys(profile.role_profiles).length} Active
@@ -396,7 +394,7 @@ export const PersonalDashboard = () => {
                       <div className="p-4 rounded-xl border border-violet-200 bg-violet-50/40 space-y-2">
                         <div className="flex items-center justify-between border-b border-violet-200/80 pb-2">
                           <span className="font-extrabold text-xs text-violet-900 flex items-center gap-1.5 uppercase tracking-wide">
-                            <Award size={15} className="text-violet-600" />{" "}
+                            <Medal size={15} className="text-violet-600" />{" "}
                             Faculty Profile
                           </span>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800">
@@ -450,7 +448,7 @@ export const PersonalDashboard = () => {
                       <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
                         <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
                           <span className="font-extrabold text-xs text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
-                            <Home size={15} className="text-amber-600" /> Hostel
+                            <House size={15} className="text-amber-600" /> Hostel
                             Warden Governance
                           </span>
                           <Link
@@ -458,7 +456,7 @@ export const PersonalDashboard = () => {
                             className="text-[11px] font-extrabold text-amber-800 hover:text-amber-950 flex items-center gap-1 bg-amber-100/80 hover:bg-amber-200 px-2 py-0.5 rounded-md transition"
                           >
                             <span>Hostel Console</span>
-                            <ExternalLink size={12} />
+                            <ArrowSquareOut size={12} />
                           </Link>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -653,41 +651,66 @@ export const PersonalDashboard = () => {
 
           {/* ── Right Column: Cards & Live Status ── */}
           <div className="space-y-6">
-            {/* RFID Card Badge */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-3">
-              <div className="flex items-center gap-2">
-                <CreditCard size={18} className="text-blue-600" />
-                <h3 className="font-extrabold text-sm text-slate-900">
-                  Campus Smart Card
-                </h3>
+            {/* RFID Smart Card Visual */}
+            <div className="app-panel p-6 space-y-4 border-slate-200/80">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={18} weight="duotone" className="text-amber-500" />
+                  <h3 className="font-display font-black text-sm text-slate-900">
+                    Smart Campus Credential
+                  </h3>
+                </div>
+                {profile?.rfid_card && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                    Active
+                  </span>
+                )}
               </div>
+
               {profile?.rfid_card ? (
-                <div className="p-4 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 space-y-2">
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-tr from-[#06182e] via-[#0a2342] to-[#163a66] p-5 text-white shadow-md border border-white/10 space-y-4">
+                  <div className="absolute right-0 top-0 -mr-6 -mt-6 h-28 w-28 rounded-full bg-[#f5bd19]/10 blur-xl pointer-events-none" />
+                  
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800">
-                      NFC / RFID Tag
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                      Active
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#f5bd19]">
+                        DSVV Smart ID
+                      </p>
+                      <p className="text-xs font-bold text-slate-300">
+                        NFC Contactless Pass
+                      </p>
+                    </div>
+                    <div className="w-8 h-6 rounded-md bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-[10px] font-mono text-amber-300 font-bold">
+                      RFID
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Card UID
+                    </p>
+                    <p className="font-mono text-xl font-black text-white tracking-widest text-shadow-sm">
+                      {profile.rfid_card.uid}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-300 font-medium">
+                    <span>{displayName}</span>
+                    <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                      <CheckCircle size={14} weight="fill" /> Gates Enabled
                     </span>
                   </div>
-                  <p className="font-mono text-lg font-extrabold text-[#0a2342] tracking-widest">
-                    {profile.rfid_card.uid}
-                  </p>
-                  <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                    <CheckCircle2 size={12} className="text-emerald-600" />{" "}
-                    Verified for contactless turnstile gates
-                  </p>
                 </div>
               ) : (
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 text-center space-y-1">
-                  <CreditCard size={24} className="mx-auto text-slate-300" />
-                  <p className="text-xs font-bold text-slate-600">
+                <div className="p-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 text-center space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-slate-200/60 text-slate-400 flex items-center justify-center mx-auto">
+                    <CreditCard size={24} weight="duotone" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-700">
                     No Physical Card Linked
                   </p>
-                  <p className="text-[11px] text-slate-400">
-                    Visit campus security or administration to link an RFID
-                    card.
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    Visit the campus administration desk or security office to register a physical RFID badge.
                   </p>
                 </div>
               )}
@@ -697,7 +720,7 @@ export const PersonalDashboard = () => {
             {isStudent && (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2">
-                  <Home size={18} className="text-amber-600" />
+                  <House size={18} className="text-amber-600" />
                   <h3 className="font-extrabold text-sm text-slate-900">
                     Hostel Attendance Status
                   </h3>
@@ -752,7 +775,7 @@ export const PersonalDashboard = () => {
             {isStudent && (
               <div className="rounded-2xl border border-purple-200 bg-white p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2">
-                  <CalendarClock size={18} className="text-purple-600" />
+                  <CalendarDots size={18} className="text-purple-600" />
                   <h3 className="font-extrabold text-sm text-slate-900">
                     Leave Management
                   </h3>
@@ -765,7 +788,7 @@ export const PersonalDashboard = () => {
                   <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70 text-xs space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold text-emerald-900 flex items-center gap-1">
-                        <CheckCircle2 size={14} className="text-emerald-600" />{" "}
+                        <CheckCircle size={14} className="text-emerald-600" />{" "}
                         Active Gate Exit Pass
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-200 text-emerald-900">
@@ -832,7 +855,7 @@ export const PersonalDashboard = () => {
                   <span>Main Security Gate: +91 98765 43212</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Mail size={14} className="text-amber-500 shrink-0" />
+                  <Envelope size={14} className="text-amber-500 shrink-0" />
                   <span>identity-support@ococ.campus.edu</span>
                 </div>
               </div>

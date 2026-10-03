@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
-  Users,
-  Home,
-  AlertTriangle,
-  LogOut,
-  Clock,
-  Activity,
+  ChartLineUp,
   CheckCircle,
-  XCircle,
-  AlertCircle,
-} from "lucide-react";
+  Clock,
+  House,
+  SignOut,
+  Users,
+  Warning,
+  WarningCircle,
+  XCircle
+} from "@phosphor-icons/react";
 import { hostelService } from "../../services/hostelService";
 
 const HostelStatsCards = ({ hostelId, liveVersion = 0 }) => {
@@ -56,13 +56,13 @@ const HostelStatsCards = ({ hostelId, liveVersion = 0 }) => {
           color="blue"
         />
         <StatCard
-          icon={Home}
+          icon={House}
           title="Inside Hostel"
           value={stats.inside}
           color="emerald"
         />
         <StatCard
-          icon={LogOut}
+          icon={SignOut}
           title="Outside Campus"
           value={stats.outside}
           color="orange"
@@ -116,7 +116,7 @@ const HostelStatsCards = ({ hostelId, liveVersion = 0 }) => {
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
-              <Activity size={24} />
+              <ChartLineUp size={24} />
             </div>
           </div>
 
@@ -130,7 +130,7 @@ const HostelStatsCards = ({ hostelId, liveVersion = 0 }) => {
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-500">
-              <AlertTriangle size={24} />
+              <Warning size={24} />
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@ const HostelStatsCards = ({ hostelId, liveVersion = 0 }) => {
         {/* Live Alerts Feed */}
         <div className="bg-white border border-red-100 rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex items-center gap-2">
-            <AlertCircle size={18} className="text-red-600" />
+            <WarningCircle size={18} className="text-red-600" />
             <h3 className="font-bold text-red-800">Live Alerts</h3>
           </div>
           <div className="p-4 flex-1 overflow-y-auto max-h-[220px]">

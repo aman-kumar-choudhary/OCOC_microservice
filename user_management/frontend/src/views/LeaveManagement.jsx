@@ -5,27 +5,26 @@ import LegalModal from "@/components/LegalModal";
 import ConfirmActionModal from "@/components/ConfirmActionModal";
 import DigitalGatePassModal from "@/components/DigitalGatePassModal";
 import {
-  CalendarDays,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  FileText,
-  ShieldCheck,
-  MapPin,
-  Search,
+  ArrowCounterClockwise,
   ArrowRight,
-  User,
-  CheckCircle,
-  ChevronRight,
-  QrCode,
-  Filter,
-  ExternalLink,
-  RotateCcw,
-  AlertTriangle,
-  Layers,
+  ArrowSquareOut,
   CalendarCheck,
-} from "lucide-react";
+  CalendarDots,
+  CaretRight,
+  CheckCircle,
+  Clock,
+  FileText,
+  Funnel,
+  MagnifyingGlass,
+  MapPin,
+  QrCode,
+  ShieldCheck,
+  Stack,
+  User,
+  Warning,
+  WarningCircle,
+  XCircle
+} from "@phosphor-icons/react";
 const statusColor = {
   DRAFT: "bg-slate-100 text-slate-700 border-slate-300",
   PENDING_APPROVAL: "bg-amber-100 text-amber-800 border-amber-300",
@@ -61,7 +60,7 @@ const ProcessFlowPipeline = () => {
     <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-2xs">
       <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0a2342] flex items-center gap-1.5">
-          <Layers size={14} className="text-amber-600" /> Standard Campus
+          <Stack size={14} className="text-amber-600" /> Standard Campus
           Movement Lifecycle
         </span>
         <span className="text-[10px] text-slate-400">
@@ -84,7 +83,7 @@ const ProcessFlowPipeline = () => {
               {st.desc}
             </span>
             {idx < 4 && (
-              <ChevronRight
+              <CaretRight
                 size={14}
                 className="hidden sm:block absolute -right-2 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none z-10"
               />
@@ -153,7 +152,7 @@ function GuardLeaveView() {
   }, [requests, search, validFilter]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8 animate-fade-in">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8 page-enter">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
@@ -171,7 +170,7 @@ function GuardLeaveView() {
           onClick={fetchLeaves}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs self-start"
         >
-          <RotateCcw size={14} /> Refresh Roster
+          <ArrowCounterClockwise size={14} /> Refresh Roster
         </button>
       </header>
 
@@ -184,17 +183,17 @@ function GuardLeaveView() {
         </div>
       )}
 
-      {/* Filter and Search Bar */}
+      {/* Funnel and MagnifyingGlass Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
         <div className="relative flex-1 w-full">
-          <Search
+          <MagnifyingGlass
             size={15}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by student name, ID, or destination..."
+            placeholder="MagnifyingGlass by student name, ID, or destination..."
             className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
           />
         </div>
@@ -288,7 +287,7 @@ function GuardLeaveView() {
                       <td className="p-3">
                         {isActive ? (
                           <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            <CheckCircle2 size={12} /> ACTIVE NOW (PASS)
+                            <CheckCircle size={12} /> ACTIVE NOW (PASS)
                           </span>
                         ) : isExpired ? (
                           <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold bg-red-100 text-red-800 border border-red-300">
@@ -544,7 +543,7 @@ export default function LeaveManagement() {
     }
   };
 
-  // Filter requests
+  // Funnel requests
   const filteredRequests = useMemo(() => {
     if (requestFilterTab === "all") return requests;
     if (requestFilterTab === "approved")
@@ -607,7 +606,7 @@ export default function LeaveManagement() {
           role="alert"
           className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-start gap-2 shadow-2xs animate-fade-in"
         >
-          <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+          <WarningCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
@@ -623,7 +622,7 @@ export default function LeaveManagement() {
         <div className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/90 p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 animate-scale-in">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-              <CheckCircle2 size={26} />
+              <CheckCircle size={26} />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -867,7 +866,7 @@ export default function LeaveManagement() {
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400 text-xs">
-                <CalendarDays
+                <CalendarDots
                   size={32}
                   className="mx-auto text-slate-300 mb-2"
                 />
@@ -1032,7 +1031,7 @@ export default function LeaveManagement() {
             </p>
           </div>
 
-          {/* Filter Tabs */}
+          {/* Funnel Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto text-xs pb-1 sm:pb-0">
             {["all", "approved", "pending", "draft", "completed"].map((tab) => (
               <button

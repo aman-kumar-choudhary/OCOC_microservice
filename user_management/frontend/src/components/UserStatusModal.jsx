@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import userService from "@/services/userService";
 import {
-  X,
-  Loader2,
-  ShieldOff,
   ShieldCheck,
-  UserX,
-  AlertTriangle,
-} from "lucide-react";
+  ShieldSlash,
+  SpinnerGap,
+  UserMinus,
+  Warning,
+  X
+} from "@phosphor-icons/react";
 
 export const UserStatusModal = ({ user, action, onClose, onDone }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -16,7 +16,7 @@ export const UserStatusModal = ({ user, action, onClose, onDone }) => {
   const getConfig = () => {
     if (action === "suspend") {
       return {
-        icon: ShieldOff,
+        icon: ShieldSlash,
         title: "Suspend User",
         verb: "Suspend",
         color: "amber",
@@ -47,7 +47,7 @@ export const UserStatusModal = ({ user, action, onClose, onDone }) => {
     }
     if (action === "deactivate") {
       return {
-        icon: UserX,
+        icon: UserMinus,
         title: "Permanently Deactivate",
         verb: "Deactivate",
         color: "red",
@@ -63,7 +63,7 @@ export const UserStatusModal = ({ user, action, onClose, onDone }) => {
     }
 
     return {
-      icon: UserX,
+      icon: UserMinus,
       title: "Delete User Permanently",
       verb: "Delete",
       color: "red",
@@ -152,7 +152,7 @@ export const UserStatusModal = ({ user, action, onClose, onDone }) => {
           {/* Consequences */}
           <div className={`p-4 rounded-xl border ${config.bgClass}`}>
             <div className="flex items-start gap-2 mb-2">
-              <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+              <Warning size={15} className="mt-0.5 shrink-0" />
               <span className="text-sm font-bold">What will happen:</span>
             </div>
             <ul className="space-y-1">
@@ -184,7 +184,7 @@ export const UserStatusModal = ({ user, action, onClose, onDone }) => {
             className={`btn ${config.btnClass}`}
           >
             {isLoading ? (
-              <Loader2 className="animate-spin" size={15} />
+              <SpinnerGap className="animate-spin" size={15} />
             ) : (
               <Icon size={15} />
             )}

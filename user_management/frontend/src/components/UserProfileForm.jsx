@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
 import {
-  UserRound,
-  Mail,
-  Phone,
-  Hash,
-  Building2,
   BookOpen,
-  Award,
-  Home,
   Briefcase,
+  BuildingOffice,
+  Envelope,
+  Hash,
+  House,
+  Medal,
+  Phone,
+  UserCircle,
   Users,
-  Wrench,
-} from "lucide-react";
+  Wrench
+} from "@phosphor-icons/react";
 import userService from "@/services/userService";
 import PassportPhotoCapture from "@/components/PassportPhotoCapture";
 
@@ -200,7 +200,7 @@ export const UserProfileForm = ({
       {/* ─── Identity Information ─── */}
       <div className="rounded-xl border border-[var(--border-light)] p-5 bg-[var(--bg-card)]">
         <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-[#0a2342] border-b border-[var(--border-light)] pb-2">
-          <UserRound size={16} className="text-[#f5bd19]" />
+          <UserCircle size={16} className="text-[#f5bd19]" />
           <span>General Information</span>
         </div>
 
@@ -223,7 +223,7 @@ export const UserProfileForm = ({
             <div className="form-group">
               <label className="form-label">Email Address *</label>
               <div className="relative">
-                <Mail
+                <Envelope
                   size={16}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                 />
@@ -360,7 +360,7 @@ export const UserProfileForm = ({
             <div className="form-group">
               <label className="form-label">Department *</label>
               <div className="relative">
-                <Building2
+                <BuildingOffice
                   size={16}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                 />
@@ -477,7 +477,7 @@ export const UserProfileForm = ({
                   <div>
                     <label className="form-label">Hostel Residence</label>
                     <div className="relative">
-                      <Home
+                      <House
                         size={16}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                       />
@@ -519,7 +519,7 @@ export const UserProfileForm = ({
       {(persona === "faculty" || persona === "faculty_warden") && (
         <div className="rounded-xl border border-[var(--border-light)] p-5 bg-[var(--bg-card)]">
           <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-[#0a2342] border-b border-[var(--border-light)] pb-2">
-            <Award size={16} className="text-[#f5bd19]" />
+            <Medal size={16} className="text-[#f5bd19]" />
             <span>Faculty & Academic Appointment</span>
           </div>
 
@@ -564,7 +564,7 @@ export const UserProfileForm = ({
             <div className="form-group">
               <label className="form-label">Department *</label>
               <div className="relative">
-                <Building2
+                <BuildingOffice
                   size={16}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                 />
@@ -657,7 +657,7 @@ export const UserProfileForm = ({
       {(persona === "faculty_warden" || persona === "warden") && (
         <div className="rounded-xl border border-amber-300 p-5 bg-amber-50/50">
           <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-amber-950 border-b border-amber-200 pb-2">
-            <Home size={16} className="text-amber-600" />
+            <House size={16} className="text-amber-600" />
             <span>Hostel Warden Governance Details</span>
           </div>
 

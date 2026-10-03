@@ -2,17 +2,17 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import api from "@/services/api";
 import { formatDateTime, timeAgo } from "@/utils/date";
 import {
-  ShieldCheck,
-  ShieldX,
-  Activity,
-  RefreshCw,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
+  ArrowsClockwise,
   Calendar,
-  X,
-} from "lucide-react";
+  CaretLeft,
+  CaretRight,
+  ChartLineUp,
+  MagnifyingGlass,
+  ShieldCheck,
+  ShieldSlash,
+  SpinnerGap,
+  X
+} from "@phosphor-icons/react";
 export const FaceAuthLog = () => {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,7 +163,7 @@ export const FaceAuthLog = () => {
             id="refresh-auth-log-btn"
             className="h-8 w-8 grid place-items-center rounded-lg border border-[var(--border-light)] bg-white hover:bg-slate-50 transition text-[var(--text-muted)]"
           >
-            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+            <ArrowsClockwise size={14} className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -215,7 +215,7 @@ export const FaceAuthLog = () => {
         <div className="flex flex-wrap items-center gap-2">
           {/* Person search */}
           <div className="relative w-44">
-            <Search
+            <MagnifyingGlass
               size={13}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
             />
@@ -280,7 +280,7 @@ export const FaceAuthLog = () => {
 
         {/* Row 2 — Date range (collapsible) */}
         {showDateRange && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--border-light)] animate-fade-in">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--border-light)] page-enter">
             <label className="text-xs font-semibold text-[var(--text-muted)] w-8">
               From
             </label>
@@ -319,13 +319,13 @@ export const FaceAuthLog = () => {
       <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden relative">
         {isLoading && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={28} />
+            <SpinnerGap className="animate-spin text-[#f5bd19]" size={28} />
           </div>
         )}
 
         {logs.length === 0 && !isLoading ? (
           <div className="py-20 text-center">
-            <Activity size={40} className="mx-auto text-slate-300 mb-3" />
+            <ChartLineUp size={40} className="mx-auto text-slate-300 mb-3" />
             <p className="font-semibold text-[var(--text-muted)]">
               No authentication events found.
             </p>
@@ -350,7 +350,7 @@ export const FaceAuthLog = () => {
                         className="text-emerald-500 shrink-0"
                       />
                     ) : (
-                      <ShieldX size={18} className="text-red-500 shrink-0" />
+                      <ShieldSlash size={18} className="text-red-500 shrink-0" />
                     )}
                     <span
                       className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border tracking-wider ${style.pill}`}
@@ -457,7 +457,7 @@ export const FaceAuthLog = () => {
                   fetchLogs(p);
                 }}
               >
-                <ChevronLeft size={14} />
+                <CaretLeft size={14} />
               </button>
               <button
                 className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 disabled:opacity-40 transition"
@@ -468,7 +468,7 @@ export const FaceAuthLog = () => {
                   fetchLogs(p);
                 }}
               >
-                <ChevronRight size={14} />
+                <CaretRight size={14} />
               </button>
             </div>
           </div>

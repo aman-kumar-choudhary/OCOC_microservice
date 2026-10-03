@@ -5,15 +5,15 @@ import { registerPerson } from "@/services/frecoService";
 import FaceOvalCamera from "@/components/FaceOvalCamera";
 import UserProfileForm from "@/components/UserProfileForm";
 import {
-  X,
-  Loader2,
-  Save,
   Camera,
+  CheckCircle,
   CreditCard,
-  User as UserIcon,
-  CheckCircle2,
+  FloppyDisk,
   Scan,
-} from "lucide-react";
+  SpinnerGap,
+  User as UserIcon,
+  X
+} from "@phosphor-icons/react";
 const INITIAL_POSES = [
   {
     key: "center",
@@ -290,7 +290,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
               )}
               {profileSuccess && (
                 <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200 flex items-center gap-2">
-                  <CheckCircle2 size={16} /> Profile updated successfully!
+                  <CheckCircle size={16} /> Profile updated successfully!
                 </div>
               )}
               <div className="flex justify-end pt-4">
@@ -300,11 +300,11 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                   className="btn btn-primary"
                 >
                   {isProfileLoading ? (
-                    <Loader2 className="animate-spin" size={16} />
+                    <SpinnerGap className="animate-spin" size={16} />
                   ) : (
-                    <Save size={16} />
+                    <FloppyDisk size={16} />
                   )}
-                  Save Changes
+                  FloppyDisk Changes
                 </button>
               </div>
             </div>
@@ -368,7 +368,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
               )}
               {faceSuccess && (
                 <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200 flex items-center gap-2">
-                  <CheckCircle2 size={16} /> Face enrolled successfully!
+                  <CheckCircle size={16} /> Face enrolled successfully!
                 </div>
               )}
 
@@ -379,7 +379,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                   className="btn btn-primary"
                 >
                   {isFaceLoading ? (
-                    <Loader2 className="animate-spin" size={16} />
+                    <SpinnerGap className="animate-spin" size={16} />
                   ) : (
                     <Camera size={16} />
                   )}
@@ -433,7 +433,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                     className="btn btn-outline"
                   >
                     {isScanning ? (
-                      <Loader2 className="animate-spin" size={16} />
+                      <SpinnerGap className="animate-spin" size={16} />
                     ) : (
                       <Scan size={16} />
                     )}
@@ -448,7 +448,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                 )}
                 {rfidSuccess && (
                   <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200 flex items-center gap-2">
-                    <CheckCircle2 size={16} /> RFID assigned successfully!
+                    <CheckCircle size={16} /> RFID assigned successfully!
                   </div>
                 )}
 
@@ -459,7 +459,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                     className="btn btn-primary"
                   >
                     {isRfidLoading ? (
-                      <Loader2 className="animate-spin" size={16} />
+                      <SpinnerGap className="animate-spin" size={16} />
                     ) : (
                       <CreditCard size={16} />
                     )}

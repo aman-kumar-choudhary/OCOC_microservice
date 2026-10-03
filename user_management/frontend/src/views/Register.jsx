@@ -4,38 +4,37 @@ import registrationService from "@/services/registrationService";
 import PasswordStrengthMeter from "@/components/PasswordStrengthMeter";
 import LegalModal from "@/components/LegalModal";
 import {
-  User,
-  Mail,
-  Phone,
-  Hash,
-  Building,
-  Briefcase,
-  FileText,
-  UserCheck,
-  MapPin,
   ArrowRight,
-  Loader2,
-  CheckCircle,
-  Lock,
-  Eye,
-  EyeOff,
-  GraduationCap,
-  Award,
-  Shield,
-  Wrench,
+  Briefcase,
+  Buildings,
   Calendar,
-  Clock,
-  Sparkles,
-  Layers,
+  CheckCircle,
   CheckSquare,
-  Square,
-  ShieldCheck,
+  Clock,
   Cpu,
-  CheckCircle2,
-} from "lucide-react";
+  Envelope,
+  Eye,
+  EyeSlash,
+  FileText,
+  GraduationCap,
+  Hash,
+  Lock,
+  MapPin,
+  Medal,
+  Phone,
+  Shield,
+  ShieldCheck,
+  Sparkle,
+  SpinnerGap,
+  Square,
+  Stack,
+  User,
+  UserCheck,
+  Wrench
+} from "@phosphor-icons/react";
 const ROLE_PRESETS = [
   { id: "student", label: "Student", icon: GraduationCap, roles: ["student"] },
-  { id: "faculty", label: "Faculty", icon: Award, roles: ["faculty"] },
+  { id: "faculty", label: "Faculty", icon: Medal, roles: ["faculty"] },
   {
     id: "faculty_warden",
     label: "Faculty + Warden",
@@ -366,11 +365,11 @@ export const Register = () => {
             </span>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                <CheckCircle2 size={13} className="text-emerald-600" />
+                <CheckCircle size={13} className="text-emerald-600" />
                 <span>1. Digital ID Created</span>
               </div>
               <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                <CheckCircle2 size={13} className="text-emerald-600" />
+                <CheckCircle size={13} className="text-emerald-600" />
                 <span>2. Biometric Vector Enrolled</span>
               </div>
               <div className="flex items-center gap-1.5 text-amber-700 font-bold">
@@ -437,7 +436,7 @@ export const Register = () => {
                   onClick={() => setIsMultiRoleCustom(!isMultiRoleCustom)}
                   className="text-[11px] font-extrabold text-[#b87800] hover:text-[#d99e00] flex items-center gap-1 transition"
                 >
-                  <Layers size={13} />
+                  <Stack size={13} />
                   <span>
                     {isMultiRoleCustom
                       ? "Hide Custom Multi-Role"
@@ -480,7 +479,7 @@ export const Register = () => {
                 <div className="mt-2.5 p-3 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2 animate-scale-in">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
-                      <Sparkles size={13} className="text-amber-600" />{" "}
+                      <Sparkle size={13} className="text-amber-600" />{" "}
                       Multi-Role Assignment Active
                     </span>
                     <span className="text-[10px] text-amber-700">
@@ -554,7 +553,7 @@ export const Register = () => {
                       Email Address *
                     </label>
                     <div className="relative">
-                      <Mail
+                      <Envelope
                         size={16}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                       />
@@ -616,7 +615,7 @@ export const Register = () => {
                         tabIndex={-1}
                       >
                         {showPassword ? (
-                          <EyeOff size={15} />
+                          <EyeSlash size={15} />
                         ) : (
                           <Eye size={15} />
                         )}
@@ -755,7 +754,7 @@ export const Register = () => {
                     <div className="form-group">
                       <label className="form-label text-xs">Hostel</label>
                       <div className="relative">
-                        <Building
+                        <Buildings
                           size={16}
                           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                         />
@@ -800,7 +799,7 @@ export const Register = () => {
               {hasFaculty && (
                 <div className="p-3.5 rounded-xl border border-violet-200 bg-violet-50/40 shadow-2xs space-y-3 animate-scale-in">
                   <div className="flex items-center gap-1.5 text-violet-900 border-b border-violet-200 pb-1">
-                    <Award size={16} className="text-violet-600" />
+                    <Medal size={16} className="text-violet-600" />
                     <span className="text-[11px] font-extrabold uppercase tracking-wider">
                       Faculty & Academic Details
                     </span>
@@ -829,7 +828,7 @@ export const Register = () => {
                     <div className="form-group">
                       <label className="form-label text-xs">Department *</label>
                       <div className="relative">
-                        <Building
+                        <Buildings
                           size={16}
                           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                         />
@@ -917,7 +916,7 @@ export const Register = () => {
                         Assigned Hostel *
                       </label>
                       <div className="relative">
-                        <Building
+                        <Buildings
                           size={16}
                           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                         />
@@ -1059,10 +1058,10 @@ export const Register = () => {
 
                     <div className="form-group">
                       <label className="form-label text-xs">
-                        Assigned Campus / Building *
+                        Assigned Campus / Buildings *
                       </label>
                       <div className="relative">
-                        <Building
+                        <Buildings
                           size={16}
                           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                         />
@@ -1401,7 +1400,7 @@ export const Register = () => {
                 </>
               ) : (
                 <>
-                  <Loader2 className="animate-spin" size={16} />
+                  <SpinnerGap className="animate-spin" size={16} />
                   <span>Registering Identity...</span>
                 </>
               )}

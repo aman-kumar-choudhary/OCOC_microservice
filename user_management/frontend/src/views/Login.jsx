@@ -4,14 +4,14 @@ import { useAuth } from "@/context/AuthContext";
 import { roleDashboardPath } from "@/utils/roleDashboard";
 import LegalModal from "@/components/LegalModal";
 import {
-  Lock,
-  Mail,
-  Loader2,
   ArrowRight,
+  Envelope,
   Eye,
-  EyeOff,
+  EyeSlash,
+  Lock,
   ShieldCheck,
-} from "lucide-react";
+  SpinnerGap
+} from "@phosphor-icons/react";
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -99,7 +99,7 @@ export const Login = () => {
           </label>
           <div className="field-input-wrap">
             <div className="field-icon">
-              <Mail size={18} />
+              <Envelope size={18} />
             </div>
             <input
               id="login-email"
@@ -152,7 +152,7 @@ export const Login = () => {
               aria-label={showPassword ? "Hide password" : "Show password"}
               tabIndex={-1}
             >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
@@ -171,7 +171,7 @@ export const Login = () => {
             </>
           ) : (
             <>
-              <Loader2 className="animate-spin" size={18} />
+              <SpinnerGap className="animate-spin" size={18} />
               <span>Authenticating…</span>
             </>
           )}

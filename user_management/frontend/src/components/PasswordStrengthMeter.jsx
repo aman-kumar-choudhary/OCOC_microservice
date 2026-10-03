@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  CheckCircle2,
+  CheckCircle,
   Circle,
-  ShieldCheck,
-  ShieldAlert,
   Shield,
-} from "lucide-react";
+  ShieldCheck,
+  ShieldWarning
+} from "@phosphor-icons/react";
 
 export const PasswordStrengthMeter = ({
   password = "",
@@ -93,7 +93,7 @@ export const PasswordStrengthMeter = ({
             }`}
           >
             {check.valid ? (
-              <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+              <CheckCircle size={13} className="text-emerald-600 shrink-0" />
             ) : (
               <Circle size={13} className="text-slate-300 shrink-0" />
             )}
@@ -109,12 +109,12 @@ export const PasswordStrengthMeter = ({
           {confirmPassword ? (
             isMatching ? (
               <span className="text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 size={13} className="text-emerald-600" />{" "}
+                <CheckCircle size={13} className="text-emerald-600" />{" "}
                 Passwords match
               </span>
             ) : (
               <span className="text-red-600 font-bold flex items-center gap-1">
-                <ShieldAlert size={13} className="text-red-500" /> Passwords do
+                <ShieldWarning size={13} className="text-red-500" /> Passwords do
                 not match
               </span>
             )

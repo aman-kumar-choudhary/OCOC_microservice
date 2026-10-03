@@ -3,17 +3,17 @@ import { useNavigate } from "react-router-dom";
 import dashboardService from "@/services/dashboardService";
 import {
   ArrowRight,
+  ArrowsClockwise,
+  ChartBar,
   CreditCard,
-  Loader2,
-  RefreshCw,
   ShieldCheck,
-  TrendingUp,
+  SpinnerGap,
+  TrendUp,
   UserCheck,
+  UserMinus,
   UserPlus,
-  Users,
-  UserX,
-  BarChart3,
-} from "lucide-react";
+  Users
+} from "@phosphor-icons/react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -202,40 +202,38 @@ export const Dashboard = () => {
   }, []);
 
   return (
-    <section className="animate-fade-in">
+    <section className="space-y-6 page-enter">
       {/* Hero Banner */}
-      <div className="overflow-hidden rounded-2xl bg-[#0a2342] text-white shadow-[0_18px_48px_rgb(10_35_66/0.18)]">
-        <div className="relative px-5 py-7 sm:px-8 sm:py-9 lg:px-10">
-          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full border-[28px] border-[#f5bd19]/15" />
-          <div className="absolute bottom-0 right-16 h-24 w-24 rounded-t-full bg-[#f5bd19]/10" />
-          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-2xl">
-              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#f5bd19]">
-                <ShieldCheck size={16} /> Campus access command centre
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#06182e] via-[#0a2342] to-[#12365f] text-white shadow-xl border border-white/10">
+        <div className="absolute right-0 top-0 -mt-10 -mr-10 h-72 w-72 rounded-full bg-[#f5bd19]/15 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
+        
+        <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div className="max-w-2xl space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#f5bd19] backdrop-blur-sm border border-white/10">
+                <ShieldCheck size={16} weight="fill" /> Campus Access Command Centre
               </div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/65">
-                OCOC · University Identity Platform
-              </p>
-              <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-                Identity operations, made clear.
+              <h1 className="font-display text-2xl font-black tracking-tight sm:text-4xl text-white">
+                University Identity &amp; Operations
               </h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-                Monitor people, credentials, and access status from one secure
-                workspace built for day-to-day university operations.
+              <p className="max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
+                Real-time oversight of student, faculty, and visitor credentials, biometric health, and gate access across Dev Sanskriti Vishwavidyalaya.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            
+            <div className="flex flex-wrap items-center gap-3">
               <button
-                className="btn btn-primary"
+                className="btn btn-primary shadow-lg shadow-amber-500/20"
                 onClick={() => navigate("/onboarding")}
               >
-                <UserPlus size={17} /> Onboard person
+                <UserPlus size={18} weight="bold" /> Onboard Identity
               </button>
               <button
-                className="btn border border-white/20 bg-white/5 text-white hover:bg-white/10"
+                className="btn border border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-xs transition"
                 onClick={() => navigate("/users")}
               >
-                Open directory <ArrowRight size={17} />
+                Browse Directory <ArrowRight size={17} weight="bold" className="icon-arrow" />
               </button>
             </div>
           </div>
@@ -244,148 +242,178 @@ export const Dashboard = () => {
 
       {/* Loading */}
       {isLoading ? (
-        <div className="grid min-h-[420px] place-items-center">
+        <div className="grid min-h-[380px] place-items-center bg-white rounded-3xl border border-slate-200/80 shadow-xs">
           <div className="flex flex-col items-center gap-3 text-muted">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={32} />
-            <span className="text-sm font-semibold">
-              Loading your dashboard…
+            <SpinnerGap className="animate-spin text-[#f5bd19]" size={36} />
+            <span className="text-sm font-bold text-slate-700">
+              Synchronizing campus identity metrics…
             </span>
           </div>
         </div>
       ) : error ? (
-        <div className="app-panel mt-6 flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="app-panel flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between border-red-200 bg-red-50/50">
           <div>
-            <h2 className="text-lg font-extrabold">Dashboard unavailable</h2>
-            <p className="mt-1 text-sm text-muted">{error}</p>
+            <h2 className="text-lg font-black text-red-900">Dashboard Unavailable</h2>
+            <p className="mt-1 text-sm text-red-700">{error}</p>
           </div>
           <button className="btn btn-primary" onClick={loadOverview}>
-            <RefreshCw size={17} /> Try again
+            <ArrowsClockwise size={17} /> Retry Connection
           </button>
         </div>
       ) : overview ? (
         <>
           {/* KPI Cards */}
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {/* Card 1: Total People */}
+            <article className="app-panel group relative overflow-hidden p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg cursor-default border-slate-200/80">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#0a2342] to-[#163a66]" />
               <div className="flex items-start justify-between">
-                <p className="text-sm font-bold text-muted">
-                  People in directory
-                </p>
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#0a2342]/8 text-[#0a2342]">
-                  <Users size={20} />
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Total Identities
+                  </p>
+                  <p className="mt-3 font-display text-3xl sm:text-4xl font-black text-slate-900 tabular-nums tracking-tight">
+                    {animatedStats.total.toLocaleString()}
+                  </p>
+                </div>
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0a2342]/10 text-[#0a2342] shadow-xs group-hover:scale-110 transition-transform">
+                  <Users size={24} weight="duotone" />
                 </div>
               </div>
-              <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
-                {animatedStats.total.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-muted">
-                All campus identities
-              </p>
+              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-slate-100 text-xs font-semibold text-slate-500">
+                <span className="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
+                <span>Active directory records</span>
+              </div>
             </article>
 
-            <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
+            {/* Card 2: Active Accounts */}
+            <article className="app-panel group relative overflow-hidden p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg cursor-default border-slate-200/80">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
               <div className="flex items-start justify-between">
-                <p className="text-sm font-bold text-muted">Active accounts</p>
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-                  <UserCheck size={20} />
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Active Accounts
+                  </p>
+                  <p className="mt-3 font-display text-3xl sm:text-4xl font-black text-emerald-700 tabular-nums tracking-tight">
+                    {animatedStats.active.toLocaleString()}
+                  </p>
+                </div>
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 shadow-xs group-hover:scale-110 transition-transform">
+                  <UserCheck size={24} weight="duotone" />
                 </div>
               </div>
-              <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
-                {animatedStats.active.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-emerald-700">
-                Enabled for access
-              </p>
+              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-slate-100 text-xs font-bold text-emerald-700">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Authorized for campus entry</span>
+              </div>
             </article>
 
-            <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
+            {/* Card 3: Suspended Accounts */}
+            <article className="app-panel group relative overflow-hidden p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg cursor-default border-slate-200/80">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
               <div className="flex items-start justify-between">
-                <p className="text-sm font-bold text-muted">Suspended</p>
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-700">
-                  <UserX size={20} />
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Suspended Accounts
+                  </p>
+                  <p className="mt-3 font-display text-3xl sm:text-4xl font-black text-amber-700 tabular-nums tracking-tight">
+                    {animatedStats.suspended.toLocaleString()}
+                  </p>
+                </div>
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-700 shadow-xs group-hover:scale-110 transition-transform">
+                  <UserMinus size={24} weight="duotone" />
                 </div>
               </div>
-              <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
-                {animatedStats.suspended.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-muted">
-                Require review
-              </p>
+              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-slate-100 text-xs font-semibold text-amber-800">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>Flagged / pending review</span>
+              </div>
             </article>
 
-            <article className="app-panel group p-5 transition hover:-translate-y-0.5 hover:shadow-md cursor-default">
+            {/* Card 4: Active RFID Cards */}
+            <article className="app-panel group relative overflow-hidden p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg cursor-default border-slate-200/80">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#f5bd19] to-amber-500" />
               <div className="flex items-start justify-between">
-                <p className="text-sm font-bold text-muted">
-                  Active RFID cards
-                </p>
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#f5bd19]/20 text-[#0a2342]">
-                  <CreditCard size={20} />
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Active RFID Badges
+                  </p>
+                  <p className="mt-3 font-display text-3xl sm:text-4xl font-black text-slate-900 tabular-nums tracking-tight">
+                    {animatedStats.rfid.toLocaleString()}
+                  </p>
+                </div>
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f5bd19]/20 text-[#0a2342] shadow-xs group-hover:scale-110 transition-transform">
+                  <CreditCard size={24} weight="duotone" />
                 </div>
               </div>
-              <p className="mt-5 font-display text-3xl font-extrabold tabular-nums">
-                {animatedStats.rfid.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-muted">
-                Ready for campus access
-              </p>
+              <div className="mt-4 flex items-center gap-2 pt-3 border-t border-slate-100 text-xs font-semibold text-slate-600">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#f5bd19]"></span>
+                <span>Physical contactless credentials</span>
+              </div>
             </article>
           </div>
 
           {/* Activity Chart + Population */}
-          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
             {/* Trend Chart */}
-            <section className="app-panel p-5 sm:p-6 xl:col-span-3">
-              <div className="flex items-center justify-between mb-5">
+            <section className="app-panel p-6 xl:col-span-3 border-slate-200/80">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div>
-                  <h2 className="text-lg font-extrabold flex items-center gap-2">
-                    <TrendingUp size={18} className="text-[#f5bd19]" /> Daily
-                    Registration Activity
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    New onboarding events over the last 14 days
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
+                      <TrendUp size={18} weight="bold" />
+                    </div>
+                    <div>
+                      <h2 className="text-base sm:text-lg font-black text-slate-900">
+                        Daily Registration Activity
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        New identity onboarding events over the last 14 days
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <button
-                  className="text-xs font-bold text-[#0a2342] hover:text-[#f5bd19] transition-colors flex items-center gap-1"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0a2342] hover:text-[#d99e00] px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
                   onClick={() => navigate("/analytics")}
                 >
-                  Full analytics <ArrowRight size={14} />
+                  Full Analytics <ArrowRight size={14} weight="bold" className="icon-arrow" />
                 </button>
               </div>
-              <div className="h-56">
+              <div className="h-64 pt-2">
                 <Line data={trendChartData} options={trendChartOptions} />
               </div>
             </section>
 
             {/* Campus Population + RFID Health */}
             <div className="xl:col-span-2 flex flex-col gap-6">
-              <section className="app-panel p-5 sm:p-6 flex-1">
-                <div className="flex items-center justify-between">
+              <section className="app-panel p-6 flex-1 border-slate-200/80">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                   <div>
-                    <h2 className="text-lg font-extrabold">
-                      Campus population
+                    <h2 className="text-base font-black text-slate-900">
+                      Campus Population
                     </h2>
-                    <p className="mt-1 text-sm text-muted">
-                      Directory composition
+                    <p className="text-xs text-slate-500">
+                      Directory persona breakdown
                     </p>
                   </div>
-                  <span className="rounded-full bg-[#f5bd19]/20 px-3 py-1 text-xs font-bold text-[#0a2342]">
-                    {overview.total_users} total
+                  <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-black text-slate-800">
+                    {overview.total_users} Total
                   </span>
                 </div>
                 <div className="mt-5 space-y-4">
                   {personas.map((persona) => (
                     <div key={persona.label}>
-                      <div className="mb-1.5 flex items-center justify-between text-sm">
-                        <span className="font-bold">{persona.label}</span>
-                        <span className={`font-bold ${persona.text}`}>
+                      <div className="mb-1.5 flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800">{persona.label}</span>
+                        <span className={`font-black ${persona.text}`}>
                           {persona.value}{" "}
-                          <span className="font-medium text-muted">
+                          <span className="font-semibold text-slate-400">
                             ({persona.percent}%)
                           </span>
                         </span>
                       </div>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-3 overflow-hidden rounded-full bg-slate-100 p-0.5 border border-slate-200/60">
                         <div
                           className={`h-full rounded-full transition-all duration-700 ease-out ${persona.color}`}
                           style={{ width: `${persona.percent}%` }}
@@ -396,41 +424,45 @@ export const Dashboard = () => {
                 </div>
               </section>
 
-              <section className="app-panel p-5 sm:p-6">
-                <div>
-                  <h2 className="text-lg font-extrabold flex items-center gap-2">
-                    <BarChart3 size={18} className="text-sky-500" /> Credential
-                    health
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">RFID card lifecycle</p>
+              <section className="app-panel p-6 border-slate-200/80">
+                <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
+                  <div className="p-2 rounded-xl bg-sky-50 text-sky-700">
+                    <ChartBar size={18} weight="bold" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900">
+                      Credential Lifecycle
+                    </h2>
+                    <p className="text-xs text-slate-500">Physical RFID card status</p>
+                  </div>
                 </div>
-                <div className="mt-4 divide-y divide-[var(--border-light)]">
-                  <div className="flex items-center justify-between py-3">
-                    <span className="text-sm font-semibold">Cards issued</span>
-                    <span className="font-display text-xl font-extrabold">
+                <div className="mt-4 space-y-2.5">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-xs font-bold text-slate-600">Total Issued</span>
+                    <span className="font-display text-base font-black text-slate-900">
                       {overview.rfid_issued}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-3">
-                    <span className="text-sm font-semibold">Cards active</span>
-                    <span className="font-display text-xl font-extrabold text-emerald-700">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                    <span className="text-xs font-bold text-emerald-800">Active Credentials</span>
+                    <span className="font-display text-base font-black text-emerald-700">
                       {overview.rfid_active}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-3">
-                    <span className="text-sm font-semibold">
-                      Revoked or replaced
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-red-50/60 border border-red-100">
+                    <span className="text-xs font-bold text-red-800">
+                      Revoked / Replaced
                     </span>
-                    <span className="font-display text-xl font-extrabold text-red-700">
+                    <span className="font-display text-base font-black text-red-700">
                       {overview.rfid_revoked}
                     </span>
                   </div>
                 </div>
                 <button
-                  className="mt-3 flex items-center gap-2 text-sm font-bold text-[#0a2342] hover:text-[#d99e00] transition-colors"
+                  className="mt-4 flex w-full items-center justify-center gap-2 text-xs font-bold text-[#0a2342] hover:text-[#d99e00] p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition"
                   onClick={() => navigate("/rfid")}
                 >
-                  Manage RFID cards <ArrowRight size={16} />
+                  Manage RFID Registry <ArrowRight size={15} weight="bold" className="icon-arrow" />
                 </button>
               </section>
             </div>

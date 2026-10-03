@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, ImagePlus, RotateCcw, X } from "lucide-react";
+import {
+  ArrowCounterClockwise,
+  Camera,
+  ImageSquare,
+  X
+} from "@phosphor-icons/react";
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
@@ -121,7 +126,7 @@ export const PassportPhotoCapture = ({ value, onChange, required = false }) => {
               onClick={() => inputRef.current?.click()}
               className="btn btn-outline py-1.5 px-3 text-xs"
             >
-              <ImagePlus size={14} /> Upload
+              <ImageSquare size={14} /> Upload
             </button>
             {value && (
               <button
@@ -165,7 +170,7 @@ export const PassportPhotoCapture = ({ value, onChange, required = false }) => {
               onClick={stopCamera}
               className="btn btn-outline py-2 px-4 text-sm"
             >
-              <RotateCcw size={15} /> Cancel
+              <ArrowCounterClockwise size={15} /> Cancel
             </button>
           </div>
         </div>

@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Shield, X, Check, Clock } from "lucide-react";
+import {
+  Check,
+  Clock,
+  MagnifyingGlass,
+  Plus,
+  Shield,
+  X
+} from "@phosphor-icons/react";
 import { hostelService } from "../../services/hostelService";
 import api from "../../services/api";
 
@@ -70,12 +77,12 @@ const PermissionPanel = ({ hostelId }) => {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              placeholder="Search student..."
+              placeholder="MagnifyingGlass student..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19] bg-white"
             />
-            <Search
+            <MagnifyingGlass
               className="absolute left-3 top-2.5 text-gray-400"
               size={16}
             />

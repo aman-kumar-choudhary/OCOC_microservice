@@ -8,24 +8,24 @@ import React, {
 import userService from "@/services/userService";
 import { formatDate } from "@/utils/date";
 import {
-  Search,
-  Download,
-  Upload,
-  Loader2,
-  CreditCard,
   Camera,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Filter,
-  Edit2,
-  ShieldOff,
+  CaretDown,
+  CaretLeft,
+  CaretRight,
+  CaretUp,
+  CreditCard,
+  DotsThreeVertical,
+  DownloadSimple,
+  Funnel,
+  MagnifyingGlass,
+  PencilSimple,
   ShieldCheck,
-  UserX,
-  MoreVertical,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+  ShieldSlash,
+  SpinnerGap,
+  UploadSimple,
+  UserMinus,
+  X
+} from "@phosphor-icons/react";
 import EditUserModal from "@/components/EditUserModal";
 import UserStatusModal from "@/components/UserStatusModal";
 const courses = [
@@ -376,9 +376,9 @@ export const UsersView = () => {
             className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-[var(--border-light)] bg-white text-sm font-semibold text-[var(--text-main)] hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-50"
           >
             {importLoading ? (
-              <Loader2 className="animate-spin" size={15} />
+              <SpinnerGap className="animate-spin" size={15} />
             ) : (
-              <Upload size={15} />
+              <UploadSimple size={15} />
             )}
             Import CSV
           </button>
@@ -389,9 +389,9 @@ export const UsersView = () => {
             className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-[#0a2342] text-sm font-semibold text-[#f5bd19] hover:bg-[#12365f] transition disabled:opacity-50 shadow-sm"
           >
             {exportLoading ? (
-              <Loader2 className="animate-spin" size={15} />
+              <SpinnerGap className="animate-spin" size={15} />
             ) : (
-              <Download size={15} />
+              <DownloadSimple size={15} />
             )}
             Export CSV
           </button>
@@ -409,13 +409,13 @@ export const UsersView = () => {
         </p>
       )}
 
-      {/* ── Filter Panel ── */}
-      <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm p-4">
+      {/* ── Funnel Panel ── */}
+      <div className="app-panel border-slate-200/80 p-5 shadow-xs">
         {/* Row 1 — Always visible */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
+          {/* MagnifyingGlass */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search
+            <MagnifyingGlass
               size={15}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
             />
@@ -425,7 +425,7 @@ export const UsersView = () => {
                 setFilters({ ...filters, search: e.target.value })
               }
               type="text"
-              placeholder="Search name, email, roll number…"
+              placeholder="MagnifyingGlass name, email, roll number…"
               className="w-full pl-9 pr-8"
               id="user-search-input"
             />
@@ -485,12 +485,12 @@ export const UsersView = () => {
               onClick={() => setShowAdvanced(!showAdvanced)}
               className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border text-sm font-semibold transition ${showAdvanced ? "bg-[#0a2342] text-[#f5bd19] border-[#0a2342]" : "border-[var(--border-light)] text-[var(--text-muted)] hover:border-slate-300 hover:text-[var(--text-main)]"}`}
             >
-              <Filter size={14} />
+              <Funnel size={14} />
               Filters
               {showAdvanced ? (
-                <ChevronUp size={13} />
+                <CaretUp size={13} />
               ) : (
-                <ChevronDown size={13} />
+                <CaretDown size={13} />
               )}
             </button>
           )}
@@ -508,7 +508,7 @@ export const UsersView = () => {
 
         {/* Row 2 — Advanced (student-only, collapsible) */}
         {filters.user_type === "student" && showAdvanced && (
-          <div className="mt-3 pt-3 border-t border-[var(--border-light)] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 animate-fade-in">
+          <div className="mt-3 pt-3 border-t border-[var(--border-light)] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 page-enter">
             <Sel
               id="school-filter"
               value={filters.school}
@@ -608,17 +608,17 @@ export const UsersView = () => {
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden relative animate-fade-in">
+      <div className="app-panel border-slate-200/80 overflow-hidden relative animate-fade-in shadow-xs">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={30} />
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-xs z-10 flex items-center justify-center rounded-xl">
+            <SpinnerGap className="animate-spin text-[#f5bd19]" size={32} />
           </div>
         )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
-              <tr className="border-b border-[var(--border-light)] bg-slate-50">
+              <tr className="border-b border-slate-200/80 bg-slate-50/80">
                 {[
                   "User",
                   "Role & ID",
@@ -633,15 +633,15 @@ export const UsersView = () => {
                 ].map((h, i) => (
                   <th
                     key={i}
-                    className="px-4 py-3 text-[11px] font-extrabold uppercase tracking-wide text-[var(--text-muted)] whitespace-nowrap"
+                    className="px-4 py-3.5 text-[11px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap"
                   >
                     {h === "RFID" ? (
                       <span className="flex items-center gap-1">
-                        <CreditCard size={11} /> RFID
+                        <CreditCard size={13} className="text-[#d99e00]" /> RFID
                       </span>
                     ) : h === "Photo" ? (
                       <span className="flex items-center gap-1">
-                        <Camera size={11} /> Photo
+                        <Camera size={13} className="text-[#d99e00]" /> Photo
                       </span>
                     ) : (
                       h
@@ -655,7 +655,7 @@ export const UsersView = () => {
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <ShieldOff
+                      <ShieldSlash
                         size={30}
                         className="text-red-400 opacity-60"
                       />
@@ -675,7 +675,7 @@ export const UsersView = () => {
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <Search size={30} className="text-slate-300" />
+                      <MagnifyingGlass size={30} className="text-slate-300" />
                       <p className="text-sm font-semibold text-[var(--text-muted)]">
                         No users match your filters.
                       </p>
@@ -837,7 +837,7 @@ export const UsersView = () => {
                               )
                             }
                           >
-                            <MoreVertical size={16} />
+                            <DotsThreeVertical size={16} />
                           </button>
                           {showActionsId === user.id && (
                             <div className="absolute right-0 top-9 z-20 min-w-[170px] rounded-xl border border-[var(--border-light)] bg-white p-1 shadow-xl">
@@ -848,7 +848,7 @@ export const UsersView = () => {
                                   setShowActionsId(null);
                                 }}
                               >
-                                <Edit2 size={13} /> Edit Profile
+                                <PencilSimple size={13} /> Edit Profile
                               </button>
                               {user.status !== "active" ? (
                                 <button
@@ -862,21 +862,21 @@ export const UsersView = () => {
                                   className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm font-semibold text-amber-700 hover:bg-amber-50 rounded-lg transition"
                                   onClick={() => openAction(user, "suspend")}
                                 >
-                                  <ShieldOff size={13} /> Suspend
+                                  <ShieldSlash size={13} /> Suspend
                                 </button>
                               )}
                               <button
                                 className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition"
                                 onClick={() => openAction(user, "deactivate")}
                               >
-                                <UserX size={13} /> Deactivate
+                                <UserMinus size={13} /> Deactivate
                               </button>
                               <div className="my-1 border-t border-[var(--border-light)]" />
                               <button
                                 className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50 rounded-lg transition"
                                 onClick={() => openAction(user, "delete")}
                               >
-                                <UserX size={13} /> Delete permanently
+                                <UserMinus size={13} /> Delete permanently
                               </button>
                             </div>
                           )}
@@ -917,7 +917,7 @@ export const UsersView = () => {
               }}
               id="prev-page-btn"
             >
-              <ChevronLeft size={15} />
+              <CaretLeft size={15} />
             </button>
             {Array.from(
               { length: Math.min(totalPages, 7) },
@@ -947,7 +947,7 @@ export const UsersView = () => {
               }}
               id="next-page-btn"
             >
-              <ChevronRight size={15} />
+              <CaretRight size={15} />
             </button>
           </div>
         </div>
@@ -1000,7 +1000,7 @@ export const UsersView = () => {
                   className="p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition"
                   title="Edit User"
                 >
-                  <Edit2 size={15} />
+                  <PencilSimple size={15} />
                 </button>
                 <button
                   onClick={() => setViewTarget(null)}

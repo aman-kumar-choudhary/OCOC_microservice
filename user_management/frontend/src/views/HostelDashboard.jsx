@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Home,
-  Users,
-  AlertCircle,
-  Clock,
+  ChartLineUp,
   CheckCircle,
-  Activity,
-  Search,
-  LogOut,
-  LogIn,
-  AlertTriangle,
-  LifeBuoy,
-} from "lucide-react";
+  Clock,
+  House,
+  Lifebuoy,
+  MagnifyingGlass,
+  SignIn,
+  SignOut,
+  Users,
+  Warning,
+  WarningCircle
+} from "@phosphor-icons/react";
 import api from "../services/api";
 import { hostelService } from "../services/hostelService";
 import LiveStatusTable from "../components/hostel/LiveStatusTable";
@@ -77,44 +77,55 @@ const HostelDashboard = () => {
   }, []);
 
   const tabs = [
-    { id: "overview", name: "Overview Dashboard", icon: Activity },
+    { id: "overview", name: "Overview Dashboard", icon: ChartLineUp },
     { id: "directory", name: "Students Directory", icon: Users },
-    { id: "live", name: "Live Status", icon: Activity },
+    { id: "live", name: "Live Status", icon: ChartLineUp },
     { id: "permissions", name: "Leave & Permissions", icon: Clock },
-    { id: "history", name: "Movement History", icon: LogOut },
-    { id: "emergency", name: "Emergency Headcount", icon: LifeBuoy },
+    { id: "history", name: "Movement History", icon: SignOut },
+    { id: "emergency", name: "Emergency Headcount", icon: Lifebuoy },
   ];
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 page-enter">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0a2342] flex items-center gap-2">
-            Hostel Management <Home size={24} className="text-[#f5bd19]" />
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-black uppercase tracking-wider">
+              <House size={12} className="text-amber-600" /> Residential Governance
+            </span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Hostel Management
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            RFID-based movement, attendance, and permissions
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            RFID turnstile tracking, curfew management, leave permissions, and emergency headcount
           </p>
         </div>
 
         {/* Hostel Selector */}
-        <select
-          className="border border-[var(--border-light)] rounded-lg px-4 py-2 text-sm bg-white font-bold text-[#0a2342] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#f5bd19]"
-          value={selectedHostel}
-          onChange={(e) => setSelectedHostel(e.target.value)}
-        >
-          <option value="">All Hostels</option>
-          {hostels.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <label htmlFor="hostel-select" className="text-xs font-bold text-slate-500 whitespace-nowrap">
+            Active Block:
+          </label>
+          <select
+            id="hostel-select"
+            className="rounded-xl border border-slate-200/90 bg-white px-4 py-2 text-sm font-bold text-[#0a2342] shadow-xs focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+            value={selectedHostel}
+            onChange={(e) => setSelectedHostel(e.target.value)}
+          >
+            <option value="">All Assigned Hostels</option>
+            {hostels.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex overflow-x-auto space-x-1 border-b border-gray-200">
+      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/60 overflow-x-auto shadow-2xs">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -122,17 +133,17 @@ const HostelDashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-150 ${
                 isActive
-                  ? "border-[#f5bd19] text-[#0a2342]"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "bg-white text-[#0a2342] shadow-xs font-black"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
               }`}
             >
               <Icon
-                size={18}
-                className={isActive ? "text-[#f5bd19]" : "text-gray-400"}
+                size={16}
+                className={isActive ? "text-[#d99e00]" : "text-slate-400"}
               />
-              {tab.name}
+              <span>{tab.name}</span>
             </button>
           );
         })}

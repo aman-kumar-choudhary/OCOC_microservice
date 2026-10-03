@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import dashboardService from "@/services/dashboardService";
 import {
-  BarChart3,
-  TrendingUp,
-  Users,
+  ArrowsClockwise,
   Calendar,
-  Loader2,
-  RefreshCw,
+  ChartBar,
   CreditCard,
-} from "lucide-react";
+  SpinnerGap,
+  TrendUp,
+  Users
+} from "@phosphor-icons/react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -248,7 +248,7 @@ export const Analytics = () => {
             onClick={loadAnalytics}
             className="p-1.5 hover:bg-slate-100 rounded-lg text-muted"
           >
-            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+            <ArrowsClockwise size={14} className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -256,7 +256,7 @@ export const Analytics = () => {
       {isLoading ? (
         <div className="grid min-h-[400px] place-items-center">
           <div className="flex flex-col items-center gap-3 text-muted">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={32} />
+            <SpinnerGap className="animate-spin text-[#f5bd19]" size={32} />
             <span className="text-sm font-semibold">
               Generating analytics metrics…
             </span>
@@ -323,7 +323,7 @@ export const Analytics = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="app-panel p-5">
               <h3 className="font-extrabold text-base mb-1 flex items-center gap-2">
-                <TrendingUp size={16} className="text-[#f5bd19]" /> Onboarding
+                <TrendUp size={16} className="text-[#f5bd19]" /> Onboarding
                 Activity
               </h3>
               <p className="text-xs text-muted mb-4">

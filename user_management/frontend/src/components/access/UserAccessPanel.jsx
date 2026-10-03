@@ -1,34 +1,34 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
-  Search,
-  Filter,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  User,
-  Shield,
-  MapPin,
-  Building,
-  Home,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Sparkles,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
-  X,
+  ArrowCounterClockwise,
   ArrowRight,
+  Buildings,
+  CaretDown,
+  CaretLeft,
+  CaretRight,
+  CaretUp,
+  CheckCircle,
   Eye,
+  Funnel,
+  House,
+  MagnifyingGlass,
+  MapPin,
+  Shield,
+  SlidersHorizontal,
+  Sparkle,
+  SpinnerGap,
+  User,
   UserCheck,
   UserPlus,
-} from "lucide-react";
+  WarningCircle,
+  X
+} from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
 import userService from "@/services/userService";
 import UserAccessDetail from "./UserAccessDetail";
 export const UserAccessPanel = () => {
-  // ── Search & Filter State ──
+  // ── MagnifyingGlass & Funnel State ──
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [userType, setUserType] = useState("");
@@ -194,7 +194,7 @@ export const UserAccessPanel = () => {
     if (u.access_status === "full") {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200">
-          <Sparkles size={11} /> Full Access
+          <Sparkle size={11} /> Full Access
         </span>
       );
     }
@@ -215,7 +215,7 @@ export const UserAccessPanel = () => {
 
   return (
     <div className="space-y-5">
-      {/* ── Search and Filter Header Card ── */}
+      {/* ── MagnifyingGlass and Funnel Header Card ── */}
       <div className="rounded-2xl border border-[var(--border-light)] bg-white p-5 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -223,7 +223,7 @@ export const UserAccessPanel = () => {
               People & Access
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Filter by person type, then review each person’s Keycloak roles
+              Funnel by person type, then review each person’s Keycloak roles
               and location grants.
             </p>
           </div>
@@ -255,16 +255,16 @@ export const UserAccessPanel = () => {
           ))}
         </div>
 
-        {/* Search Bar & Filter Toggle */}
+        {/* MagnifyingGlass Bar & Funnel Toggle */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div className="relative flex-1">
-            <Search
+            <MagnifyingGlass
               size={18}
               className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
               type="text"
-              placeholder="Search 5,000+ users by name, email, university ID (enrollment/employee), or phone..."
+              placeholder="MagnifyingGlass 5,000+ users by name, email, university ID (enrollment/employee), or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
@@ -304,9 +304,9 @@ export const UserAccessPanel = () => {
                 </span>
               )}
               {showAdvancedFilters ? (
-                <ChevronUp size={14} />
+                <CaretUp size={14} />
               ) : (
-                <ChevronDown size={14} />
+                <CaretDown size={14} />
               )}
             </button>
 
@@ -316,13 +316,13 @@ export const UserAccessPanel = () => {
                 className="btn btn-outline text-xs text-rose-600 hover:bg-rose-50 border-rose-200"
                 title="Reset all filters"
               >
-                <RotateCcw size={14} /> Reset
+                <ArrowCounterClockwise size={14} /> Reset
               </button>
             )}
           </div>
         </div>
 
-        {/* Primary Filter Dropdowns */}
+        {/* Primary Funnel Dropdowns */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
           {/* User Type */}
           <div>
@@ -574,7 +574,7 @@ export const UserAccessPanel = () => {
                 disabled={page <= 1 || loading}
                 className="p-1 rounded-md border border-slate-200 hover:bg-white text-slate-600 disabled:opacity-40"
               >
-                <ChevronLeft size={16} />
+                <CaretLeft size={16} />
               </button>
               <span className="px-2 font-mono font-bold text-slate-700">
                 {page}
@@ -584,7 +584,7 @@ export const UserAccessPanel = () => {
                 disabled={page >= totalPages || loading}
                 className="p-1 rounded-md border border-slate-200 hover:bg-white text-slate-600 disabled:opacity-40"
               >
-                <ChevronRight size={16} />
+                <CaretRight size={16} />
               </button>
             </div>
           </div>
@@ -593,7 +593,7 @@ export const UserAccessPanel = () => {
         {/* Error message */}
         {error && (
           <div className="m-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-            <AlertCircle size={16} />
+            <WarningCircle size={16} />
             <span>{error}</span>
           </div>
         )}
@@ -601,7 +601,7 @@ export const UserAccessPanel = () => {
         {/* Table / Results */}
         {loading ? (
           <div className="p-16 flex flex-col items-center justify-center space-y-3">
-            <Loader2 size={32} className="animate-spin text-amber-500" />
+            <SpinnerGap size={32} className="animate-spin text-amber-500" />
             <p className="text-xs font-semibold text-slate-500">
               Querying user access directory...
             </p>
@@ -610,7 +610,7 @@ export const UserAccessPanel = () => {
           <div className="p-16 text-center space-y-2">
             <User size={36} className="mx-auto text-slate-300" />
             <h4 className="font-bold text-sm text-slate-700">
-              No Users Match Filter Criteria
+              No Users Match Funnel Criteria
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Try adjusting your search query, clearing specific filters, or

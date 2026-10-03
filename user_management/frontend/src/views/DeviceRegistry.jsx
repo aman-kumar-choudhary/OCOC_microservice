@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Cpu, Server, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  CheckCircle,
+  Clock,
+  Cpu,
+  HardDrives,
+  XCircle
+} from "@phosphor-icons/react";
 import api from "../services/api";
 
 const DeviceRegistry = () => {

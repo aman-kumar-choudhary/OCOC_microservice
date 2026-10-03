@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, UserX, Phone, Users } from "lucide-react";
+import {
+  Phone,
+  UserMinus,
+  Users,
+  Warning
+} from "@phosphor-icons/react";
 import { hostelService } from "../../services/hostelService";
 
 const EmergencyMode = ({ hostelId }) => {
@@ -35,7 +40,7 @@ const EmergencyMode = ({ hostelId }) => {
       <div className="bg-red-600 text-white p-6 rounded-xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-            <AlertTriangle size={32} />
+            <Warning size={32} />
           </div>
           <div>
             <h2 className="text-3xl font-black tracking-tight">
@@ -91,7 +96,7 @@ const EmergencyMode = ({ hostelId }) => {
 
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="bg-slate-50 border-b border-gray-200 px-6 py-4 flex items-center gap-2">
-          <UserX className="text-red-600" size={20} />
+          <UserMinus className="text-red-600" size={20} />
           <h3 className="font-bold text-[#0a2342] text-lg">
             Unaccounted Students List
           </h3>

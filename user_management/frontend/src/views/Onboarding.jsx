@@ -3,17 +3,17 @@ import userService from "@/services/userService";
 import rfidService from "@/services/rfidService";
 import { registerPerson } from "@/services/frecoService";
 import {
-  GraduationCap,
-  Wrench,
-  UserRound,
-  CreditCard,
-  CheckCircle,
-  Loader2,
-  ArrowRight,
   ArrowLeft,
-  ScanFace,
-  Award,
-} from "lucide-react";
+  ArrowRight,
+  CheckCircle,
+  CreditCard,
+  GraduationCap,
+  Medal,
+  SpinnerGap,
+  UserCircle,
+  UserFocus,
+  Wrench
+} from "@phosphor-icons/react";
 import UserProfileForm from "@/components/UserProfileForm";
 import FaceOvalCamera from "@/components/FaceOvalCamera";
 const POSES = [
@@ -65,7 +65,7 @@ const personaCards = [
     id: "faculty",
     label: "Faculty",
     subtitle: "Teaching or research staff",
-    icon: Award,
+    icon: Medal,
     gradient: "from-violet-500 to-violet-700",
     bg: "bg-violet-50",
     border: "border-violet-300",
@@ -87,7 +87,7 @@ const personaCards = [
     id: "visitor",
     label: "Visitor",
     subtitle: "Guest or short-term visitor",
-    icon: UserRound,
+    icon: UserCircle,
     gradient: "from-orange-500 to-orange-700",
     bg: "bg-orange-50",
     border: "border-orange-300",
@@ -449,7 +449,7 @@ export const Onboarding = () => {
 
       {/* ─── STEP 1: Person Type Cards ─── */}
       {step === 1 && (
-        <div className="animate-fade-in">
+        <div className="page-enter">
           <div className="app-panel p-6 sm:p-8">
             <h2 className="text-xl font-extrabold mb-2">
               Who are you onboarding?
@@ -555,7 +555,7 @@ export const Onboarding = () => {
                   id="create-user-btn"
                 >
                   {isLoading ? (
-                    <Loader2 className="animate-spin" size={18} />
+                    <SpinnerGap className="animate-spin" size={18} />
                   ) : (
                     <span className="flex items-center gap-2">
                       Continue to Face Registration <ArrowRight size={18} />
@@ -574,7 +574,7 @@ export const Onboarding = () => {
           <div className="glass-panel p-6 sm:p-8">
             <div className="flex items-center gap-3 mb-6 pb-5 border-b border-[var(--border-light)]">
               <div className="w-10 h-10 rounded-xl bg-[#f5bd19]/10 text-[#0a2342] flex items-center justify-center">
-                <ScanFace size={22} />
+                <UserFocus size={22} />
               </div>
               <div>
                 <h2 className="text-xl font-extrabold">Face Registration</h2>
@@ -704,9 +704,9 @@ export const Onboarding = () => {
                 id="register-face-btn"
               >
                 {faceRegLoading ? (
-                  <Loader2 className="animate-spin" size={16} />
+                  <SpinnerGap className="animate-spin" size={16} />
                 ) : (
-                  <ScanFace size={16} />
+                  <UserFocus size={16} />
                 )}
                 Register Face
               </button>
@@ -752,7 +752,7 @@ export const Onboarding = () => {
               disabled={isScanning || isLoading}
             >
               {isScanning ? (
-                <Loader2 className="animate-spin" size={16} />
+                <SpinnerGap className="animate-spin" size={16} />
               ) : (
                 <span>Trigger Scanner</span>
               )}
@@ -764,7 +764,7 @@ export const Onboarding = () => {
               id="issue-card-btn"
             >
               {isLoading ? (
-                <Loader2 className="animate-spin" size={16} />
+                <SpinnerGap className="animate-spin" size={16} />
               ) : (
                 <span>Issue Card</span>
               )}
@@ -797,7 +797,7 @@ export const Onboarding = () => {
             className="btn btn-primary px-8 py-3 text-base"
             id="start-new-onboarding-btn"
           >
-            <UserRound size={18} /> Start New Onboarding
+            <UserCircle size={18} /> Start New Onboarding
           </button>
         </div>
       )}

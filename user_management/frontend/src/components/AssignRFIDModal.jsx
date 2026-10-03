@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import rfidService from "@/services/rfidService";
-import { X, Loader2, CreditCard, AlertTriangle } from "lucide-react";
+import {
+  CreditCard,
+  SpinnerGap,
+  Warning,
+  X
+} from "@phosphor-icons/react";
 export const AssignRFIDModal = ({ card, onClose, onDone }) => {
   const [newUid, setNewUid] = useState("");
   const [reason, setReason] = useState("lost");
@@ -89,7 +94,7 @@ export const AssignRFIDModal = ({ card, onClose, onDone }) => {
 
             {reason === "stolen" && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs font-semibold flex items-start gap-2">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <Warning size={14} className="mt-0.5 shrink-0" />
                 The old card will be flagged as stolen and immediately revoked.
               </div>
             )}
@@ -113,7 +118,7 @@ export const AssignRFIDModal = ({ card, onClose, onDone }) => {
               id="confirm-replace-btn"
             >
               {isLoading ? (
-                <Loader2 className="animate-spin" size={15} />
+                <SpinnerGap className="animate-spin" size={15} />
               ) : (
                 <CreditCard size={15} />
               )}

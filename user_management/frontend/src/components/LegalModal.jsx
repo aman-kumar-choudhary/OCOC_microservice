@@ -1,19 +1,19 @@
 import React, { useState } from "react";
 import {
-  ShieldCheck,
+  ArrowRight,
+  BuildingOffice,
+  CheckCircle,
+  Cpu,
   FileText,
   Lock,
-  X,
-  CheckCircle2,
-  AlertTriangle,
-  Building2,
-  UserCheck,
+  MagnifyingGlass,
   Printer,
-  Search,
-  ArrowRight,
-  ShieldAlert,
-  Cpu,
-} from "lucide-react";
+  ShieldCheck,
+  ShieldWarning,
+  UserCheck,
+  Warning,
+  X
+} from "@phosphor-icons/react";
 
 export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -62,7 +62,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
           </div>
         </div>
 
-        {/* Navigation Tabs & Search */}
+        {/* Navigation Tabs & MagnifyingGlass */}
         <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
             <button
@@ -101,7 +101,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
           </div>
 
           <div className="relative w-full sm:w-48">
-            <Search
+            <MagnifyingGlass
               size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
             />
@@ -109,7 +109,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search policy..."
+              placeholder="MagnifyingGlass policy..."
               className="w-full pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19]"
             />
           </div>
@@ -135,7 +135,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#0a2342]" /> 1.
+                  <CheckCircle size={16} className="text-[#0a2342]" /> 1.
                   Digital Credential &amp; RFID Custody
                 </h4>
                 <p className="text-xs text-slate-600">
@@ -151,7 +151,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#0a2342]" /> 2.
+                  <CheckCircle size={16} className="text-[#0a2342]" /> 2.
                   Campus Leave &amp; Gate Pass Protocols
                 </h4>
                 <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-5">
@@ -181,7 +181,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#0a2342]" /> 3.
+                  <CheckCircle size={16} className="text-[#0a2342]" /> 3.
                   Two-Step Verification (2-SV) at Gates
                 </h4>
                 <p className="text-xs text-slate-600">
@@ -195,7 +195,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-amber-600" /> 4.
+                  <Warning size={16} className="text-amber-600" /> 4.
                   Disciplinary Penalties
                 </h4>
                 <p className="text-xs text-slate-600">
@@ -279,7 +279,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Building2 size={16} className="text-emerald-700" /> 3. Data
+                  <BuildingOffice size={16} className="text-emerald-700" /> 3. Data
                   Retention &amp; Right to Erasure
                 </h4>
                 <p className="text-xs text-slate-600">
@@ -325,7 +325,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <ShieldAlert size={16} className="text-blue-700" /> 2.
+                  <ShieldWarning size={16} className="text-blue-700" /> 2.
                   Immutable Audit Trail
                 </h4>
                 <p className="text-xs text-slate-600">
@@ -338,7 +338,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
 
               <section className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-blue-700" /> 3.
+                  <Warning size={16} className="text-blue-700" /> 3.
                   Incident Escalation &amp; Support
                 </h4>
                 <p className="text-xs text-slate-600">

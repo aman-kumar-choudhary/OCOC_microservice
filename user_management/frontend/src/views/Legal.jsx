@@ -1,21 +1,21 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  ShieldCheck,
+  ArrowLeft,
+  BuildingOffice,
+  CheckCircle,
+  Cpu,
   FileText,
   Lock,
-  ArrowLeft,
-  CheckCircle2,
-  AlertTriangle,
-  Building2,
-  UserCheck,
+  MagnifyingGlass,
+  Medal,
   Printer,
-  Search,
-  ShieldAlert,
-  Cpu,
-  Award,
-  HelpCircle,
-} from "lucide-react";
+  Question,
+  ShieldCheck,
+  ShieldWarning,
+  UserCheck,
+  Warning
+} from "@phosphor-icons/react";
 
 export default function Legal() {
   const location = useLocation();
@@ -72,7 +72,7 @@ export default function Legal() {
 
       {/* Main Content Area */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full space-y-6">
-        {/* Navigation Tabs and Quick Search */}
+        {/* Navigation Tabs and Quick MagnifyingGlass */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-3 no-print">
           <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
             <button
@@ -113,12 +113,12 @@ export default function Legal() {
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
             >
-              <Award size={16} /> Session &amp; Cookies
+              <Medal size={16} /> Session &amp; Cookies
             </button>
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search
+            <MagnifyingGlass
               size={15}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
@@ -126,7 +126,7 @@ export default function Legal() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search policy clauses..."
+              placeholder="MagnifyingGlass policy clauses..."
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342]"
             />
           </div>
@@ -134,7 +134,7 @@ export default function Legal() {
 
         {/* Tab 1: Terms & Conditions */}
         {activeTab === "terms" && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-10 space-y-8 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-10 space-y-8 page-enter">
             <div className="border-b border-slate-100 pb-5">
               <span className="text-xs font-extrabold tracking-wider uppercase text-amber-600">
                 Institutional Regulation
@@ -150,7 +150,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-[#0a2342]" /> 1. Digital
+                <CheckCircle size={18} className="text-[#0a2342]" /> 1. Digital
                 Credential &amp; Smart RFID Card Custody
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -167,7 +167,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-[#0a2342]" /> 2. Leave
+                <CheckCircle size={18} className="text-[#0a2342]" /> 2. Leave
                 Management &amp; Gate Pass Protocols
               </h3>
               <ul className="text-sm text-slate-600 space-y-2 list-disc pl-5 leading-relaxed">
@@ -201,7 +201,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-[#0a2342]" /> 3. Guard
+                <CheckCircle size={18} className="text-[#0a2342]" /> 3. Guard
                 Console &amp; Verification Protocol
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -216,7 +216,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <AlertTriangle size={18} className="text-amber-600" /> 4.
+                <Warning size={18} className="text-amber-600" /> 4.
                 Disciplinary Penalties &amp; Sanctions
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -310,7 +310,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Building2 size={18} className="text-emerald-700" /> 3. Data
+                <BuildingOffice size={18} className="text-emerald-700" /> 3. Data
                 Retention &amp; Right to Erasure
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -356,7 +356,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <ShieldAlert size={18} className="text-blue-700" /> 2. Immutable
+                <ShieldWarning size={18} className="text-blue-700" /> 2. Immutable
                 Audit Trail
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -370,7 +370,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <AlertTriangle size={18} className="text-blue-700" /> 3.
+                <Warning size={18} className="text-blue-700" /> 3.
                 Incident Management &amp; Hotline
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -401,7 +401,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-purple-700" /> 1.
+                <CheckCircle size={18} className="text-purple-700" /> 1.
                 Ephemeral Session Storage
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
@@ -415,7 +415,7 @@ export default function Legal() {
 
             <section className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-purple-700" /> 2.
+                <CheckCircle size={18} className="text-purple-700" /> 2.
                 Automatic Inactivity Watchdog
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">

@@ -1,8 +1,18 @@
 import React from 'react'
 import {
-  ShieldCheck, Printer, X, Calendar, MapPin, Clock, User,
-  CheckCircle2, AlertTriangle, Building, Phone, QrCode
-} from 'lucide-react'
+  Buildings,
+  Calendar,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Phone,
+  Printer,
+  QrCode,
+  ShieldCheck,
+  User,
+  Warning,
+  X
+} from "@phosphor-icons/react"
 import dsvvLogo from '@/assets/Dsvv.png'
 export const DigitalGatePassModal = ({ isOpen, onClose, passData }) => {
   if (!isOpen || !passData) return null
@@ -139,7 +149,7 @@ export const DigitalGatePassModal = ({ isOpen, onClose, passData }) => {
             </div>
             <div className="text-center sm:text-right border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-4">
               <div className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700">
-                <CheckCircle2 size={14} /> Digitally Signed
+                <CheckCircle size={14} /> Digitally Signed
               </div>
               <p className="text-[10px] text-slate-500 mt-0.5">Hostel Warden &amp; Gate Authority</p>
               <p className="text-[9px] text-slate-400 mt-0.5">OCOC RBAC Verification Engine</p>

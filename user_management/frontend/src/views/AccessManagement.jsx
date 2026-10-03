@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import {
-  Activity,
+  ChartLineUp,
+  Clock,
+  FloppyDisk,
+  MagnifyingGlass,
+  MapPin,
   Plus,
   ShieldCheck,
-  ShieldAlert,
-  Clock,
-  User,
-  MapPin,
-  Search,
-  Loader2,
-  Save,
-} from "lucide-react";
+  ShieldWarning,
+  SpinnerGap,
+  User
+} from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import accessService from "@/services/accessService";
 import userService from "@/services/userService";
@@ -250,74 +250,88 @@ export const AccessManagement = () => {
   const getUserName = (id) => users.find((u) => u.id === id)?.email || id;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 page-enter">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-main)]">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-800 text-[11px] font-black uppercase tracking-wider">
+              <ShieldCheck size={12} className="text-[#d99e00]" /> Policy Engine
+            </span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Access Management
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Manage zone restrictions, schedules, and temporary passes
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Manage physical zone restrictions, scheduled turnstile policies, and temporary visitor passes
           </p>
         </div>
         <button
           onClick={() => navigate("/onboarding")}
-          className="btn btn-primary text-sm px-3 py-2"
+          className="btn btn-primary text-xs px-4 py-2"
         >
-          <Plus size={16} /> Create User
+          <Plus size={16} /> Onboard Identity
         </button>
       </div>
 
-      <div className="flex border-b border-[var(--border-light)] gap-6">
+      {/* Modern Pill Tabs */}
+      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/60 overflow-x-auto shadow-2xs">
         {["dashboard", "user_access", "rule_builder", "grants", "alerts"].map(
-          (tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-bold capitalize transition-colors ${activeTab === tab ? "text-[#0a2342] border-b-2 border-[#f5bd19]" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"}`}
-            >
-              {tab.replace("_", " ")}
-            </button>
-          ),
+          (tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition-all duration-150 ${
+                  isActive
+                    ? "bg-white text-[#0a2342] shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                {tab.replace("_", " ")}
+              </button>
+            );
+          },
         )}
       </div>
 
       {loading && (
-        <div className="py-10 flex justify-center">
-          <Loader2 className="animate-spin text-[#f5bd19]" size={32} />
+        <div className="py-16 flex flex-col items-center justify-center gap-3">
+          <SpinnerGap className="animate-spin text-[#f5bd19]" size={36} />
+          <span className="text-xs font-bold text-slate-600">Loading access engine rules…</span>
         </div>
       )}
 
       {!loading && activeTab === "dashboard" && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-bold">Access Rules Dashboard</h2>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="font-display text-lg font-black text-slate-900">Access Rules Overview</h2>
             <button
               onClick={() => setActiveTab("rule_builder")}
-              className="btn btn-primary text-sm px-3 py-1.5 h-auto"
+              className="btn btn-primary text-xs px-3.5 py-1.5 h-auto"
             >
-              <Plus size={16} /> New Rule
+              <Plus size={15} /> New Rule
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              ["Total", stats.total, "text-slate-700"],
-              ["Enabled", stats.enabled, "text-blue-700"],
-              ["Allow", stats.allow_count, "text-emerald-700"],
-              ["Deny", stats.deny_count, "text-red-700"],
-            ].map(([label, value, color]) => (
+              ["Total Rules", stats.total, "text-slate-900", "bg-slate-50"],
+              ["Active Rules", stats.enabled, "text-blue-700", "bg-blue-50/50"],
+              ["Allow Decisions", stats.allow_count, "text-emerald-700", "bg-emerald-50/50"],
+              ["Deny Decisions", stats.deny_count, "text-red-700", "bg-red-50/50"],
+            ].map(([label, value, color, bg]) => (
               <div
                 key={label}
-                className="bg-white border border-[var(--border-light)] rounded-xl p-4"
+                className="app-panel border-slate-200/80 p-5 shadow-xs"
               >
-                <p className="text-xs text-[var(--text-muted)] font-bold uppercase">
+                <p className="text-xs text-slate-500 font-extrabold uppercase tracking-wider">
                   {label}
                 </p>
-                <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+                <p className={`font-display text-3xl font-black mt-2 tabular-nums ${color}`}>{value}</p>
               </div>
             ))}
           </div>
-          <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden">
+          <div className="app-panel border-slate-200/80 overflow-hidden shadow-xs">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-[var(--border-light)] text-[11px] font-extrabold uppercase text-[var(--text-muted)]">
                 <tr>
@@ -661,7 +675,7 @@ export const AccessManagement = () => {
 
           <div className="pt-4 flex justify-end">
             <button type="submit" className="btn btn-primary px-6">
-              Save Rule
+              FloppyDisk Rule
             </button>
           </div>
         </form>
@@ -802,7 +816,7 @@ export const AccessManagement = () => {
         <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden p-2">
           <div className="px-4 py-3 border-b flex justify-between items-center bg-red-50/50">
             <div className="flex items-center gap-2 text-red-600 font-bold">
-              <ShieldAlert size={18} /> Access Denied Alerts
+              <ShieldWarning size={18} /> Access Denied Alerts
             </div>
             <button
               onClick={() => fetchData()}
@@ -823,7 +837,7 @@ export const AccessManagement = () => {
                   className="p-4 hover:bg-slate-50 flex items-center gap-4"
                 >
                   <div className="p-2 bg-red-100 text-red-600 rounded-full">
-                    <ShieldAlert size={18} />
+                    <ShieldWarning size={18} />
                   </div>
                   <div className="flex-1">
                     <p className="font-bold text-sm">

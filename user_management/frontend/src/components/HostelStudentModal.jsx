@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { X, History, MapPin, Save, UserCircle } from "lucide-react";
+import {
+  ClockCounterClockwise,
+  FloppyDisk,
+  MapPin,
+  UserCircle,
+  X
+} from "@phosphor-icons/react";
 import api from "../services/api";
 
 const HostelStudentModal = ({
@@ -217,8 +223,8 @@ const HostelStudentModal = ({
                   disabled={savingProfile}
                   className="bg-[#0a2342] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-[#11325c] transition flex items-center gap-2"
                 >
-                  <Save size={16} />
-                  {savingProfile ? "Saving..." : "Save Changes"}
+                  <FloppyDisk size={16} />
+                  {savingProfile ? "Saving..." : "FloppyDisk Changes"}
                 </button>
               </div>
             </div>
@@ -271,7 +277,7 @@ const HostelStudentModal = ({
                 </div>
               ) : logs.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
-                  <History size={48} className="mx-auto mb-3 text-gray-200" />
+                  <ClockCounterClockwise size={48} className="mx-auto mb-3 text-gray-200" />
                   No access events found for this student.
                 </div>
               ) : (

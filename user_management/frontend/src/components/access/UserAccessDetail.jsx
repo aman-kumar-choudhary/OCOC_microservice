@@ -1,35 +1,35 @@
 import React, { useState, useEffect } from "react";
 import {
-  X,
-  User,
-  Shield,
-  MapPin,
-  Key,
-  Clock,
+  ArrowSquareOut,
+  ArrowsClockwise,
+  Buildings,
   Calendar,
-  CheckCircle2,
-  AlertTriangle,
-  Trash2,
-  Plus,
-  RefreshCw,
-  Loader2,
-  Sparkles,
-  ExternalLink,
-  ChevronRight,
-  History,
-  Layers,
+  CaretRight,
   Check,
-  Edit3,
-  AlertCircle,
-  Building,
-  Award,
-  UserCheck,
-  ShieldAlert,
+  CheckCircle,
+  Clock,
+  ClockCounterClockwise,
   Copy,
   Eye,
-  EyeOff,
+  EyeSlash,
+  Key,
   Lock,
-} from "lucide-react";
+  MapPin,
+  Medal,
+  Pencil,
+  Plus,
+  Shield,
+  ShieldWarning,
+  Sparkle,
+  SpinnerGap,
+  Stack,
+  TrashSimple,
+  User,
+  UserCheck,
+  Warning,
+  WarningCircle,
+  X
+} from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
 import userService from "@/services/userService";
 import AssignAccessModal from "./AssignAccessModal";
@@ -285,7 +285,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-3 min-h-[400px]">
-        <Loader2 size={32} className="animate-spin text-amber-500" />
+        <SpinnerGap size={32} className="animate-spin text-amber-500" />
         <p className="text-sm font-semibold text-slate-600">
           Loading access profile...
         </p>
@@ -297,13 +297,13 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
     return (
       <div className="p-6">
         <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-3">
-          <AlertCircle size={20} className="shrink-0" />
+          <WarningCircle size={20} className="shrink-0" />
           <div className="flex-1">
             <p className="font-bold">Error loading user access</p>
             <p>{errorMsg || "User details not found"}</p>
           </div>
           <button onClick={loadAllData} className="btn btn-outline text-xs">
-            <RefreshCw size={14} /> Retry
+            <ArrowsClockwise size={14} /> Retry
           </button>
         </div>
       </div>
@@ -399,7 +399,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
               <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-600">
                 {user.department && (
                   <span className="flex items-center gap-1 bg-blue-50/70 border border-blue-100 px-2 py-0.5 rounded-md text-blue-800 font-medium">
-                    <Building size={12} /> {user.department}
+                    <Buildings size={12} /> {user.department}
                   </span>
                 )}
                 {user.course && (
@@ -431,7 +431,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
               title="Refresh access data"
               className="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 transition"
             >
-              <RefreshCw size={16} />
+              <ArrowsClockwise size={16} />
             </button>
             {onClose && (
               <button
@@ -468,13 +468,13 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
             {
               id: "effective",
               label: "Effective Permissions",
-              icon: Layers,
+              icon: Stack,
               count: effectivePerms.length,
             },
             {
               id: "history",
-              label: "Audit History",
-              icon: History,
+              label: "Audit ClockCounterClockwise",
+              icon: ClockCounterClockwise,
               count: auditLogs.length,
             },
           ].map((tab) => {
@@ -622,7 +622,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                               </span>
                             ) : (
                               <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                                <Sparkles size={12} /> Permanent
+                                <Sparkle size={12} /> Permanent
                               </span>
                             )}
                           </td>
@@ -659,7 +659,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                                 title="Edit / Extend expiration"
                                 className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
                               >
-                                <Edit3 size={13} />
+                                <Pencil size={13} />
                               </button>
                               {!isRevoked && (
                                 <button
@@ -669,12 +669,12 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                                   className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition disabled:opacity-50"
                                 >
                                   {revokingGrantId === grant.id ? (
-                                    <Loader2
+                                    <SpinnerGap
                                       size={13}
                                       className="animate-spin"
                                     />
                                   ) : (
-                                    <Trash2 size={13} />
+                                    <TrashSimple size={13} />
                                   )}
                                 </button>
                               )}
@@ -747,7 +747,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                     : "bg-rose-50 border-rose-200 text-rose-800"
                 }`}
               >
-                <CheckCircle2 size={16} />
+                <CheckCircle size={16} />
                 <span>{roleMessage}</span>
               </div>
             )}
@@ -800,7 +800,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
             {selectedRoles.includes("WARDEN") && (
               <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-3 animate-fade-in">
                 <div className="flex items-center gap-2">
-                  <Building size={16} className="text-amber-700" />
+                  <Buildings size={16} className="text-amber-700" />
                   <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
                     Warden Hostel Scope Assignment
                   </h4>
@@ -855,7 +855,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                   className="btn btn-primary text-xs"
                 >
                   {savingRoles ? (
-                    <Loader2 size={16} className="animate-spin" />
+                    <SpinnerGap size={16} className="animate-spin" />
                   ) : (
                     <Shield size={16} />
                   )}
@@ -869,7 +869,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                   className="btn btn-outline text-xs flex items-center gap-1.5"
                 >
                   {issuingCredentials ? (
-                    <Loader2 size={14} className="animate-spin" />
+                    <SpinnerGap size={14} className="animate-spin" />
                   ) : (
                     <Key size={14} />
                   )}
@@ -962,7 +962,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                           title={showPassword ? "Hide" : "Show"}
                         >
                           {showPassword ? (
-                            <EyeOff size={14} />
+                            <EyeSlash size={14} />
                           ) : (
                             <Eye size={14} />
                           )}
@@ -1011,7 +1011,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                         rel="noreferrer"
                         className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
                       >
-                        Preview <ExternalLink size={12} />
+                        Preview <ArrowSquareOut size={12} />
                       </a>
                     </div>
                   </div>
@@ -1077,9 +1077,9 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                   className="btn btn-primary text-xs"
                 >
                   {issuingCredentials ? (
-                    <Loader2 size={14} className="animate-spin" />
+                    <SpinnerGap size={14} className="animate-spin" />
                   ) : (
-                    <RefreshCw size={14} />
+                    <ArrowsClockwise size={14} />
                   )}
                   <span>
                     {customPasswordInput
@@ -1090,7 +1090,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
               </div>
 
               <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-1 border-t border-slate-100">
-                <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                <CheckCircle size={13} className="text-emerald-500 shrink-0" />
                 <span>
                   Generates an 8+ character password compliant with Keycloak
                   security policy and clears any pending account actions.
@@ -1116,7 +1116,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
 
             {effectivePerms.length === 0 ? (
               <div className="text-center py-10 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <Layers size={32} className="mx-auto text-slate-300 mb-2" />
+                <Stack size={32} className="mx-auto text-slate-300 mb-2" />
                 <p className="text-xs font-bold text-slate-600">
                   No Effective Location Permissions Calculated
                 </p>
@@ -1144,7 +1144,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                       <div className="flex items-center gap-1.5 text-[11px]">
                         {perm.source === "inherited" ? (
                           <span className="text-slate-500 flex items-center gap-1">
-                            <Layers size={11} className="text-amber-500" />{" "}
+                            <Stack size={11} className="text-amber-500" />{" "}
                             Inherited from {perm.inherited_from_name}
                           </span>
                         ) : (
@@ -1177,7 +1177,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
 
             {auditLogs.length === 0 ? (
               <div className="text-center py-10 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <History size={32} className="mx-auto text-slate-300 mb-2" />
+                <ClockCounterClockwise size={32} className="mx-auto text-slate-300 mb-2" />
                 <p className="text-xs font-bold text-slate-600">
                   No Access Audit Logs Recorded
                 </p>
@@ -1288,7 +1288,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                   className="btn btn-primary text-xs"
                 >
                   {extendLoading ? (
-                    <Loader2 size={14} className="animate-spin" />
+                    <SpinnerGap size={14} className="animate-spin" />
                   ) : (
                     "Update Expiry"
                   )}

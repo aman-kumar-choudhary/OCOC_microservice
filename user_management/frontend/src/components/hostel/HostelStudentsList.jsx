@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Search, UserCircle, Mail, Phone, BookOpen } from "lucide-react";
+import {
+  BookOpen,
+  Envelope,
+  MagnifyingGlass,
+  Phone,
+  UserCircle
+} from "@phosphor-icons/react";
 import api from "../../services/api";
 import StudentProfileSlideOver from "./StudentProfileSlideOver";
 const HostelStudentsList = ({ hostelId }) => {
@@ -49,7 +55,7 @@ const HostelStudentsList = ({ hostelId }) => {
         <div className="relative w-full sm:w-64">
           <input
             type="text"
-            placeholder="Search by name, email, or roll no..."
+            placeholder="MagnifyingGlass by name, email, or roll no..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -57,7 +63,7 @@ const HostelStudentsList = ({ hostelId }) => {
             }}
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19] transition-all bg-white shadow-sm"
           />
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+          <MagnifyingGlass className="absolute left-3 top-2.5 text-gray-400" size={16} />
         </div>
       </div>
 
@@ -117,7 +123,7 @@ const HostelStudentsList = ({ hostelId }) => {
                   <td className="p-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Mail size={14} className="text-gray-400" />
+                        <Envelope size={14} className="text-gray-400" />
                         {s.email}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">

@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import {
-  X,
+  BuildingOffice,
+  Calendar,
+  CaretRight,
+  Check,
+  Clock,
   MapPin,
   Shield,
-  Calendar,
-  Clock,
-  ChevronRight,
-  Check,
-  AlertCircle,
-  Loader2,
-  Sparkles,
-  Building2,
-  Layers,
-} from "lucide-react";
+  Sparkle,
+  SpinnerGap,
+  Stack,
+  WarningCircle,
+  X
+} from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
 const ACCESS_LEVEL_INFO = {
   ENTRY: {
@@ -216,7 +216,7 @@ export const AssignAccessModal = ({
         >
           {error && (
             <div className="flex items-center gap-2 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
-              <AlertCircle size={18} className="shrink-0" />
+              <WarningCircle size={18} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -251,7 +251,7 @@ export const AssignAccessModal = ({
               </span>
               {selectedLoc && (
                 <span className="text-[11px] font-normal text-amber-700 flex items-center gap-1">
-                  <Sparkles size={12} /> Cascades to all child areas
+                  <Sparkle size={12} /> Cascades to all child areas
                 </span>
               )}
             </label>
@@ -294,7 +294,7 @@ export const AssignAccessModal = ({
 
             {selectedLoc && (
               <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
-                <ChevronRight size={13} className="text-amber-500 shrink-0" />
+                <CaretRight size={13} className="text-amber-500 shrink-0" />
                 Selected Path:{" "}
                 <span className="font-semibold text-slate-700">
                   {selectedLoc.path}
@@ -467,7 +467,7 @@ export const AssignAccessModal = ({
             className="btn btn-primary text-xs"
           >
             {loading ? (
-              <Loader2 size={16} className="animate-spin" />
+              <SpinnerGap size={16} className="animate-spin" />
             ) : (
               <Shield size={16} />
             )}

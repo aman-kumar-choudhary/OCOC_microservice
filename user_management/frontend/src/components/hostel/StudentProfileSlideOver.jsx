@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
 import {
-  X,
-  User,
-  Mail,
-  Phone,
   BookOpen,
-  Shield,
-  Key,
-  AlertTriangle,
   CheckCircle,
-  Save,
-  XCircle,
-} from "lucide-react";
+  Envelope,
+  FloppyDisk,
+  Key,
+  Phone,
+  Shield,
+  User,
+  Warning,
+  X,
+  XCircle
+} from "@phosphor-icons/react";
 import api from "../../services/api";
 const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -174,7 +174,7 @@ const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
             {/* Contact Info */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                <Mail size={16} /> Contact Information
+                <Envelope size={16} /> Contact Information
               </h3>
 
               <div className="space-y-3">
@@ -292,7 +292,7 @@ const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
           </div>
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex gap-3 text-sm text-yellow-800">
-            <AlertTriangle
+            <Warning
               className="flex-shrink-0 text-yellow-600"
               size={20}
             />
@@ -321,8 +321,8 @@ const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
               disabled={loading}
               className="px-6 py-2 text-sm font-bold text-[#0a2342] bg-[#f5bd19] hover:bg-[#e0a800] rounded-lg flex items-center gap-2 disabled:opacity-50"
             >
-              <Save size={16} />
-              Save Changes
+              <FloppyDisk size={16} />
+              FloppyDisk Changes
             </button>
           </div>
         )}

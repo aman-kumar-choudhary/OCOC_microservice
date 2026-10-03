@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Search, UserCircle } from "lucide-react";
+import {
+  MagnifyingGlass,
+  UserCircle
+} from "@phosphor-icons/react";
 import { hostelService } from "../../services/hostelService";
 
 const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
@@ -96,12 +99,12 @@ const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              placeholder="Search by name or roll no..."
+              placeholder="MagnifyingGlass by name or roll no..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19] transition-all bg-white shadow-sm"
             />
-            <Search
+            <MagnifyingGlass
               className="absolute left-3 top-2.5 text-gray-400"
               size={16}
             />

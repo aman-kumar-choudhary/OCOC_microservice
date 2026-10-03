@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { auditService } from "@/services/miscService";
 import { formatDateTime } from "@/utils/date";
 import {
-  Loader2,
-  Activity,
   ArrowRight,
-  UserCircle2,
-  X,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  CaretLeft,
+  CaretRight,
+  ChartLineUp,
+  SpinnerGap,
+  UserCircleGear,
+  X
+} from "@phosphor-icons/react";
 
 export const AuditView = () => {
   const [logs, setLogs] = useState([]);
@@ -147,14 +147,14 @@ export const AuditView = () => {
       <div className="glass-panel overflow-hidden relative min-h-[400px]">
         {isLoading && (
           <div className="absolute inset-0 bg-[var(--bg-card)]/50 backdrop-blur-sm z-10 flex items-center justify-center">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={32} />
+            <SpinnerGap className="animate-spin text-[#f5bd19]" size={32} />
           </div>
         )}
 
         <div className="divide-y divide-[var(--border-light)]">
           {logs.length === 0 && !isLoading && (
             <div className="p-12 text-center text-muted flex flex-col items-center">
-              <Activity size={48} className="mb-4 opacity-30" />
+              <ChartLineUp size={48} className="mb-4 opacity-30" />
               <p>No audit events found.</p>
             </div>
           )}
@@ -193,7 +193,7 @@ export const AuditView = () => {
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted">
                   <span className="flex items-center gap-1" title="Actor ID">
-                    <UserCircle2 size={14} />
+                    <UserCircleGear size={14} />
                     {log.actor_id || "System"}
                   </span>
                   {log.ip_address && (
@@ -232,7 +232,7 @@ export const AuditView = () => {
                 fetchLogs(prev);
               }}
             >
-              <ChevronLeft size={15} />
+              <CaretLeft size={15} />
             </button>
             <button
               className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted hover:border-[#f5bd19] disabled:opacity-40"
@@ -243,7 +243,7 @@ export const AuditView = () => {
                 fetchLogs(next);
               }}
             >
-              <ChevronRight size={15} />
+              <CaretRight size={15} />
             </button>
           </div>
         </div>

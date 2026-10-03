@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import {
-  AlertTriangle,
   CheckCircle,
-  ShieldAlert,
-  X,
-  Loader2,
   Lock,
-} from "lucide-react";
+  ShieldWarning,
+  SpinnerGap,
+  Warning,
+  X
+} from "@phosphor-icons/react";
 export const ConfirmActionModal = ({
   isOpen,
   onClose,
@@ -47,7 +47,7 @@ export const ConfirmActionModal = ({
         >
           <div className="flex items-center gap-2.5 font-extrabold text-sm sm:text-base">
             {isDanger ? (
-              <AlertTriangle size={20} className="text-red-600 shrink-0" />
+              <Warning size={20} className="text-red-600 shrink-0" />
             ) : (
               <CheckCircle size={20} className="text-emerald-600 shrink-0" />
             )}
@@ -121,7 +121,7 @@ export const ConfirmActionModal = ({
                 : "bg-[#0a2342] hover:bg-[#12365f]"
             }`}
           >
-            {isLoading && <Loader2 size={14} className="animate-spin" />}
+            {isLoading && <SpinnerGap size={14} className="animate-spin" />}
             <span>{confirmText}</span>
           </button>
         </div>

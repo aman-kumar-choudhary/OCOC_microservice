@@ -4,19 +4,19 @@ import api from "@/services/api";
 import PasswordStrengthMeter from "@/components/PasswordStrengthMeter";
 import LegalModal from "@/components/LegalModal";
 import {
-  Mail,
-  KeyRound,
-  Lock,
-  Loader2,
+  ArrowCounterClockwise,
   ArrowLeft,
-  CheckCircle2,
-  ShieldCheck,
   ArrowRight,
-  RotateCcw,
+  CheckCircle,
+  Envelope,
   Eye,
-  EyeOff,
+  EyeSlash,
+  Key,
+  Lock,
   Shield,
-} from "lucide-react";
+  ShieldCheck,
+  SpinnerGap
+} from "@phosphor-icons/react";
 export const ForgotPassword = () => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
@@ -164,7 +164,7 @@ export const ForgotPassword = () => {
         <form id="forgot-step1" onSubmit={requestOTP} className="forgot-step">
           <div className="step-header">
             <div className="step-icon-wrap step-icon-mail">
-              <Mail size={24} />
+              <Envelope size={24} />
             </div>
             <h2 className="step-title">Reset Password</h2>
             <p className="step-desc">
@@ -180,7 +180,7 @@ export const ForgotPassword = () => {
             </label>
             <div className="field-input-wrap">
               <div className="field-icon">
-                <Mail size={18} />
+                <Envelope size={18} />
               </div>
               <input
                 id="forgot-email"
@@ -204,7 +204,7 @@ export const ForgotPassword = () => {
           >
             {isLoading ? (
               <>
-                <Loader2 className="animate-spin" size={18} />
+                <SpinnerGap className="animate-spin" size={18} />
                 <span>Sending…</span>
               </>
             ) : (
@@ -222,7 +222,7 @@ export const ForgotPassword = () => {
         <form id="forgot-step2" onSubmit={verifyOTP} className="forgot-step">
           <div className="step-header">
             <div className="step-icon-wrap step-icon-key">
-              <KeyRound size={24} />
+              <Key size={24} />
             </div>
             <h2 className="step-title">Check Your Email</h2>
             <p className="step-desc">
@@ -237,7 +237,7 @@ export const ForgotPassword = () => {
             </label>
             <div className="field-input-wrap">
               <div className="field-icon">
-                <KeyRound size={18} />
+                <Key size={18} />
               </div>
               <input
                 id="forgot-otp"
@@ -262,7 +262,7 @@ export const ForgotPassword = () => {
           >
             {isLoading ? (
               <>
-                <Loader2 className="animate-spin" size={18} />
+                <SpinnerGap className="animate-spin" size={18} />
                 <span>Verifying…</span>
               </>
             ) : (
@@ -279,7 +279,7 @@ export const ForgotPassword = () => {
             onClick={() => requestOTP()}
             disabled={isLoading}
           >
-            <RotateCcw size={14} />
+            <ArrowCounterClockwise size={14} />
             <span>Resend OTP</span>
           </button>
         </form>
@@ -331,7 +331,7 @@ export const ForgotPassword = () => {
                 tabIndex={-1}
                 aria-label={showNewPassword ? "Hide password" : "Show password"}
               >
-                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showNewPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
@@ -365,7 +365,7 @@ export const ForgotPassword = () => {
                   showConfirmPassword ? "Hide password" : "Show password"
                 }
               >
-                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showConfirmPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
@@ -384,7 +384,7 @@ export const ForgotPassword = () => {
           >
             {isLoading ? (
               <>
-                <Loader2 className="animate-spin" size={18} />
+                <SpinnerGap className="animate-spin" size={18} />
                 <span>Resetting…</span>
               </>
             ) : (
@@ -402,7 +402,7 @@ export const ForgotPassword = () => {
         <div id="forgot-success" className="forgot-step forgot-success">
           <div className="success-ring">
             <div className="success-icon-wrap">
-              <CheckCircle2 size={40} />
+              <CheckCircle size={40} />
             </div>
           </div>
           <h2 className="step-title text-center">Password Reset Complete</h2>

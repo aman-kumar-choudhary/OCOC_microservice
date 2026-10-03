@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Camera,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Clock,
-  ScanFace,
-  ShieldCheck,
-  LogOut,
-  LogIn,
-  Search,
-  UserRound,
   CalendarCheck,
-  AlertCircle as AlertCircleIcon,
-} from "lucide-react";
+  Camera,
+  CheckCircle,
+  Clock,
+  MagnifyingGlass,
+  ShieldCheck,
+  SignIn,
+  SignOut,
+  UserCircle,
+  UserFocus,
+  Warning,
+  WarningCircle as AlertCircleIcon,
+  XCircle
+} from "@phosphor-icons/react";
 import api from "../services/api";
 import accessService from "../services/accessService";
 import { useLiveFaceInference } from "../hooks/useLiveFaceInference";
@@ -271,46 +271,54 @@ const GuardDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 page-enter">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0a2342] flex items-center gap-2">
-            Guard Console{" "}
-            <span className="flex h-3 w-3 relative">
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Guard Console
+            </h1>
+            <span className="flex h-3.5 w-3.5 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
             </span>
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Real-time entry/exit logs, face verification, and leave-aware gate
-            decisions
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Real-time biometric turnstile logs, face verification, and leave-aware access enforcement
           </p>
         </div>
-        <div className="text-sm font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full border border-slate-200 shadow-sm flex items-center gap-2">
-          <Clock size={16} /> LIVE FEED
+        <div className="inline-flex items-center gap-2 bg-white text-slate-700 px-3.5 py-1.5 rounded-full border border-slate-200/90 shadow-xs text-xs font-bold">
+          <Clock size={15} className="text-[#d99e00]" />
+          <span>Active Gate Surveillance</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Camera Feed, Student ID Panel, & Alerts */}
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Camera */}
-          <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden">
-            <div className="bg-slate-50 px-4 py-3 border-b border-[var(--border-light)] flex items-center justify-between">
+          <div className="app-panel overflow-hidden border-slate-200/80">
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100/80 px-4 py-3 border-b border-slate-200/80 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Camera size={18} className="text-[#0a2342]" />
-                <h3 className="font-bold text-[#0a2342] text-sm">
-                  FRECO Face Stream
+                <div className="p-1.5 rounded-lg bg-[#0a2342]/10 text-[#0a2342]">
+                  <Camera size={16} />
+                </div>
+                <h3 className="font-display font-black text-slate-900 text-sm">
+                  FRECO Biometric Stream
                 </h3>
               </div>
               <button
                 onClick={isStreaming ? stopStream : startStream}
-                className="text-xs font-bold px-2.5 py-1 rounded bg-[#0a2342] text-white"
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-xs ${
+                  isStreaming
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-[#0a2342] hover:bg-[#12365f] text-white"
+                }`}
               >
-                {isStreaming ? "Stop" : "Start camera"}
+                {isStreaming ? "Stop Stream" : "Start Camera"}
               </button>
             </div>
-            <div className="relative bg-slate-900 aspect-video">
+            <div className="relative bg-slate-950 aspect-video">
               <video
                 ref={videoRef}
                 autoPlay
@@ -319,29 +327,37 @@ const GuardDashboard = () => {
                 className="w-full h-full object-cover"
               />
               {!isStreaming && (
-                <div className="absolute inset-0 flex items-center justify-center text-slate-300 text-xs">
-                  Start camera to send frames to FRECO
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+                  <UserFocus size={32} className="text-slate-600 animate-pulse" />
+                  <span>Camera stream standby</span>
                 </div>
               )}
             </div>
             {(cameraError || wsError) && (
-              <p className="p-2 text-xs text-red-600">
+              <p className="p-3 text-xs font-bold text-red-600 bg-red-50 border-t border-red-100">
                 {cameraError || wsError}
               </p>
             )}
-            <p className="px-3 py-2 text-xs text-[var(--text-muted)] flex items-center gap-1">
-              <ScanFace size={14} />{" "}
-              {faces.length
-                ? `${faces.length} face detected`
-                : "No face detected"}
-            </p>
+            <div className="px-4 py-2.5 bg-slate-50/70 border-t border-slate-100 text-xs font-semibold text-slate-600 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <UserFocus size={15} className="text-[#d99e00]" />{" "}
+                {faces.length
+                  ? `${faces.length} face${faces.length > 1 ? "s" : ""} detected`
+                  : "Scanning area..."}
+              </span>
+              {isStreaming && (
+                <span className="flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> LIVE
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Identified Student Panel — shown when face is detected and matched */}
           {faces.length > 0 && identifiedStudent && (
             <div className="bg-white border-2 border-[#0a2342] rounded-xl shadow-md overflow-hidden animate-fade-in">
               <div className="bg-[#0a2342] px-4 py-2.5 flex items-center gap-2">
-                <UserRound size={16} className="text-[#f5bd19]" />
+                <UserCircle size={16} className="text-[#f5bd19]" />
                 <h3 className="font-bold text-white text-sm">
                   Identified Student
                 </h3>
@@ -456,7 +472,7 @@ const GuardDashboard = () => {
           {/* Alerts */}
           <div className="bg-white border border-red-100 rounded-xl shadow-sm overflow-hidden flex-1">
             <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex items-center gap-2">
-              <AlertTriangle size={18} className="text-red-500" />
+              <Warning size={18} className="text-red-500" />
               <h3 className="font-bold text-red-700 text-sm">
                 Actionable Alerts
               </h3>
@@ -487,72 +503,75 @@ const GuardDashboard = () => {
         </div>
 
         {/* Right Column: Traditional Register Table */}
-        <div className="lg:col-span-2 bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden flex flex-col h-[600px]">
-          <div className="bg-slate-50 border-b border-[var(--border-light)] px-4 py-3 flex justify-between items-center">
-            <h3 className="font-bold text-[#0a2342] text-sm">
-              Digital Register (Live)
-            </h3>
-            <span className="text-xs text-[var(--text-muted)] font-mono">
+        <div className="lg:col-span-2 app-panel border-slate-200/80 overflow-hidden flex flex-col h-[600px]">
+          <div className="bg-slate-50/80 border-b border-slate-200/80 px-5 py-3.5 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <h3 className="font-display font-black text-slate-900 text-sm">
+                Digital Turnstile Register (Live Stream)
+              </h3>
+            </div>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold">
               {events.length} records
             </span>
           </div>
           <div className="overflow-auto flex-1 p-0">
             <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-100 sticky top-0 border-b border-[var(--border-light)] text-[11px] font-extrabold uppercase text-[var(--text-muted)]">
+              <thead className="bg-slate-50 sticky top-0 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Identity</th>
                   <th className="px-4 py-3">Action</th>
-                  <th className="px-4 py-3">Location</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Turnstile Gate</th>
+                  <th className="px-4 py-3">Authorization</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border-light)] font-mono text-xs">
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {events.map((ev, idx) => (
                   <tr
                     key={ev.id || idx}
-                    className={`hover:bg-slate-50 transition-colors ${ev.status === "DENIED" ? "bg-red-50/50" : ""}`}
+                    className={`hover:bg-slate-50/80 transition-colors ${ev.status === "DENIED" ? "bg-red-50/40" : ""}`}
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 font-mono text-slate-500">
                       {new Date(ev.event_time).toLocaleTimeString()}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-[#0a2342]">
+                    <td className="px-4 py-3 font-bold text-slate-900">
                       {ev.user_name || ev.user_identifier}
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`px-2 py-1 rounded text-[10px] font-bold ${ev.action === "ENTRY" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide ${ev.action === "ENTRY" ? "bg-blue-50 text-blue-700 border border-blue-200/70" : "bg-orange-50 text-orange-700 border border-orange-200/70"}`}
                       >
                         {ev.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[var(--text-muted)]">
+                    <td className="px-4 py-3 text-slate-600 font-medium">
                       {ev.location_name}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         {ev.status === "GRANTED" ? (
-                          <CheckCircle size={14} className="text-emerald-500" />
+                          <CheckCircle size={15} className="text-emerald-600" />
                         ) : ev.status === "PENDING" ? (
-                          <Clock size={14} className="text-amber-500" />
+                          <Clock size={15} className="text-amber-600" />
                         ) : (
-                          <XCircle size={14} className="text-red-500" />
+                          <XCircle size={15} className="text-red-600" />
                         )}
                         <span
-                          className={
+                          className={`font-black text-xs ${
                             ev.status === "GRANTED"
-                              ? "text-emerald-600 font-bold"
+                              ? "text-emerald-700"
                               : ev.status === "PENDING"
-                                ? "text-amber-600 font-bold"
-                                : "text-red-600 font-bold"
-                          }
+                                ? "text-amber-700"
+                                : "text-red-700"
+                          }`}
                         >
                           {ev.status}
                         </span>
                       </div>
                       {ev.reason && ev.status === "DENIED" && (
                         <div
-                          className="text-[10px] text-red-500 mt-1 max-w-[150px] truncate"
+                          className="text-[10px] text-red-600 mt-1 max-w-[150px] truncate"
                           title={ev.reason}
                         >
                           {ev.reason}
@@ -586,7 +605,7 @@ const GuardDashboard = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <label className="relative sm:col-span-1">
-              <Search
+              <MagnifyingGlass
                 size={15}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
@@ -594,8 +613,8 @@ const GuardDashboard = () => {
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
                 className="form-input pl-9 py-2 text-sm"
-                placeholder="Search student name, ID, phone"
-                aria-label="Search students by student ID or name"
+                placeholder="MagnifyingGlass student name, ID, phone"
+                aria-label="MagnifyingGlass students by student ID or name"
               />
             </label>
             <select
@@ -677,7 +696,7 @@ const GuardDashboard = () => {
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded font-bold ${outside ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"}`}
                         >
-                          {outside ? <LogOut size={12} /> : <LogIn size={12} />}
+                          {outside ? <SignOut size={12} /> : <SignIn size={12} />}
                           {student.current_status?.replace("_", " ")}
                         </span>
                       </td>

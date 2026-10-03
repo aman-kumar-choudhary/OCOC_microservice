@@ -7,7 +7,10 @@ import React, {
   useCallback,
 } from "react";
 import { useLiveFaceInference } from "@/hooks/useLiveFaceInference";
-import { Loader2, VideoOff } from "lucide-react";
+import {
+  SpinnerGap,
+  VideoCameraSlash
+} from "@phosphor-icons/react";
 
 const REQUIRED_STABILITY_MS = 1000;
 const TICK_MS = 50;
@@ -269,10 +272,10 @@ export const FaceOvalCamera = forwardRef(
             {!isStreaming && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-sm p-4 text-center">
                 {!error && !wsError && (
-                  <Loader2 className="animate-spin mb-2" size={32} />
+                  <SpinnerGap className="animate-spin mb-2" size={32} />
                 )}
                 {(error || wsError) && (
-                  <VideoOff className="mb-2 text-red-400" size={40} />
+                  <VideoCameraSlash className="mb-2 text-red-400" size={40} />
                 )}
                 <p className="text-xs font-semibold">
                   {error || wsError || "Starting Camera..."}

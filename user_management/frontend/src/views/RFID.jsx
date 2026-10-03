@@ -2,16 +2,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import rfidService from "@/services/rfidService";
 import { formatDate } from "@/utils/date";
 import {
+  ArrowCounterClockwise,
+  ArrowsClockwise,
+  CaretLeft,
+  CaretRight,
   CreditCard,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
-  RotateCcw,
-  ShieldOff,
-  AlertTriangle,
-  X,
-} from "lucide-react";
+  ShieldSlash,
+  SpinnerGap,
+  Warning,
+  X
+} from "@phosphor-icons/react";
 import AssignRFIDModal from "@/components/AssignRFIDModal";
 
 export const RFIDView = () => {
@@ -95,7 +95,7 @@ export const RFIDView = () => {
             className="btn btn-outline py-1.5 px-3"
             id="rfid-refresh-btn"
           >
-            <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
+            <ArrowsClockwise size={15} className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -131,7 +131,7 @@ export const RFIDView = () => {
       <div className="table-container relative">
         {isLoading && (
           <div className="absolute inset-0 bg-[var(--bg-card)]/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
-            <Loader2 className="animate-spin text-[#f5bd19]" size={28} />
+            <SpinnerGap className="animate-spin text-[#f5bd19]" size={28} />
           </div>
         )}
 
@@ -218,14 +218,14 @@ export const RFIDView = () => {
                             className="p-1.5 rounded-lg border border-[var(--border-light)] text-muted hover:text-[#0a2342] hover:border-[#f5bd19] transition-colors text-xs font-semibold flex items-center gap-1"
                             title="Replace card"
                           >
-                            <RotateCcw size={14} /> Replace
+                            <ArrowCounterClockwise size={14} /> Replace
                           </button>
                           <button
                             onClick={() => setRevokeTarget(card)}
                             className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors text-xs font-semibold flex items-center gap-1"
                             title="Revoke card"
                           >
-                            <ShieldOff size={14} /> Revoke
+                            <ShieldSlash size={14} /> Revoke
                           </button>
                         </>
                       )}
@@ -263,7 +263,7 @@ export const RFIDView = () => {
                 fetchCards(prev);
               }}
             >
-              <ChevronLeft size={16} />
+              <CaretLeft size={16} />
             </button>
             <button
               className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted transition hover:border-[#f5bd19] hover:text-[#0a2342] disabled:opacity-40 disabled:cursor-not-allowed"
@@ -274,7 +274,7 @@ export const RFIDView = () => {
                 fetchCards(next);
               }}
             >
-              <ChevronRight size={16} />
+              <CaretRight size={16} />
             </button>
           </div>
         </div>
@@ -287,10 +287,10 @@ export const RFIDView = () => {
             className="fixed inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setRevokeTarget(null)}
           />
-          <div className="relative z-10 glass-panel w-full max-w-md p-6 shadow-2xl animate-fade-in space-y-4">
+          <div className="relative z-10 glass-panel w-full max-w-md p-6 shadow-2xl page-enter space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-3">
               <div className="flex items-center gap-2 text-red-600 font-bold">
-                <AlertTriangle size={20} /> Revoke RFID Tag
+                <Warning size={20} /> Revoke RFID Tag
               </div>
               <button
                 onClick={() => setRevokeTarget(null)}
@@ -335,9 +335,9 @@ export const RFIDView = () => {
                 className="btn btn-danger"
               >
                 {revokeLoading ? (
-                  <Loader2 className="animate-spin" size={15} />
+                  <SpinnerGap className="animate-spin" size={15} />
                 ) : (
-                  <ShieldOff size={15} />
+                  <ShieldSlash size={15} />
                 )}
                 Confirm Revocation
               </button>
