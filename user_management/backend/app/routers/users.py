@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import PlainTextResponse
 import asyncpg
 from app.core.database import get_db
-from app.core.security import Claims, require_permission, get_current_claims
+from app.core.security import Claims, require_permission, get_current_claims, resolve_warden_hostel_scope, ADMIN_ROLES
 from app.schemas.common import error_response, success_response
 from app.schemas.role import AssignRoleRequest
-from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest, BulkTransferRequest
+from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest, BulkTransferRequest, UpdateStatusRequest
 from app.services.role_service import role_service
 from app.services.user_service import user_service
 
@@ -274,16 +274,38 @@ async def list_users(
     conn: asyncpg.Connection = Depends(get_db),
 ):
     try:
+        scoped_hostel_id = hostel_id
+        scoped_hostel_ids = None
+        scoped_user_type = user_type
+
+        # Scope for Warden
+        if claims.has_any_role("WARDEN") and not claims.has_any_role(*ADMIN_ROLES):
+            warden_hostels = await resolve_warden_hostel_scope(conn, claims)
+            if not warden_hostels:
+                return success_response(data={"users": [], "total": 0, "page": page, "limit": limit, "total_pages": 1})
+            if hostel_id and hostel_id.strip():
+                try:
+                    h_uuid = uuid.UUID(hostel_id.strip())
+                    if h_uuid not in warden_hostels:
+                        return success_response(data={"users": [], "total": 0, "page": page, "limit": limit, "total_pages": 1})
+                except Exception:
+                    return success_response(data={"users": [], "total": 0, "page": page, "limit": limit, "total_pages": 1})
+            else:
+                scoped_hostel_ids = warden_hostels
+            if not scoped_user_type:
+                scoped_user_type = "student"
+
         result = await user_service.list_users(
             conn=conn,
             search=search,
-            user_type=user_type,
+            user_type=scoped_user_type,
             status=user_status,
             school=school,
             department=department,
             course=course,
             semester=semester,
-            hostel_id=hostel_id,
+            hostel_id=scoped_hostel_id,
+            hostel_ids=scoped_hostel_ids,
             hostel_status=hostel_status,
             role=role,
             page=page,
@@ -468,6 +490,23 @@ async def delete_user(
     except Exception as e:
         logger.error("Delete user failed: %s", e)
         return error_response("DELETE_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.patch("/{user_id}/status")
+async def update_user_status(
+    user_id: uuid.UUID,
+    req: UpdateStatusRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_permission("user:suspend")),
+):
+    try:
+        await user_service.update_status(conn, actor_id=claims.sub, user_id=user_id, new_status=req.status, reason=req.reason or "")
+        return success_response(message=f"user status updated to {req.status}")
+    except ValueError as e:
+        return error_response("STATUS_UPDATE_FAILED", str(e), status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error("Update status failed: %s", e)
+        return error_response("STATUS_UPDATE_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.patch("/{user_id}/suspend")

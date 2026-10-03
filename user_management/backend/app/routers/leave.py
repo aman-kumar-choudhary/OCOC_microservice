@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
-from app.core.security import Claims, get_current_claims, require_permission
+from app.core.security import Claims, get_current_claims, require_permission, resolve_warden_hostel_scope, ADMIN_ROLES
 
 router = APIRouter(prefix="/api/v1/leave", tags=["leave_management"])
 STAGE_PERMISSIONS = {"leave.approve.warden", "leave.approve.chancellor", "leave.approve.medical"}
@@ -59,7 +59,11 @@ class DelegationInput(BaseModel):
 
 
 async def local_user(conn: asyncpg.Connection, claims: Claims) -> uuid.UUID:
-    value = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id=$1", claims.sub)
+    value = await conn.fetchval(
+        "SELECT id FROM users WHERE keycloak_user_id=$1 OR (email IS NOT NULL AND LOWER(email)=LOWER($2)) ORDER BY CASE WHEN keycloak_user_id=$1 THEN 0 ELSE 1 END LIMIT 1",
+        str(claims.sub),
+        str(claims.email or claims.preferred_username or ""),
+    )
     if not value:
         raise HTTPException(403, "No local user is linked to this account")
     return value
@@ -92,8 +96,18 @@ async def notify_permission(conn, request_id, permission, event):
 
 
 async def load_request(conn, request_id: uuid.UUID):
-    row = await conn.fetchrow("""SELECT r.*, t.name AS leave_type, t.code AS leave_type_code
-        FROM leave_requests r JOIN leave_types t ON t.id=r.leave_type_id WHERE r.id=$1""", request_id)
+    row = await conn.fetchrow("""
+        SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
+               COALESCE(sp.full_name, u.email) AS student_name,
+               sp.roll_number, sp.room_number, sp.course, sp.semester,
+               h.name AS hostel_name, u.email AS student_email, u.phone AS student_phone
+        FROM leave_requests r
+        JOIN leave_types t ON t.id=r.leave_type_id
+        LEFT JOIN student_profiles sp ON sp.user_id=r.student_id
+        LEFT JOIN hostels h ON h.id=sp.hostel_id
+        LEFT JOIN users u ON u.id=r.student_id
+        WHERE r.id=$1
+    """, request_id)
     if not row:
         raise HTTPException(404, "Leave request not found")
     return dict(row)
@@ -166,16 +180,35 @@ async def create_request(body: LeaveInput, draft: bool = Query(True), conn=Depen
 @router.get("/requests")
 async def list_requests(conn=Depends(get_db), claims: Claims = Depends(get_current_claims), status_filter: Optional[str] = Query(None, alias="status"), limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
     actor = await local_user(conn, claims)
+    base_select = """
+        SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
+               COALESCE(sp.full_name, u.email) AS student_name,
+               sp.roll_number, sp.room_number, sp.course, sp.semester,
+               h.name AS hostel_name, u.email AS student_email, u.phone AS student_phone
+        FROM leave_requests r
+        JOIN leave_types t ON t.id=r.leave_type_id
+        LEFT JOIN student_profiles sp ON sp.user_id=r.student_id
+        LEFT JOIN hostels h ON h.id=sp.hostel_id
+        LEFT JOIN users u ON u.id=r.student_id
+    """
     if claims.has_any_role("SUPER_ADMIN", "ADMIN"):
-        rows = await conn.fetch("""SELECT r.*,t.name leave_type FROM leave_requests r JOIN leave_types t ON t.id=r.leave_type_id
+        rows = await conn.fetch(f"""{base_select}
           WHERE ($1::text IS NULL OR r.status=$1) ORDER BY r.created_at DESC LIMIT $2 OFFSET $3""", status_filter, limit, offset)
+    elif claims.has_any_role("WARDEN"):
+        warden_hostels = await resolve_warden_hostel_scope(conn, claims)
+        if not warden_hostels:
+            rows = []
+        else:
+            rows = await conn.fetch(f"""{base_select}
+              WHERE sp.hostel_id = ANY($1::uuid[]) AND ($2::text IS NULL OR r.status=$2)
+              ORDER BY r.created_at DESC LIMIT $3 OFFSET $4""", warden_hostels, status_filter, limit, offset)
     elif any(can_approve(claims, permission) for permission in STAGE_PERMISSIONS):
         permissions = [permission for permission in STAGE_PERMISSIONS if can_approve(claims, permission)]
-        rows = await conn.fetch("""SELECT r.*,t.name leave_type FROM leave_requests r JOIN leave_types t ON t.id=r.leave_type_id
+        rows = await conn.fetch(f"""{base_select}
           WHERE ((r.status='PENDING_APPROVAL' AND r.workflow_snapshot->>r.current_stage = ANY($1::text[])) OR EXISTS(SELECT 1 FROM leave_approvals a WHERE a.request_id=r.id AND a.actor_id=$2))
             AND ($3::text IS NULL OR r.status=$3) ORDER BY r.created_at DESC LIMIT $4 OFFSET $5""", permissions, actor, status_filter, limit, offset)
     else:
-        rows = await conn.fetch("""SELECT r.*,t.name leave_type FROM leave_requests r JOIN leave_types t ON t.id=r.leave_type_id
+        rows = await conn.fetch(f"""{base_select}
           WHERE r.student_id=$1 AND ($2::text IS NULL OR r.status=$2) ORDER BY r.created_at DESC LIMIT $3 OFFSET $4""", actor, status_filter, limit, offset)
     return {"success": True, "data": [dict(r) for r in rows], "pagination": {"limit": limit, "offset": offset}}
 
@@ -255,13 +288,28 @@ async def withdraw_request(request_id: uuid.UUID, body: DecisionInput, conn=Depe
 async def pending_approvals(conn=Depends(get_db), claims: Claims = Depends(get_current_claims)):
     actor = await local_user(conn, claims)
     permissions = [permission for permission in STAGE_PERMISSIONS if can_approve(claims, permission)]
-    if not permissions: raise HTTPException(403, "No leave approval permission")
-    rows = await conn.fetch("""SELECT r.*,t.name leave_type,p.full_name AS student_name,u.email
-          FROM leave_requests r JOIN leave_types t ON t.id=r.leave_type_id JOIN student_profiles p ON p.user_id=r.student_id
-          JOIN users u ON u.id=r.student_id
-          WHERE r.status='PENDING_APPROVAL' AND r.workflow_snapshot->>r.current_stage = ANY($1::text[])
-      AND NOT EXISTS(SELECT 1 FROM leave_approvals a WHERE a.request_id=r.id AND a.stage_index=r.current_stage)
-      ORDER BY r.submitted_at""", permissions)
+    if not permissions:
+        raise HTTPException(403, "No leave approval permission")
+    base_query = """
+        SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
+               COALESCE(p.full_name, u.email) AS student_name,
+               p.roll_number, p.room_number, p.course, p.semester,
+               h.name AS hostel_name, u.email, u.phone AS student_phone
+        FROM leave_requests r
+        JOIN leave_types t ON t.id=r.leave_type_id
+        JOIN student_profiles p ON p.user_id=r.student_id
+        LEFT JOIN hostels h ON h.id=p.hostel_id
+        JOIN users u ON u.id=r.student_id
+        WHERE r.status='PENDING_APPROVAL' AND r.workflow_snapshot->>r.current_stage = ANY($1::text[])
+          AND NOT EXISTS(SELECT 1 FROM leave_approvals a WHERE a.request_id=r.id AND a.stage_index=r.current_stage)
+    """
+    if claims.has_any_role("WARDEN") and not claims.has_any_role("SUPER_ADMIN", "ADMIN"):
+        warden_hostels = await resolve_warden_hostel_scope(conn, claims)
+        if not warden_hostels:
+            return response([])
+        rows = await conn.fetch(f"{base_query} AND p.hostel_id = ANY($2::uuid[]) ORDER BY r.submitted_at", permissions, warden_hostels)
+    else:
+        rows = await conn.fetch(f"{base_query} ORDER BY r.submitted_at", permissions)
     return response([dict(r) for r in rows])
 
 
@@ -305,6 +353,34 @@ async def approve(request_id: uuid.UUID, body: DecisionInput, conn=Depends(get_d
 @router.post("/requests/{request_id}/reject")
 async def reject(request_id: uuid.UUID, body: DecisionInput, conn=Depends(get_db), claims: Claims = Depends(get_current_claims)):
     return await decide(request_id,body,False,conn,claims)
+
+
+@router.post("/requests/{request_id}/pending")
+async def mark_pending(
+    request_id: uuid.UUID,
+    body: DecisionInput,
+    conn=Depends(get_db),
+    claims: Claims = Depends(get_current_claims),
+):
+    actor = await local_user(conn, claims)
+    async with conn.transaction():
+        row = await conn.fetchrow("SELECT * FROM leave_requests WHERE id=$1 FOR UPDATE", request_id)
+        if not row:
+            raise HTTPException(404, "Leave request not found")
+        old_status = row["status"]
+        flow = json_value(row["workflow_snapshot"])
+        permission = flow[row["current_stage"]] if row["current_stage"] < len(flow) else None
+        if permission and not can_approve(claims, permission) and not claims.has_any_role("SUPER_ADMIN", "ADMIN"):
+            raise HTTPException(403, "You lack permission to review this leave request")
+
+        await conn.execute("DELETE FROM leave_approvals WHERE request_id=$1 AND stage_index=$2", request_id, row["current_stage"])
+        await conn.execute("UPDATE leave_requests SET status='PENDING_APPROVAL', updated_at=now() WHERE id=$1", request_id)
+        await conn.execute("UPDATE leave_rfid_permissions SET status='REVOKED' WHERE request_id=$1", request_id)
+        comment = body.comment.strip() or "Application placed on hold / pending review by warden"
+        await audit(conn, request_id, row["student_id"], actor, "PENDING", old_status, "PENDING_APPROVAL", comment, permission)
+        await conn.execute("INSERT INTO leave_notifications(request_id,recipient_id,event,payload) VALUES($1,$2,'PENDING',$3::jsonb)",
+                           request_id, row["student_id"], json.dumps({"comment": comment}))
+    return response(await load_request(conn, request_id), "Leave application marked as pending")
 
 
 @router.post("/requests/{request_id}/documents")

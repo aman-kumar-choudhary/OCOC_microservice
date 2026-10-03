@@ -25,6 +25,9 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { useAuth } from "@/context/AuthContext";
+import { getHumanGreeting } from "@/utils/greetings";
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -37,6 +40,10 @@ ChartJS.register(
 
 export const Dashboard = () => {
   const navigate = useNavigate();
+  const { user, roles } = useAuth();
+  const displayName = user?.name || user?.preferred_username || user?.email?.split("@")[0] || "Administrator";
+  const greeting = getHumanGreeting(displayName, roles || ["ADMIN"]);
+
   const [overview, setOverview] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -214,11 +221,11 @@ export const Dashboard = () => {
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#f5bd19] backdrop-blur-sm border border-white/10">
                 <ShieldCheck size={16} weight="fill" /> Campus Access Command Centre
               </div>
-              <h1 className="font-display text-2xl font-black tracking-tight sm:text-4xl text-white">
-                University Identity &amp; Operations
+              <h1 className="font-display text-2xl font-black tracking-tight sm:text-4xl text-white flex items-center gap-2">
+                {greeting.greeting}
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                Real-time oversight of student, faculty, and visitor credentials, biometric health, and gate access across Dev Sanskriti Vishwavidyalaya.
+                {greeting.message}
               </p>
             </div>
             

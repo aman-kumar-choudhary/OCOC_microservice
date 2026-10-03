@@ -240,20 +240,28 @@ async def get_location_tree(
 
 
 async def _resolve_actor_user_id(conn: asyncpg.Connection, claims: Claims) -> Optional[uuid.UUID]:
-    if not claims or not claims.sub:
+    if not claims:
         return None
-    internal_id = await conn.fetchval(
-        "SELECT id FROM users WHERE keycloak_user_id = $1", str(claims.sub)
-    )
-    if internal_id:
-        return internal_id
-    try:
-        candidate = uuid.UUID(str(claims.sub))
-        exists = await conn.fetchval("SELECT id FROM users WHERE id = $1", candidate)
-        if exists:
-            return candidate
-    except (ValueError, AttributeError):
-        pass
+    if claims.sub:
+        internal_id = await conn.fetchval(
+            "SELECT id FROM users WHERE keycloak_user_id = $1", str(claims.sub)
+        )
+        if internal_id:
+            return internal_id
+        try:
+            candidate = uuid.UUID(str(claims.sub))
+            exists = await conn.fetchval("SELECT id FROM users WHERE id = $1", candidate)
+            if exists:
+                return candidate
+        except (ValueError, AttributeError):
+            pass
+    if claims.email or claims.preferred_username:
+        internal_id = await conn.fetchval(
+            "SELECT id FROM users WHERE email IS NOT NULL AND LOWER(email) = LOWER($1)",
+            str(claims.email or claims.preferred_username or ""),
+        )
+        if internal_id:
+            return internal_id
     return None
 
 
@@ -261,7 +269,7 @@ async def _resolve_actor_user_id(conn: asyncpg.Connection, claims: Claims) -> Op
 async def create_location_grant(
     req: CreateLocationGrantRequest,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
 ):
     """Create a new location access grant."""
     admin_id = await _resolve_actor_user_id(conn, claims)
@@ -277,7 +285,7 @@ async def update_location_grant(
     grant_id: uuid.UUID,
     req: UpdateLocationGrantRequest,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
 ):
     """Update an existing location access grant."""
     admin_id = await _resolve_actor_user_id(conn, claims)
@@ -294,7 +302,7 @@ async def update_location_grant(
 async def revoke_location_grant(
     grant_id: uuid.UUID,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
 ):
     """Revoke a location access grant."""
     admin_id = await _resolve_actor_user_id(conn, claims)

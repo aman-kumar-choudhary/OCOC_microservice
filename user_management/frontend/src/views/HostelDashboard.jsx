@@ -14,13 +14,20 @@ import {
 } from "@phosphor-icons/react";
 import api from "../services/api";
 import { hostelService } from "../services/hostelService";
+import { useAuth } from "../context/AuthContext";
+import { getHumanGreeting } from "../utils/greetings";
 import LiveStatusTable from "../components/hostel/LiveStatusTable";
 import HostelStatsCards from "../components/hostel/HostelStatsCards";
 import PermissionPanel from "../components/hostel/PermissionPanel";
 import MovementHistoryTable from "../components/hostel/MovementHistoryTable";
 import EmergencyMode from "../components/hostel/EmergencyMode";
 import HostelStudentsList from "../components/hostel/HostelStudentsList";
+
 const HostelDashboard = () => {
+  const { user, roles } = useAuth();
+  const displayName = user?.name || user?.preferred_username || user?.email?.split("@")[0] || "Warden";
+  const greeting = getHumanGreeting(displayName, roles || ["WARDEN"]);
+
   const [hostels, setHostels] = useState([]);
   const [selectedHostel, setSelectedHostel] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
@@ -121,6 +128,28 @@ const HostelDashboard = () => {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Warm Human Greeting Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a2342] via-[#0f3460] to-[#16213e] p-6 text-white shadow-md">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold border border-amber-400/30">
+              Hostel Warden Console
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              {greeting.greeting}
+            </h2>
+            <p className="text-sm text-slate-300 max-w-2xl">
+              {greeting.message}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-xs border border-white/15 text-xs font-medium text-slate-200">
+              <span className="text-amber-400 font-bold">{hostels.length}</span> assigned block{hostels.length === 1 ? "" : "s"} under supervision
+            </div>
+          </div>
         </div>
       </div>
 

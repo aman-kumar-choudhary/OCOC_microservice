@@ -445,8 +445,30 @@ class AccessService:
     async def get_user_effective_permissions(
         self, conn: asyncpg.Connection, user_id: uuid.UUID,
     ) -> List[EffectivePermission]:
-        """Compute effective permissions with hierarchy inheritance."""
-        # Get explicit grants
+        """Compute effective permissions including explicit grants, roles, profile affiliations, and hierarchy inheritance."""
+        # 1. Fetch user roles and profile assignments
+        user_info = await conn.fetchrow("""
+            SELECT u.id, u.user_type, u.status,
+                   sp.hostel_id AS student_hostel_id,
+                   COALESCE(sp.department_id, fp.department_id, wp.department_id) AS department_id
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id = u.id
+            LEFT JOIN faculty_profiles fp ON fp.user_id = u.id
+            LEFT JOIN worker_profiles wp ON wp.user_id = u.id
+            WHERE u.id = $1
+        """, user_id)
+        if not user_info:
+            return []
+
+        role_rows = await conn.fetch(
+            "SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=$1", user_id
+        )
+        user_roles = set(r["name"].upper() for r in role_rows)
+        is_admin = bool(user_roles.intersection({"SUPER_ADMIN", "ADMIN"}))
+        is_security = bool(user_roles.intersection({"SECURITY_GUARD", "GUARD", "SECURITY_ADMIN"}))
+        is_warden = "WARDEN" in user_roles
+
+        # 2. Get explicit grants
         grants = await conn.fetch("""
             SELECT ula.location_id, ula.access_level, l.name AS location_name, l.type AS location_type
             FROM user_location_access ula
@@ -455,35 +477,142 @@ class AccessService:
               AND (ula.valid_until IS NULL OR ula.valid_until >= now())
         """, user_id)
 
-        explicit_map: Dict[uuid.UUID, dict] = {}
+        effective_map: Dict[uuid.UUID, dict] = {}
+
+        # If user is Admin / Super Admin, they have ADMIN access to all locations
+        if is_admin:
+            all_locs = await conn.fetch("SELECT id, name, type FROM locations WHERE status='active' ORDER BY name")
+            for loc in all_locs:
+                effective_map[loc["id"]] = {
+                    "location_name": loc["name"],
+                    "location_type": loc["type"],
+                    "access_level": "ADMIN",
+                    "source": "role",
+                }
+
+        # Profile/Role based entitlements:
+        # A) Student Hostel
+        if user_info["student_hostel_id"]:
+            # Find location matching hostel
+            h_locs = await conn.fetch("""
+                SELECT l.id, l.name, l.type FROM locations l
+                JOIN hostels h ON h.id = $1
+                WHERE l.name ILIKE '%' || h.name || '%' OR l.id = h.id
+            """, user_info["student_hostel_id"])
+            for h_loc in h_locs:
+                loc_id = h_loc["id"]
+                if loc_id not in effective_map or ACCESS_LEVELS_ORDER["ENTRY"] > ACCESS_LEVELS_ORDER.get(effective_map[loc_id]["access_level"], 0):
+                    effective_map[loc_id] = {
+                        "location_name": h_loc["name"], "location_type": h_loc["type"],
+                        "access_level": "ENTRY", "source": "hostel_resident"
+                    }
+
+        # B) Warden Assigned Hostels
+        if is_warden:
+            w_hostel_ids = await conn.fetchval("""
+                SELECT COALESCE(array_agg(DISTINCT h_id), ARRAY[]::uuid[]) FROM (
+                    SELECT hostel_id AS h_id FROM warden_hostels WHERE user_id = $1 AND hostel_id IS NOT NULL
+                    UNION
+                    SELECT hostel_id AS h_id FROM warden_profiles WHERE user_id = $1 AND hostel_id IS NOT NULL
+                ) sub
+            """, user_id)
+            if w_hostel_ids:
+                w_locs = await conn.fetch("""
+                    SELECT l.id, l.name, l.type FROM locations l
+                    JOIN hostels h ON h.id = ANY($1::uuid[])
+                    WHERE l.name ILIKE '%' || h.name || '%' OR l.id = h.id
+                """, list(w_hostel_ids))
+                for w_loc in w_locs:
+                    loc_id = w_loc["id"]
+                    if loc_id not in effective_map or ACCESS_LEVELS_ORDER["MANAGE"] > ACCESS_LEVELS_ORDER.get(effective_map[loc_id]["access_level"], 0):
+                        effective_map[loc_id] = {
+                            "location_name": w_loc["name"], "location_type": w_loc["type"],
+                            "access_level": "MANAGE", "source": "warden_jurisdiction"
+                        }
+
+        # C) Security Personnel Gates & Checkpoints
+        if is_security:
+            sec_locs = await conn.fetch("""
+                SELECT id, name, type FROM locations
+                WHERE status='active' AND (
+                    type IN ('gate', 'checkpoint', 'turnstile', 'security', 'control_room')
+                    OR name ILIKE '%gate%' OR name ILIKE '%barrier%'
+                )
+            """)
+            sec_level = "MANAGE" if "SECURITY_ADMIN" in user_roles else "ENTRY"
+            for s_loc in sec_locs:
+                loc_id = s_loc["id"]
+                if loc_id not in effective_map or ACCESS_LEVELS_ORDER[sec_level] > ACCESS_LEVELS_ORDER.get(effective_map[loc_id]["access_level"], 0):
+                    effective_map[loc_id] = {
+                        "location_name": s_loc["name"], "location_type": s_loc["type"],
+                        "access_level": sec_level, "source": "security_assignment"
+                    }
+
+        # D) Academic Department
+        if user_info["department_id"]:
+            dept_locs = await conn.fetch("""
+                SELECT l.id, l.name, l.type FROM locations l
+                JOIN departments d ON d.id = $1
+                WHERE l.name ILIKE '%' || d.name || '%' OR l.id = d.id
+            """, user_info["department_id"])
+            dept_level = "MANAGE" if "FACULTY" in user_roles else "ENTRY"
+            for d_loc in dept_locs:
+                loc_id = d_loc["id"]
+                if loc_id not in effective_map or ACCESS_LEVELS_ORDER[dept_level] > ACCESS_LEVELS_ORDER.get(effective_map[loc_id]["access_level"], 0):
+                    effective_map[loc_id] = {
+                        "location_name": d_loc["name"], "location_type": d_loc["type"],
+                        "access_level": dept_level, "source": "department_member"
+                    }
+
+        # E) Campus Common / Public Zones for all active users
+        if user_info["status"] == "active":
+            common_locs = await conn.fetch("""
+                SELECT id, name, type FROM locations
+                WHERE status='active' AND (
+                    type IN ('public', 'common', 'campus', 'library', 'temple', 'canteen', 'garden')
+                    OR name ILIKE '%library%' OR name ILIKE '%main campus%' OR name ILIKE '%mandir%'
+                )
+            """)
+            for c_loc in common_locs:
+                loc_id = c_loc["id"]
+                if loc_id not in effective_map:
+                    effective_map[loc_id] = {
+                        "location_name": c_loc["name"], "location_type": c_loc["type"],
+                        "access_level": "ENTRY", "source": "campus_common"
+                    }
+
+        # F) Explicit grants override/enrich default levels
         for g in grants:
             loc_id = g["location_id"]
-            if loc_id not in explicit_map or ACCESS_LEVELS_ORDER.get(g["access_level"], 0) > ACCESS_LEVELS_ORDER.get(explicit_map[loc_id]["access_level"], 0):
-                explicit_map[loc_id] = dict(g)
+            if loc_id not in effective_map or ACCESS_LEVELS_ORDER.get(g["access_level"], 0) >= ACCESS_LEVELS_ORDER.get(effective_map[loc_id]["access_level"], 0):
+                effective_map[loc_id] = {
+                    "location_name": g["location_name"],
+                    "location_type": g["location_type"],
+                    "access_level": g["access_level"],
+                    "source": "explicit",
+                }
 
         permissions: List[EffectivePermission] = []
-
-        # Add explicit permissions
-        for loc_id, g in explicit_map.items():
+        for loc_id, g in effective_map.items():
             permissions.append(EffectivePermission(
                 location_id=loc_id, location_name=g["location_name"],
                 location_type=g["location_type"], access_level=g["access_level"],
-                source="explicit",
+                source=g.get("source", "explicit"),
             ))
 
-        # Expand inherited permissions from each explicit grant
-        for loc_id, g in explicit_map.items():
+        # 3. Expand inherited permissions for child locations in hierarchy
+        base_locations = list(effective_map.items())
+        for loc_id, g in base_locations:
             children = await conn.fetch("""
                 WITH RECURSIVE subtree AS (
-                    SELECT id, name, type FROM locations WHERE parent_id=$1
+                    SELECT id, name, type FROM locations WHERE parent_id=$1 AND status='active'
                     UNION ALL
-                    SELECT l.id, l.name, l.type FROM locations l JOIN subtree s ON l.parent_id=s.id
+                    SELECT l.id, l.name, l.type FROM locations l JOIN subtree s ON l.parent_id=s.id WHERE l.status='active'
                 ) SELECT id, name, type FROM subtree
             """, loc_id)
             for child in children:
                 child_id = child["id"]
-                if child_id not in explicit_map:
-                    # Only add inherited if not already explicitly granted
+                if child_id not in effective_map:
                     already = next((p for p in permissions if p.location_id == child_id), None)
                     if not already or ACCESS_LEVELS_ORDER.get(g["access_level"], 0) > ACCESS_LEVELS_ORDER.get(already.access_level, 0):
                         if already:
@@ -520,9 +649,9 @@ class AccessService:
 
     async def create_location_grant(
         self, conn: asyncpg.Connection, req: CreateLocationGrantRequest,
-        admin_id: uuid.UUID,
+        admin_id: Optional[uuid.UUID] = None,
     ) -> UserLocationAccessGrant:
-        """Create a new location access grant with audit logging."""
+        """Create or update a location access grant with audit logging."""
         level = req.access_level.upper()
         if level not in ACCESS_LEVELS_ORDER:
             raise ValueError(f"Invalid access_level: {level}")
@@ -535,22 +664,36 @@ class AccessService:
         if not loc:
             raise ValueError("Location not found")
 
-        row = await conn.fetchrow("""
-            INSERT INTO user_location_access
-                (user_id, location_id, access_level, valid_from, valid_until, status, granted_by, reason)
-            VALUES ($1, $2, $3, $4, $5, 'active', $6, $7)
-            ON CONFLICT (user_id, location_id, access_level) DO UPDATE SET
-                valid_from=EXCLUDED.valid_from, valid_until=EXCLUDED.valid_until,
-                status='active', granted_by=EXCLUDED.granted_by, reason=EXCLUDED.reason,
-                revoked_at=NULL, revoked_by=NULL, updated_at=now()
-            RETURNING *
-        """, req.user_id, req.location_id, level,
-             req.valid_from, req.valid_until, admin_id, req.reason)
+        # Check if grant already exists for this (user_id, location_id)
+        existing_id = await conn.fetchval(
+            "SELECT id FROM user_location_access WHERE user_id = $1 AND location_id = $2 ORDER BY updated_at DESC LIMIT 1",
+            req.user_id, req.location_id,
+        )
+        if existing_id:
+            row = await conn.fetchrow("""
+                UPDATE user_location_access
+                SET access_level = $1, valid_from = $2, valid_until = $3, status = 'active',
+                    granted_by = $4, reason = $5, revoked_at = NULL, revoked_by = NULL, updated_at = now()
+                WHERE id = $6
+                RETURNING *
+            """, level, req.valid_from, req.valid_until, admin_id, req.reason, existing_id)
+        else:
+            row = await conn.fetchrow("""
+                INSERT INTO user_location_access
+                    (user_id, location_id, access_level, valid_from, valid_until, status, granted_by, reason)
+                VALUES ($1, $2, $3, $4, $5, 'active', $6, $7)
+                ON CONFLICT (user_id, location_id, access_level) DO UPDATE SET
+                    valid_from=EXCLUDED.valid_from, valid_until=EXCLUDED.valid_until,
+                    status='active', granted_by=EXCLUDED.granted_by, reason=EXCLUDED.reason,
+                    revoked_at=NULL, revoked_by=NULL, updated_at=now()
+                RETURNING *
+            """, req.user_id, req.location_id, level,
+                 req.valid_from, req.valid_until, admin_id, req.reason)
 
         # Audit log
         from app.services.audit_service import audit_service
         await audit_service.log(
-            conn, str(admin_id), "LOCATION_ACCESS_GRANTED", "user", str(req.user_id),
+            conn, str(admin_id) if admin_id else None, "LOCATION_ACCESS_GRANTED", "user", str(req.user_id),
             after_state={
                 "location_id": str(req.location_id), "location_name": loc["name"],
                 "access_level": level, "valid_until": str(req.valid_until) if req.valid_until else "permanent",

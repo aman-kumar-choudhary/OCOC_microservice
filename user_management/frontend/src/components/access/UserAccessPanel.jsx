@@ -363,7 +363,6 @@ export const UserAccessPanel = () => {
               <option value="SUPER_ADMIN">SUPER_ADMIN</option>
               <option value="ADMIN">ADMIN</option>
               <option value="SECURITY_ADMIN">SECURITY_ADMIN</option>
-              <option value="GUARD">GUARD</option>
               <option value="SECURITY_GUARD">SECURITY_GUARD</option>
               <option value="WARDEN">WARDEN</option>
               <option value="FACULTY">FACULTY</option>

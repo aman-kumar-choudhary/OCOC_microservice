@@ -45,11 +45,6 @@ const OPERATIONAL_ROLES = [
     color: "bg-indigo-50 text-indigo-700 border-indigo-200",
   },
   {
-    id: "GUARD",
-    label: "Guard",
-    color: "bg-slate-100 text-slate-700 border-slate-300",
-  },
-  {
     id: "SECURITY_GUARD",
     label: "Security Guard",
     color: "bg-blue-50 text-blue-700 border-blue-200",
@@ -82,6 +77,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [hostelsList, setHostelsList] = useState([]);
   const [locationTree, setLocationTree] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("grants"); // 'grants' | 'roles' | 'credentials' | 'effective' | 'history'
 
@@ -117,7 +113,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
     setLoading(true);
     setErrorMsg("");
     try {
-      const [userDetail, userAccess, perms, logs, tree, hostels] =
+      const [userDetail, userAccess, perms, logs, tree, hostels, flatLocs] =
         await Promise.all([
           accessService.getAccessUserDetail(userId),
           accessService
@@ -129,6 +125,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
             .catch(() => ({ logs: [] })),
           accessService.getLocationTree().catch(() => []),
           userService.getHostels().catch(() => []),
+          accessService.getLocations().catch(() => []),
         ]);
 
       setDetail(userDetail);
@@ -136,6 +133,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
       setAuditLogs(logs.logs || []);
       setLocationTree(tree || []);
       setHostelsList(hostels || []);
+      setLocationsList(flatLocs || []);
 
       setSelectedRoles(userAccess.roles || userDetail.roles || []);
       setSelectedHostels(
@@ -339,6 +337,60 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
         return (
           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
             {level}
+          </span>
+        );
+    }
+  };
+
+  const renderSourceBadge = (perm) => {
+    switch (perm.source) {
+      case "inherited":
+        return (
+          <span className="text-slate-600 flex items-center gap-1 font-medium">
+            <Stack size={12} className="text-amber-500" /> Inherited from {perm.inherited_from_name || "Parent Location"}
+          </span>
+        );
+      case "hostel_assignment":
+        return (
+          <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 font-bold flex items-center gap-1">
+            <Buildings size={12} /> Hostel Resident Rights
+          </span>
+        );
+      case "warden_jurisdiction":
+        return (
+          <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-bold flex items-center gap-1">
+            <Shield size={12} /> Warden Jurisdiction
+          </span>
+        );
+      case "security_role":
+        return (
+          <span className="text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 font-bold flex items-center gap-1">
+            <ShieldCheck size={12} /> Security Gate Checkpoint
+          </span>
+        );
+      case "department_affiliation":
+        return (
+          <span className="text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 font-bold flex items-center gap-1">
+            <Buildings size={12} /> Academic Department Member
+          </span>
+        );
+      case "common_campus_area":
+        return (
+          <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 font-bold flex items-center gap-1">
+            <Check size={12} /> General Campus Common Area
+          </span>
+        );
+      case "admin_full_access":
+        return (
+          <span className="text-rose-800 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 font-bold flex items-center gap-1">
+            <Sparkle size={12} /> Campus Admin Full Access
+          </span>
+        );
+      case "direct":
+      default:
+        return (
+          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-bold flex items-center gap-1">
+            <Check size={12} /> Explicit Grant
           </span>
         );
     }
@@ -1141,17 +1193,8 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                           ({perm.location_type})
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        {perm.source === "inherited" ? (
-                          <span className="text-slate-500 flex items-center gap-1">
-                            <Stack size={11} className="text-amber-500" />{" "}
-                            Inherited from {perm.inherited_from_name}
-                          </span>
-                        ) : (
-                          <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                            <Check size={11} /> Explicit Grant
-                          </span>
-                        )}
+                      <div className="flex items-center gap-1.5 text-[11px] mt-1">
+                        {renderSourceBadge(perm)}
                       </div>
                     </div>
                     <div>{renderAccessBadge(perm.access_level)}</div>
@@ -1227,6 +1270,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         user={user}
+        locations={locationsList}
         locationTree={locationTree}
         onSuccess={() => {
           loadAllData();

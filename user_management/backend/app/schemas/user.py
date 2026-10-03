@@ -61,6 +61,11 @@ class UpdateUserRequest(BaseModel):
     roles: Optional[List[str]] = None
 
 
+class UpdateStatusRequest(BaseModel):
+    status: str
+    reason: Optional[str] = ""
+
+
 class BulkTransferRequest(BaseModel):
     user_ids: List[uuid.UUID]
     new_hostel_id: uuid.UUID

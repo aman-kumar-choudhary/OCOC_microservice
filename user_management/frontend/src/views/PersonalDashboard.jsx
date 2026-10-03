@@ -31,11 +31,12 @@ import {
 } from "@phosphor-icons/react";
 import { useAuth } from "@/context/AuthContext";
 import userService from "@/services/userService";
+import { getHumanGreeting } from "@/utils/greetings";
+
 const OPERATIONAL_ROLES = new Set([
   "STUDENT",
   "FACULTY",
   "WARDEN",
-  "GUARD",
   "SECURITY_GUARD",
   "SECURITY_ADMIN",
   "STAFF",
@@ -116,6 +117,8 @@ export const PersonalDashboard = () => {
             ? "Faculty & Academic Workspace"
             : "Personal Workspace");
 
+  const greeting = getHumanGreeting(displayName, roles);
+
   return (
     <section className="mx-auto max-w-6xl space-y-6 pb-12 page-enter">
       {/* ── Top Hero Banner ── */}
@@ -127,11 +130,11 @@ export const PersonalDashboard = () => {
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#f5bd19] backdrop-blur-sm border border-white/10">
                 <ShieldCheck size={16} weight="fill" /> OCOC · {workspaceTitle}
               </div>
-              <h1 className="text-2xl sm:text-4xl font-display font-black tracking-tight text-white">
-                Welcome, {displayName}
+              <h1 className="text-2xl sm:text-4xl font-display font-black tracking-tight text-white flex items-center gap-2">
+                {greeting.greeting}
               </h1>
               <p className="max-w-2xl text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Your campus digital identity is verified and active. Access your authorized university locations, RFID credentials, and academic profile.
+                {greeting.message}
               </p>
             </div>
 

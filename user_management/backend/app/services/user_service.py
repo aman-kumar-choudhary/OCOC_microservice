@@ -36,6 +36,7 @@ class UserService:
         course: Optional[str] = None,
         semester: Optional[str] = None,
         hostel_id: Optional[str] = None,
+        hostel_ids: Optional[List[uuid.UUID]] = None,
         hostel_status: Optional[str] = None,
         role: Optional[str] = None,
         page: int = 1,
@@ -81,6 +82,10 @@ class UserService:
                 idx += 1
             except Exception:
                 pass
+        elif hostel_ids is not None:
+            clauses.append(f"sp.hostel_id = ANY(${idx}::uuid[])")
+            args.append(hostel_ids)
+            idx += 1
         if hostel_status and hostel_status.strip() == "hosteller":
             clauses.append("sp.hostel_id IS NOT NULL")
         elif hostel_status and hostel_status.strip() == "day_scholar":
@@ -99,9 +104,13 @@ class UserService:
             idx += 1
 
         if role and role.strip():
-            clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = ${idx})")
-            args.append(role.strip())
-            idx += 1
+            role_norm = role.strip().upper()
+            if role_norm in ("SECURITY_GUARD", "GUARD"):
+                clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name IN ('SECURITY_GUARD', 'GUARD'))")
+            else:
+                clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = ${idx})")
+                args.append(role.strip())
+                idx += 1
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 

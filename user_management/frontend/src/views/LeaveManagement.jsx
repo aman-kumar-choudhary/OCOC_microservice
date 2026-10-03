@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import LegalModal from "@/components/LegalModal";
 import ConfirmActionModal from "@/components/ConfirmActionModal";
 import DigitalGatePassModal from "@/components/DigitalGatePassModal";
+import { getHumanGreeting } from "@/utils/greetings";
 import {
   ArrowCounterClockwise,
   ArrowRight,
@@ -328,8 +329,8 @@ function GuardLeaveView() {
 }
 
 export default function LeaveManagement() {
-  const { roles } = useAuth();
-  const roleSet = new Set(roles.map((r) => String(r).toUpperCase()));
+  const { user, roles } = useAuth();
+  const roleSet = new Set((roles || []).map((r) => String(r).toUpperCase()));
   const isApprover = [
     "SUPER_ADMIN",
     "ADMIN",
@@ -338,8 +339,14 @@ export default function LeaveManagement() {
     "MEDICAL_OFFICER",
   ].some((r) => roleSet.has(r));
   const isAdmin = roleSet.has("SUPER_ADMIN") || roleSet.has("ADMIN");
+  const isWarden = roleSet.has("WARDEN");
   const isStudentRole = roleSet.has("STUDENT");
   const isGuard = ["GUARD", "SECURITY_GUARD"].some((r) => roleSet.has(r));
+
+  // Determine active view mode: Approvers default to approvals review console, students default to apply
+  const [activeViewMode, setActiveViewMode] = useState(
+    isApprover && !isStudentRole ? "approvals" : "apply",
+  );
 
   const [types, setTypes] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -364,6 +371,7 @@ export default function LeaveManagement() {
     title: "",
     description: "",
     requireReason: false,
+    reasonPlaceholder: "",
     isDanger: false,
   });
 
@@ -463,7 +471,7 @@ export default function LeaveManagement() {
     }
   };
 
-  // Handle decisions with ConfirmActionModal
+  // Handle decisions with ConfirmActionModal (Approve, Keep Pending / Hold, Deny)
   const openDecisionModal = (id, action, studentName) => {
     if (action === "approve") {
       setConfirmModal({
@@ -474,6 +482,19 @@ export default function LeaveManagement() {
         description:
           "Approving this request will immediately generate an active Digital Gate Pass and provision turnstile exit clearance during the sanctioned window.",
         requireReason: false,
+        reasonPlaceholder: "",
+        isDanger: false,
+      });
+    } else if (action === "pending") {
+      setConfirmModal({
+        isOpen: true,
+        id,
+        action: "pending",
+        title: `Keep / Mark Request on Hold for ${studentName || "Student"}`,
+        description:
+          "Mark this application as pending further verification (such as guardian contact or academic review). The student will see your notes.",
+        requireReason: true,
+        reasonPlaceholder: "Reason or notes for keeping pending or holding...",
         isDanger: false,
       });
     } else {
@@ -485,6 +506,7 @@ export default function LeaveManagement() {
         description:
           "Please specify the official institutional reason for denying this leave request. The student will be notified with this justification.",
         requireReason: true,
+        reasonPlaceholder: "Please specify the official reason for denial...",
         isDanger: true,
       });
     }
@@ -498,8 +520,14 @@ export default function LeaveManagement() {
       await api.post(`/leave/requests/${id}/${action}`, {
         comment: comment || "",
       });
+      const actionText =
+        action === "approve"
+          ? "approved and Digital Gate Pass issued"
+          : action === "pending"
+            ? "marked as pending review"
+            : "denied";
       setNotice(
-        `Request has been successfully ${action}d. Audit record recorded.`,
+        `Request has been successfully ${actionText}. Audit record recorded.`,
       );
       setConfirmModal({ ...confirmModal, isOpen: false });
       await refresh();
@@ -572,33 +600,96 @@ export default function LeaveManagement() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8 animate-fade-in">
-      {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
-            OCOC • Student &amp; Residential Services
-          </p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-slate-900">
-            Campus Leave Management
-          </h1>
-          <p className="mt-1 text-xs text-slate-600">
-            Submit leave applications, track authority approvals, and access
-            digital gate clearance credentials.
-          </p>
+      {/* Human Greeting & Sentiment Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#06182e] via-[#0a2342] to-[#12365f] text-white shadow-xl border border-white/10 p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-[#f5bd19] border border-white/10">
+              <ShieldCheck size={14} weight="fill" /> Dev Sanskriti Vishwavidyalaya · Gate Clearance Services
+            </div>
+            <h1 className="text-xl sm:text-3xl font-display font-black tracking-tight text-white">
+              {getHumanGreeting(user?.name || user?.preferred_username || (isWarden ? "Hostel Warden" : "Student"), roles?.[0] || "").greeting}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              {isApprover && !isStudentRole
+                ? "Review pending student leave applications, verify travel details, and issue digital gate passes with care."
+                : getHumanGreeting(user?.name || user?.preferred_username, roles?.[0] || "").contextMessage}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              onClick={() => setLegalModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white shadow-xs transition flex items-center gap-1.5"
+            >
+              <ShieldCheck size={14} className="text-amber-400" />
+              <span>Gate Policies</span>
+            </button>
+            <span className="text-[11px] text-slate-400 hidden sm:inline">
+              {getHumanGreeting().dateDisplay}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setLegalModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition"
-          >
-            <ShieldCheck size={14} className="text-emerald-600" />
-            <span>Gate Policies</span>
-          </button>
-        </div>
-      </header>
+      </div>
 
-      {/* Process Flow Pipeline */}
-      <ProcessFlowPipeline />
+      {/* Role-Based Mode Selector (For Wardens, Approvers, Admins) */}
+      {isApprover && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setActiveViewMode("approvals")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeViewMode === "approvals"
+                  ? "bg-[#0a2342] text-white shadow-xs font-black"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              }`}
+            >
+              <CheckCircle size={15} className={activeViewMode === "approvals" ? "text-amber-400" : "text-slate-400"} />
+              <span>Authority Approvals Console</span>
+              {pending.length > 0 && (
+                <span className="px-2 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-slate-900 ml-1">
+                  {pending.length} Waiting
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveViewMode("ledger")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeViewMode === "ledger"
+                  ? "bg-[#0a2342] text-white shadow-xs font-black"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              }`}
+            >
+              <FileText size={15} className={activeViewMode === "ledger" ? "text-amber-400" : "text-slate-400"} />
+              <span>Student Leaves Ledger ({requests.length})</span>
+            </button>
+
+            {(isStudentRole || !isWarden) && (
+              <button
+                type="button"
+                onClick={() => setActiveViewMode("apply")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  activeViewMode === "apply"
+                    ? "bg-[#0a2342] text-white shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                }`}
+              >
+                <CalendarCheck size={15} className={activeViewMode === "apply" ? "text-amber-400" : "text-slate-400"} />
+                <span>Apply for Leave</span>
+              </button>
+            )}
+          </div>
+
+          <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 pr-3">
+            <Clock size={13} className="text-amber-600" /> Standard Campus Curfew: 21:00 hrs
+          </span>
+        </div>
+      )}
+
+      {/* Process Flow Pipeline - shown in student apply mode */}
+      {(!isApprover || activeViewMode === "apply") && <ProcessFlowPipeline />}
 
       {/* Notifications and Alerts */}
       {error && (
@@ -649,10 +740,11 @@ export default function LeaveManagement() {
         </div>
       )}
 
-      {/* Main Grid: Application Form & Leave Balances */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
-        {/* Leave Application Form */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+      {/* Main Grid: Application Form & Leave Balances (Shown when applying for leave) */}
+      {(!isApprover || activeViewMode === "apply") && (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+          {/* Leave Application Form */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900">
@@ -886,73 +978,105 @@ export default function LeaveManagement() {
           </div>
         </section>
       </div>
+      )}
 
-      {/* Pending Approvals (For Wardens, Chancellors, Medical Officers, Admins) */}
-      {isApprover && (
+      {/* Pending Authority Approvals (For Wardens, Chancellors, Medical Officers, Admins) */}
+      {isApprover && activeViewMode !== "apply" && (
         <section className="rounded-2xl border border-amber-200 bg-white p-6 shadow-xs space-y-4">
-          <div className="border-b border-amber-100 pb-3 flex items-center justify-between">
+          <div className="border-b border-amber-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black text-slate-900">
-                Pending Authority Approvals
+                Student Leave Applications Review Console
               </h2>
               <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-black text-amber-800 border border-amber-300">
-                {pending.length} Waiting
+                {pending.length} Pending Decision
               </span>
             </div>
-            <span className="text-xs text-slate-400 hidden sm:inline">
-              Role Authority Review
+            <span className="text-xs text-slate-500 hidden sm:inline">
+              Hostel Jurisdiction Review Console
             </span>
           </div>
 
           <div className="space-y-3">
             {pending.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">
-                All assigned student leave requests have been reviewed and
-                resolved.
-              </p>
+              <div className="text-center py-8 text-slate-400 text-xs">
+                <CheckCircle size={32} className="mx-auto text-emerald-500 mb-2" />
+                <p className="font-bold text-slate-700">All student leave requests are reviewed!</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  No pending student leave applications waiting for authority decision in your hostel jurisdiction.
+                </p>
+              </div>
             ) : (
               pending.map((r) => (
                 <article
                   key={r.id}
                   className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-slate-200 p-4 bg-slate-50/60 hover:bg-slate-50 transition"
                 >
-                  <div className="space-y-1 text-xs">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-black text-slate-900 text-sm">
-                        {r.student_name}
+                        {r.student_name || "Student"}
                       </span>
+                      {r.roll_number && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200/80 text-slate-800 border border-slate-300">
+                          Roll: {r.roll_number}
+                        </span>
+                      )}
+                      {r.hostel_name && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                          {r.hostel_name} {r.room_number ? `· Room ${r.room_number}` : ""}
+                        </span>
+                      )}
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a2342] text-[#f5bd19]">
                         {r.leave_type}
                       </span>
                     </div>
-                    <div className="text-slate-600">
-                      <strong>Destination:</strong> {r.destination} ·{" "}
-                      <strong>Window:</strong>{" "}
-                      {new Date(r.start_at).toLocaleString()} –{" "}
-                      {new Date(r.end_at).toLocaleString()}
+                    <div className="text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+                      <span><strong>Destination:</strong> {r.destination}</span>
+                      <span>•</span>
+                      <span>
+                        <strong>Window:</strong>{" "}
+                        {new Date(r.start_at).toLocaleString()} –{" "}
+                        {new Date(r.end_at).toLocaleString()}
+                      </span>
+                      {r.student_phone && (
+                        <>
+                          <span>•</span>
+                          <span><strong>Phone:</strong> {r.student_phone}</span>
+                        </>
+                      )}
                     </div>
-                    <div className="text-slate-700 bg-white p-2 rounded-lg border border-slate-200 mt-1 italic">
+                    <div className="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 mt-1 italic">
                       "{r.reason}"
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     <button
                       type="button"
                       onClick={() =>
                         openDecisionModal(r.id, "approve", r.student_name)
                       }
-                      className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition"
+                      className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1.5"
                     >
-                      Approve Pass
+                      <CheckCircle size={14} /> Approve Pass
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openDecisionModal(r.id, "pending", r.student_name)
+                      }
+                      className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1.5"
+                    >
+                      <Clock size={14} /> Keep Pending / Hold
                     </button>
                     <button
                       type="button"
                       onClick={() =>
                         openDecisionModal(r.id, "reject", r.student_name)
                       }
-                      className="px-4 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs transition"
+                      className="px-3.5 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs transition flex items-center gap-1.5"
                     >
-                      Deny
+                      <XCircle size={14} /> Deny
                     </button>
                   </div>
                 </article>
@@ -1022,12 +1146,14 @@ export default function LeaveManagement() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-900">
-              {isAdmin
-                ? "Campus Leave Requests Ledger"
+              {isApprover
+                ? "Hostel Student Leave Requests Ledger"
                 : "My Submitted Requests"}
             </h2>
             <p className="text-xs text-slate-500">
-              Track real-time status and view generated gate credentials.
+              {isApprover
+                ? "Review and manage all student leaves under your hostel jurisdiction."
+                : "Track real-time status and view generated gate credentials."}
             </p>
           </div>
 
@@ -1054,6 +1180,7 @@ export default function LeaveManagement() {
           <table className="w-full min-w-[700px] text-left text-xs">
             <thead className="border-b text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">
               <tr>
+                {isApprover && <th className="p-3">Student &amp; Hostel</th>}
                 <th className="p-3">Category / ID</th>
                 <th className="p-3">Departure &amp; Return</th>
                 <th className="p-3">Destination</th>
@@ -1064,7 +1191,7 @@ export default function LeaveManagement() {
             <tbody className="divide-y divide-slate-100">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-slate-400">
+                  <td colSpan={isApprover ? 6 : 5} className="p-8 text-center text-slate-400">
                     No leave requests found in this view.
                   </td>
                 </tr>
@@ -1074,6 +1201,16 @@ export default function LeaveManagement() {
                     key={r.id}
                     className="hover:bg-slate-50 transition-colors"
                   >
+                    {isApprover && (
+                      <td className="p-3">
+                        <div className="font-extrabold text-slate-900">
+                          {r.student_name || "Student"}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {r.roll_number ? `Roll: ${r.roll_number}` : ""} {r.hostel_name ? `· ${r.hostel_name}` : ""} {r.room_number ? `(Rm ${r.room_number})` : ""}
+                        </div>
+                      </td>
+                    )}
                     <td className="p-3">
                       <div className="font-extrabold text-slate-900">
                         {r.leave_type}
@@ -1100,7 +1237,7 @@ export default function LeaveManagement() {
                         {r.status.replaceAll("_", " ")}
                       </span>
                     </td>
-                    <td className="p-3 text-right space-x-2">
+                    <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
                       {r.status === "APPROVED" && (
                         <button
                           type="button"
@@ -1110,7 +1247,32 @@ export default function LeaveManagement() {
                           <QrCode size={13} /> View Gate Pass
                         </button>
                       )}
-                      {["DRAFT", "PENDING_APPROVAL"].includes(r.status) && (
+                      {isApprover && r.status === "PENDING_APPROVAL" && (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openDecisionModal(r.id, "approve", r.student_name)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] transition shadow-2xs"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDecisionModal(r.id, "pending", r.student_name)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] transition shadow-2xs"
+                          >
+                            Hold
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDecisionModal(r.id, "reject", r.student_name)}
+                            className="px-2.5 py-1 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-[11px] transition"
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      )}
+                      {!isApprover && ["DRAFT", "PENDING_APPROVAL"].includes(r.status) && (
                         <button
                           type="button"
                           onClick={() => withdraw(r.id)}

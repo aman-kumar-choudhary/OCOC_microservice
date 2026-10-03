@@ -17,6 +17,10 @@ import {
 import api from "../services/api";
 import accessService from "../services/accessService";
 import { useLiveFaceInference } from "../hooks/useLiveFaceInference";
+import { useAuth } from "../context/AuthContext";
+import { getHumanGreeting } from "../utils/greetings";
+import SecurityGuardRoster from "../components/guard/SecurityGuardRoster";
+import { Users } from "@phosphor-icons/react";
 /**
  * Leave validation badge — cross-references identified student against approved leave dates
  */
@@ -101,6 +105,13 @@ const LeaveValidationBadge = ({ student }) => {
 };
 
 const GuardDashboard = () => {
+  const { user, roles } = useAuth();
+  const roleSet = new Set((roles || []).map((r) => String(r).toUpperCase()));
+  const isSecurityAdmin = ["SECURITY_ADMIN", "SUPER_ADMIN", "ADMIN"].some((r) =>
+    roleSet.has(r),
+  );
+
+  const [activeTab, setActiveTab] = useState("surveillance"); // 'surveillance' | 'roster'
   const [events, setEvents] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [pendingVerifications, setPendingVerifications] = useState([]);
@@ -270,30 +281,80 @@ const GuardDashboard = () => {
     }
   };
 
+  const humanGreeting = getHumanGreeting(
+    user?.name || user?.preferred_username || "Security Officer",
+    roles?.[0] || "SECURITY_ADMIN",
+  );
+
   return (
-    <div className="space-y-6 page-enter">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Guard Console
+    <div className="space-y-6 page-enter pb-16">
+      {/* Human Greeting & Sentiment Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#06182e] via-[#0a2342] to-[#12365f] text-white shadow-xl border border-white/10 p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-[#f5bd19] border border-white/10">
+              <ShieldCheck size={14} weight="fill" /> Campus Gate Operations &amp; Safety
+            </div>
+            <h1 className="text-xl sm:text-3xl font-display font-black tracking-tight text-white">
+              {humanGreeting.greeting}
             </h1>
-            <span className="flex h-3.5 w-3.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              {humanGreeting.contextMessage}
+            </p>
+          </div>
+          <div className="flex flex-col sm:items-end gap-1 shrink-0">
+            <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>All Gate Turnstiles Armed</span>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              {humanGreeting.dateDisplay}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real-time biometric turnstile logs, face verification, and leave-aware access enforcement
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 bg-white text-slate-700 px-3.5 py-1.5 rounded-full border border-slate-200/90 shadow-xs text-xs font-bold">
-          <Clock size={15} className="text-[#d99e00]" />
-          <span>Active Gate Surveillance</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Security Admin Navigation Tabs */}
+      {isSecurityAdmin && (
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/60 overflow-x-auto shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab("surveillance")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === "surveillance"
+                ? "bg-white text-[#0a2342] shadow-xs font-black"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+            }`}
+          >
+            <Camera
+              size={16}
+              className={activeTab === "surveillance" ? "text-amber-500" : "text-slate-400"}
+            />
+            <span>Gate Turnstiles &amp; Live Biometrics</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("roster")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeTab === "roster"
+                ? "bg-white text-[#0a2342] shadow-xs font-black"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+            }`}
+          >
+            <Users
+              size={16}
+              className={activeTab === "roster" ? "text-amber-500" : "text-slate-400"}
+            />
+            <span>Security Personnel Roster (Guards &amp; Posts)</span>
+          </button>
+        </div>
+      )}
+
+      {activeTab === "roster" && isSecurityAdmin ? (
+        <SecurityGuardRoster />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Camera Feed, Student ID Panel, & Alerts */}
         <div className="space-y-5">
           {/* Camera */}
@@ -759,6 +820,8 @@ const GuardDashboard = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

@@ -20,9 +20,9 @@ _jwks_cache_expiry: float = 0
 
 PERM_TO_ROLES: Dict[str, List[str]] = {
     "user:create": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER"],
-    "user:read": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER", "SECURITY_ADMIN", "VIEWER"],
-    "user:update": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER"],
-    "user:suspend": ["SUPER_ADMIN", "ADMIN"],
+    "user:read": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER", "SECURITY_ADMIN", "WARDEN", "VIEWER"],
+    "user:update": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER", "WARDEN"],
+    "user:suspend": ["SUPER_ADMIN", "ADMIN", "WARDEN"],
     "user:deactivate": ["SUPER_ADMIN", "ADMIN"],
     "user:delete": ["SUPER_ADMIN", "ADMIN"],
     "user:import": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER"],
@@ -38,7 +38,7 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "access.rule.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "VIEWER", "GUARD", "SECURITY_GUARD"],
     "access.rule.manage": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.grant.temporary": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
-    "access.grant.manage": ["SUPER_ADMIN", "ADMIN"],
+    "access.grant.manage": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.user.search": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.user.detail": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
     "access.audit.read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
@@ -219,10 +219,20 @@ async def resolve_warden_hostel_scope(
     if not claims.has_any_role("WARDEN"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "warden role required"})
 
-    user_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id = $1", claims.sub)
+    user_id = await conn.fetchval(
+        "SELECT id FROM users WHERE keycloak_user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)) ORDER BY CASE WHEN keycloak_user_id = $1 THEN 0 ELSE 1 END LIMIT 1",
+        str(claims.sub),
+        str(claims.email or claims.preferred_username or ""),
+    )
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "no local user record for token subject"})
-    hostel_ids = list(await conn.fetchval("SELECT COALESCE(array_agg(hostel_id), ARRAY[]::uuid[]) FROM warden_hostels WHERE user_id = $1", user_id))
+    hostel_ids = list(await conn.fetchval("""
+        SELECT COALESCE(array_agg(DISTINCT h_id), ARRAY[]::uuid[]) FROM (
+            SELECT hostel_id AS h_id FROM warden_hostels WHERE user_id = $1 AND hostel_id IS NOT NULL
+            UNION
+            SELECT hostel_id AS h_id FROM warden_profiles WHERE user_id = $1 AND hostel_id IS NOT NULL
+        ) sub
+    """, user_id))
     if requested_hostel_id is not None and requested_hostel_id not in hostel_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "HOSTEL_SCOPE_FORBIDDEN", "message": "hostel is not assigned to this warden"})
     return hostel_ids
