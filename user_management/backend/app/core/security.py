@@ -248,7 +248,16 @@ async def resolve_user_location_scope(
     if claims.has_any_role(*ADMIN_ROLES):
         return None  # admins see everything
 
-    user_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id = $1", claims.sub)
+    user_id = await conn.fetchval(
+        """SELECT id FROM users
+           WHERE keycloak_user_id = $1
+              OR id::text = $1
+              OR (email IS NOT NULL AND LOWER(email) = LOWER($2))
+           ORDER BY CASE WHEN keycloak_user_id = $1 THEN 0 WHEN id::text = $1 THEN 1 ELSE 2 END
+           LIMIT 1""",
+        str(claims.sub),
+        str(claims.email or claims.preferred_username or ""),
+    )
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

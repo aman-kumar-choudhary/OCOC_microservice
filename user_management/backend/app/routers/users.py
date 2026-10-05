@@ -173,47 +173,53 @@ async def get_current_user_profile(
         logger.warning("Could not fetch visitor_profiles for %s: %s", user_id, e)
 
     role_profiles = {}
+    sp_d = dict(sp) if sp else {}
+    fp_d = dict(fp) if fp else {}
+    warden_d = dict(warden) if warden else {}
+    wp_d = dict(wp) if wp else {}
+    vp_d = dict(vp) if vp else {}
+
     if sp:
         role_profiles["student"] = {
-            "student_id": sp["roll_number"],
-            "course": sp["course"],
-            "department": sp["department_name"],
-            "semester": sp["semester"],
-            "batch": sp.get("batch"),
-            "hostel": sp["hostel_name"],
-            "room_number": sp.get("room_number"),
+            "student_id": sp_d.get("roll_number"),
+            "course": sp_d.get("course"),
+            "department": sp_d.get("department_name"),
+            "semester": sp_d.get("semester"),
+            "batch": sp_d.get("batch"),
+            "hostel": sp_d.get("hostel_name"),
+            "room_number": sp_d.get("room_number"),
         }
     if fp:
         role_profiles["faculty"] = {
-            "faculty_id": fp["employee_id"],
-            "department": fp["department_name"],
-            "designation": fp["designation"],
-            "courses": fp.get("courses"),
-            "assigned_students": fp.get("assigned_students"),
+            "faculty_id": fp_d.get("employee_id"),
+            "department": fp_d.get("department_name"),
+            "designation": fp_d.get("designation"),
+            "courses": fp_d.get("courses"),
+            "assigned_students": fp_d.get("assigned_students"),
         }
     if warden:
         role_profiles["warden"] = {
-            "hostel": warden["hostel_name"],
-            "hostel_block": warden.get("hostel_block"),
-            "responsibilities": warden.get("responsibilities"),
+            "hostel": warden_d.get("hostel_name"),
+            "hostel_block": warden_d.get("hostel_block"),
+            "responsibilities": warden_d.get("responsibilities"),
         }
     if wp:
         role_profiles["worker"] = {
-            "worker_id": wp["employee_id"],
-            "job_type": wp.get("job_type") or wp["designation"],
-            "department": wp["department_name"],
-            "assigned_location": wp.get("location_name"),
-            "work_area": wp.get("work_area"),
-            "shift": wp.get("shift"),
+            "worker_id": wp_d.get("employee_id"),
+            "job_type": wp_d.get("job_type") or wp_d.get("designation"),
+            "department": wp_d.get("department_name"),
+            "assigned_location": wp_d.get("location_name"),
+            "work_area": wp_d.get("work_area"),
+            "shift": wp_d.get("shift"),
         }
     if vp:
         role_profiles["visitor"] = {
-            "visit_purpose": vp["visit_purpose"],
-            "host_person": vp.get("host_person"),
-            "host_contact": vp["host_contact"],
-            "visit_start": vp["visit_start"].isoformat() if vp["visit_start"] else None,
-            "visit_duration_days": vp["visit_duration_days"],
-            "valid_until": vp.get("valid_until").isoformat() if vp.get("valid_until") else None,
+            "visit_purpose": vp_d.get("visit_purpose"),
+            "host_person": vp_d.get("host_person"),
+            "host_contact": vp_d.get("host_contact"),
+            "visit_start": vp_d.get("visit_start").isoformat() if vp_d.get("visit_start") else None,
+            "visit_duration_days": vp_d.get("visit_duration_days"),
+            "valid_until": vp_d.get("valid_until").isoformat() if vp_d.get("valid_until") else None,
         }
 
     dash = role_service.get_dashboard_info(combined_roles)
@@ -225,25 +231,25 @@ async def get_current_user_profile(
         "user_type": user["user_type"],
         "status": user["status"],
         "full_name": user["full_name"],
-        "roll_number": sp["roll_number"] if sp else user["roll_number"],
-        "course": sp["course"] if sp else user["course"],
-        "semester": sp["semester"] if sp else user["semester"],
-        "batch": sp.get("batch") if sp else None,
-        "room_number": sp.get("room_number") if sp else None,
-        "department": (sp["department_name"] if sp else None) or (fp["department_name"] if fp else None) or user["department_name"],
-        "hostel": (sp["hostel_name"] if sp else None) or (warden["hostel_name"] if warden else None) or user["hostel_name"],
-        "hostel_block": warden.get("hostel_block") if warden else None,
-        "warden_responsibilities": warden.get("responsibilities") if warden else None,
-        "employee_id": (fp["employee_id"] if fp else None) or (wp["employee_id"] if wp else None) or user["faculty_employee_id"] or user["worker_employee_id"],
-        "designation": (fp["designation"] if fp else None) or (wp.get("job_type") if wp else None) or user["faculty_designation"] or user["worker_designation"],
-        "courses": fp.get("courses") if fp else None,
-        "assigned_students": fp.get("assigned_students") if fp else None,
-        "job_type": wp.get("job_type") if wp else None,
-        "work_area": wp.get("work_area") if wp else None,
-        "shift": wp.get("shift") if wp else None,
-        "assigned_location": wp.get("location_name") if wp else None,
-        "visitor_purpose": vp.get("visit_purpose") if vp else user["visitor_purpose"],
-        "host_person": vp.get("host_person") if vp else None,
+        "roll_number": sp_d.get("roll_number") if sp else user["roll_number"],
+        "course": sp_d.get("course") if sp else user["course"],
+        "semester": sp_d.get("semester") if sp else user["semester"],
+        "batch": sp_d.get("batch") if sp else None,
+        "room_number": sp_d.get("room_number") if sp else None,
+        "department": (sp_d.get("department_name") if sp else None) or (fp_d.get("department_name") if fp else None) or user["department_name"],
+        "hostel": (sp_d.get("hostel_name") if sp else None) or (warden_d.get("hostel_name") if warden else None) or user["hostel_name"],
+        "hostel_block": warden_d.get("hostel_block") if warden else None,
+        "warden_responsibilities": warden_d.get("responsibilities") if warden else None,
+        "employee_id": (fp_d.get("employee_id") if fp else None) or (wp_d.get("employee_id") if wp else None) or user["faculty_employee_id"] or user["worker_employee_id"],
+        "designation": (fp_d.get("designation") if fp else None) or (wp_d.get("job_type") if wp else None) or user["faculty_designation"] or user["worker_designation"],
+        "courses": fp_d.get("courses") if fp else None,
+        "assigned_students": fp_d.get("assigned_students") if fp else None,
+        "job_type": wp_d.get("job_type") if wp else None,
+        "work_area": wp_d.get("work_area") if wp else None,
+        "shift": wp_d.get("shift") if wp else None,
+        "assigned_location": wp_d.get("location_name") if wp else None,
+        "visitor_purpose": vp_d.get("visit_purpose") if vp else user["visitor_purpose"],
+        "host_person": vp_d.get("host_person") if vp else None,
         "roles": combined_roles,
         "role_profiles": role_profiles,
         "locations": locations,

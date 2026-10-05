@@ -62,7 +62,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
           </div>
         </div>
 
-        {/* Navigation Tabs & MagnifyingGlass */}
+        {/* Navigation Tabs & Search */}
         <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
             <button
@@ -109,7 +109,7 @@ export const LegalModal = ({ isOpen, onClose, initialTab = "terms" }) => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="MagnifyingGlass policy..."
+              placeholder="Search policy..."
               className="w-full pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19]"
             />
           </div>

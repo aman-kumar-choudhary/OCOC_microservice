@@ -3,13 +3,16 @@ import userService from "@/services/userService";
 import rfidService from "@/services/rfidService";
 import { registerPerson } from "@/services/frecoService";
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   CheckCircle,
   CreditCard,
   GraduationCap,
   Medal,
   SpinnerGap,
+  User,
   UserCircle,
   UserFocus,
   Wrench
@@ -21,31 +24,31 @@ const POSES = [
     key: "center",
     label: "Center",
     description: "Look straight at the camera",
-    emoji: "👤",
+    icon: User,
   },
   {
     key: "left",
     label: "Turn Left",
     description: "Slowly turn your head left",
-    emoji: "⬅️",
+    icon: ArrowLeft,
   },
   {
     key: "right",
     label: "Turn Right",
     description: "Slowly turn your head right",
-    emoji: "➡️",
+    icon: ArrowRight,
   },
   {
     key: "chin_up",
     label: "Chin Up",
     description: "Tilt your chin slightly up",
-    emoji: "⬆️",
+    icon: ArrowUp,
   },
   {
     key: "chin_down",
     label: "Chin Down",
     description: "Tilt your chin slightly down",
-    emoji: "⬇️",
+    icon: ArrowDown,
   },
 ];
 
@@ -212,6 +215,7 @@ export const Onboarding = () => {
       if (persona === "student") {
         Object.assign(profilePayload, {
           roll_number: p.roll_number,
+          batch: p.batch,
           school: p.school,
           department: p.department,
           department_id: p.department_id,
@@ -622,7 +626,10 @@ export const Onboarding = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span>{pose.emoji}</span>
+                        (() => {
+                          const IconComp = pose.icon;
+                          return <IconComp size={18} className="text-slate-500" />;
+                        })()
                       )}
                     </div>
                     <span className="text-xs font-bold">{pose.label}</span>
@@ -637,7 +644,12 @@ export const Onboarding = () => {
             {/* Current pose instruction */}
             {!allPosesCaptured ? (
               <div className="text-center mb-6">
-                <div className="text-4xl mb-2">{currentPose.emoji}</div>
+                <div className="w-14 h-14 mx-auto mb-2 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-[#0a2342] shadow-2xs">
+                  {(() => {
+                    const CurrIcon = currentPose.icon;
+                    return <CurrIcon size={26} className="text-[#0a2342]" />;
+                  })()}
+                </div>
                 <h3 className="text-lg font-extrabold mb-1">
                   {currentPose.label}
                 </h3>

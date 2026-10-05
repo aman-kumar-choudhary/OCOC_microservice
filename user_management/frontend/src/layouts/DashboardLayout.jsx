@@ -33,7 +33,7 @@ import {
 } from "@phosphor-icons/react";
 export const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
-  const { user, roles, email, hasRole, logout } = useAuth();
+  const { user, roles, email, fullName, hasRole, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSecurityMenuOpen, setIsSecurityMenuOpen] = useState(false);
@@ -46,7 +46,7 @@ export const DashboardLayout = ({ children }) => {
   const idleTimerRef = useRef(null);
   const countdownIntervalRef = useRef(null);
 
-  const userInitial = email?.charAt(0).toUpperCase() || "A";
+  const userInitial = fullName?.charAt(0).toUpperCase() || email?.charAt(0).toUpperCase() || "A";
   const userRoles = roles
     .filter((role) => !role.startsWith("default-"))
     .slice(0, 3);
@@ -413,10 +413,10 @@ export const DashboardLayout = ({ children }) => {
                           </span>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-white">
-                              {email || "Administrator"}
+                              {fullName || email || "Administrator"}
                             </p>
-                            <p className="mt-0.5 text-xs text-slate-300 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Verified Session
+                            <p className="truncate text-xs text-slate-300">
+                              {email || "Verified Session"}
                             </p>
                           </div>
                         </div>
@@ -427,7 +427,7 @@ export const DashboardLayout = ({ children }) => {
                           <Envelope size={15} weight="bold" /> Account identity
                         </div>
                         <p className="mt-1.5 break-all text-sm font-bold text-slate-800">
-                          {email || "Administrator"}
+                          {fullName ? `${fullName} (${email || "Local"})` : (email || "Administrator")}
                         </p>
                         {userRoles.length > 0 && (
                           <div className="mt-2.5 flex flex-wrap gap-1.5">

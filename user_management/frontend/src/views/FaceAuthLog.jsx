@@ -11,14 +11,17 @@ import {
   ShieldCheck,
   ShieldSlash,
   SpinnerGap,
+  User,
+  Users,
   X
 } from "@phosphor-icons/react";
+import Pagination from "@/components/common/Pagination";
 export const FaceAuthLog = () => {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(25);
+  const [limit, setLimit] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showDateRange, setShowDateRange] = useState(false);
@@ -32,10 +35,10 @@ export const FaceAuthLog = () => {
   const [searchPerson, setSearchPerson] = useState("");
 
   const fetchLogs = useCallback(
-    async (customPage) => {
+    async (customPage, customLimit) => {
       setIsLoading(true);
       try {
-        const params = { page: customPage || page, limit, ...filters };
+        const params = { page: customPage ?? page, limit: customLimit ?? limit, ...filters };
         if (searchPerson) params.person_id = searchPerson;
         const { data } = await api.get("/face-auth/logs", { params });
         setLogs(data.data?.logs || []);
@@ -115,14 +118,14 @@ export const FaceAuthLog = () => {
   /* ── Result filter buttons ── */
   const resultOptions = [
     { value: "", label: "All" },
-    { value: "success", label: "✓ Auth" },
-    { value: "failed", label: "✗ Rejected" },
-    { value: "liveness_failed", label: "Liveness" },
+    { value: "success", label: "Authenticated" },
+    { value: "failed", label: "Rejected" },
+    { value: "liveness_failed", label: "Liveness Failed" },
   ];
   const typeOptions = [
     { value: "", label: "All Types" },
-    { value: "single", label: "👤 Single" },
-    { value: "mass", label: "👥 Mass" },
+    { value: "single", label: "Single" },
+    { value: "mass", label: "Mass" },
   ];
 
   const chipBtn = (active) =>
@@ -401,7 +404,7 @@ export const FaceAuthLog = () => {
                           : "bg-blue-50 text-blue-700 border-blue-200"
                       }`}
                     >
-                      {log.auth_type === "mass" ? "👥 Mass" : "👤 Single"}
+                      {log.auth_type === "mass" ? "Mass" : "Single"}
                     </span>
                   </div>
 
@@ -441,38 +444,23 @@ export const FaceAuthLog = () => {
         )}
 
         {/* Pagination */}
-        {logs.length > 0 && (
-          <div className="px-4 py-3 border-t border-[var(--border-light)] flex justify-between items-center text-sm bg-slate-50/60">
-            <span className="text-[var(--text-muted)]">
-              {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of{" "}
-              {total}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 disabled:opacity-40 transition"
-                disabled={page <= 1}
-                onClick={() => {
-                  const p = page - 1;
-                  setPage(p);
-                  fetchLogs(p);
-                }}
-              >
-                <CaretLeft size={14} />
-              </button>
-              <button
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 disabled:opacity-40 transition"
-                disabled={page >= totalPages}
-                onClick={() => {
-                  const p = page + 1;
-                  setPage(p);
-                  fetchLogs(p);
-                }}
-              >
-                <CaretRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="px-4 py-3 border-t border-[var(--border-light)] bg-white rounded-b-xl">
+          <Pagination
+            currentPage={page}
+            totalItems={total}
+            pageSize={limit}
+            onPageChange={(p) => {
+              setPage(p);
+              fetchLogs(p, limit);
+            }}
+            onPageSizeChange={(sz) => {
+              setLimit(sz);
+              setPage(1);
+              fetchLogs(1, sz);
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+          />
+        </div>
       </div>
     </div>
   );

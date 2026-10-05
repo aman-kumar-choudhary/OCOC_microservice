@@ -24,8 +24,10 @@ import {
   User,
   Warning,
   WarningCircle,
+  X,
   XCircle
 } from "@phosphor-icons/react";
+import Pagination from "@/components/common/Pagination";
 const statusColor = {
   DRAFT: "bg-slate-100 text-slate-700 border-slate-300",
   PENDING_APPROVAL: "bg-amber-100 text-amber-800 border-amber-300",
@@ -184,7 +186,7 @@ function GuardLeaveView() {
         </div>
       )}
 
-      {/* Funnel and MagnifyingGlass Bar */}
+      {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
         <div className="relative flex-1 w-full">
           <MagnifyingGlass
@@ -194,7 +196,7 @@ function GuardLeaveView() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="MagnifyingGlass by student name, ID, or destination..."
+            placeholder="Search by student name, ID, or destination..."
             className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
           />
         </div>
@@ -329,7 +331,7 @@ function GuardLeaveView() {
 }
 
 export default function LeaveManagement() {
-  const { user, roles } = useAuth();
+  const { user, roles, fullName } = useAuth();
   const roleSet = new Set((roles || []).map((r) => String(r).toUpperCase()));
   const isApprover = [
     "SUPER_ADMIN",
@@ -343,10 +345,9 @@ export default function LeaveManagement() {
   const isStudentRole = roleSet.has("STUDENT");
   const isGuard = ["GUARD", "SECURITY_GUARD"].some((r) => roleSet.has(r));
 
-  // Determine active view mode: Approvers default to approvals review console, students default to apply
-  const [activeViewMode, setActiveViewMode] = useState(
-    isApprover && !isStudentRole ? "approvals" : "apply",
-  );
+  // Mode selector: Students default to "apply", Approvers default to "approvals", Guards and Admins default to "ledger"
+  const defaultMode = isStudentRole ? "apply" : (isApprover ? "approvals" : "ledger");
+  const [activeViewMode, setActiveViewMode] = useState(defaultMode);
 
   const [types, setTypes] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -361,6 +362,14 @@ export default function LeaveManagement() {
   const [workflowText, setWorkflowText] = useState("");
   const [requestFilterTab, setRequestFilterTab] = useState("all");
 
+  // Advanced criteria filters for ledger
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterLeaveType, setFilterLeaveType] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerPageSize, setLedgerPageSize] = useState(10);
+
   // Modals state
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [selectedPass, setSelectedPass] = useState(null);
@@ -374,11 +383,6 @@ export default function LeaveManagement() {
     reasonPlaceholder: "",
     isDanger: false,
   });
-
-  // Guard-only view: redirect to GuardLeaveView
-  if (isGuard && !isStudentRole && !isApprover && !isAdmin) {
-    return <GuardLeaveView />;
-  }
 
   const refresh = async () => {
     try {
@@ -571,21 +575,65 @@ export default function LeaveManagement() {
     }
   };
 
-  // Funnel requests
+  // Filter requests with full criteria (status, leave type, search text, and date range)
   const filteredRequests = useMemo(() => {
-    if (requestFilterTab === "all") return requests;
-    if (requestFilterTab === "approved")
-      return requests.filter((r) => r.status === "APPROVED");
-    if (requestFilterTab === "pending")
-      return requests.filter((r) => r.status === "PENDING_APPROVAL");
-    if (requestFilterTab === "draft")
-      return requests.filter((r) => r.status === "DRAFT");
-    if (requestFilterTab === "completed")
-      return requests.filter((r) =>
-        ["COMPLETED", "EXPIRED", "REJECTED"].includes(r.status),
-      );
-    return requests;
-  }, [requests, requestFilterTab]);
+    return requests.filter((r) => {
+      // Status filter tab
+      if (requestFilterTab === "approved" && r.status !== "APPROVED") return false;
+      if (requestFilterTab === "pending" && r.status !== "PENDING_APPROVAL") return false;
+      if (requestFilterTab === "draft" && r.status !== "DRAFT") return false;
+      if (requestFilterTab === "completed" && !["COMPLETED", "EXPIRED", "REJECTED"].includes(r.status)) return false;
+
+      // Leave type filter
+      if (filterLeaveType) {
+        const matchesType = (r.leave_type && r.leave_type.toLowerCase() === filterLeaveType.toLowerCase()) ||
+                            (r.leave_type_id && r.leave_type_id === filterLeaveType);
+        if (!matchesType) return false;
+      }
+
+      // Search filter (student name, roll number, hostel name, destination, id)
+      if (filterSearch.trim()) {
+        const q = filterSearch.toLowerCase().trim();
+        const matchName = (r.student_name || "").toLowerCase().includes(q);
+        const matchRoll = (r.roll_number || "").toLowerCase().includes(q);
+        const matchDest = (r.destination || "").toLowerCase().includes(q);
+        const matchHostel = (r.hostel_name || "").toLowerCase().includes(q);
+        const matchId = (r.id || "").toLowerCase().includes(q);
+        if (!matchName && !matchRoll && !matchDest && !matchHostel && !matchId) return false;
+      }
+
+      // Date range filter
+      if (filterDateFrom) {
+        const fromDate = new Date(filterDateFrom);
+        const reqStart = new Date(r.start_at);
+        if (reqStart < fromDate) return false;
+      }
+      if (filterDateTo) {
+        const toDate = new Date(filterDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        const reqEnd = new Date(r.end_at);
+        if (reqEnd > toDate) return false;
+      }
+
+      return true;
+    });
+  }, [requests, requestFilterTab, filterLeaveType, filterSearch, filterDateFrom, filterDateTo]);
+
+  // Reset pagination to page 1 whenever any filter changes
+  useEffect(() => {
+    setLedgerPage(1);
+  }, [requestFilterTab, filterLeaveType, filterSearch, filterDateFrom, filterDateTo]);
+
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(filteredRequests.length / ledgerPageSize));
+    setLedgerPage((currentPage) => Math.min(Math.max(1, currentPage), lastPage));
+  }, [filteredRequests.length, ledgerPageSize]);
+
+  // Paginated slice
+  const paginatedRequests = useMemo(() => {
+    const startIdx = (ledgerPage - 1) * ledgerPageSize;
+    return filteredRequests.slice(startIdx, startIdx + ledgerPageSize);
+  }, [filteredRequests, ledgerPage, ledgerPageSize]);
 
   // Active pass detection for student
   const activePass = useMemo(() => {
@@ -608,12 +656,12 @@ export default function LeaveManagement() {
               <ShieldCheck size={14} weight="fill" /> Dev Sanskriti Vishwavidyalaya · Gate Clearance Services
             </div>
             <h1 className="text-xl sm:text-3xl font-display font-black tracking-tight text-white">
-              {getHumanGreeting(user?.name || user?.preferred_username || (isWarden ? "Hostel Warden" : "Student"), roles?.[0] || "").greeting}
+              {getHumanGreeting(fullName || user?.name || user?.preferred_username || (isWarden ? "Hostel Warden" : "Student"), roles?.[0] || "").greeting}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               {isApprover && !isStudentRole
                 ? "Review pending student leave applications, verify travel details, and issue digital gate passes with care."
-                : getHumanGreeting(user?.name || user?.preferred_username, roles?.[0] || "").contextMessage}
+                : getHumanGreeting(fullName || user?.name || user?.preferred_username, roles?.[0] || "").contextMessage}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -631,10 +679,10 @@ export default function LeaveManagement() {
         </div>
       </div>
 
-      {/* Role-Based Mode Selector (For Wardens, Approvers, Admins) */}
-      {isApprover && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+      {/* Role-Based Mode Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          {isApprover && (
             <button
               type="button"
               onClick={() => setActiveViewMode("approvals")}
@@ -652,44 +700,49 @@ export default function LeaveManagement() {
                 </span>
               )}
             </button>
+          )}
 
+          <button
+            type="button"
+            onClick={() => setActiveViewMode("ledger")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              activeViewMode === "ledger"
+                ? "bg-[#0a2342] text-white shadow-xs font-black"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <FileText size={15} className={activeViewMode === "ledger" ? "text-amber-400" : "text-slate-400"} />
+            <span>
+              {isStudentRole
+                ? `My Submitted Requests (${requests.length})`
+                : `Student Leaves Ledger (${requests.length})`}
+            </span>
+          </button>
+
+          {/* "Apply for Leave" is strictly restricted to Students only */}
+          {isStudentRole && (
             <button
               type="button"
-              onClick={() => setActiveViewMode("ledger")}
+              onClick={() => setActiveViewMode("apply")}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeViewMode === "ledger"
+                activeViewMode === "apply"
                   ? "bg-[#0a2342] text-white shadow-xs font-black"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
               }`}
             >
-              <FileText size={15} className={activeViewMode === "ledger" ? "text-amber-400" : "text-slate-400"} />
-              <span>Student Leaves Ledger ({requests.length})</span>
+              <CalendarCheck size={15} className={activeViewMode === "apply" ? "text-amber-400" : "text-slate-400"} />
+              <span>Apply for Leave</span>
             </button>
-
-            {(isStudentRole || !isWarden) && (
-              <button
-                type="button"
-                onClick={() => setActiveViewMode("apply")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  activeViewMode === "apply"
-                    ? "bg-[#0a2342] text-white shadow-xs font-black"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-                }`}
-              >
-                <CalendarCheck size={15} className={activeViewMode === "apply" ? "text-amber-400" : "text-slate-400"} />
-                <span>Apply for Leave</span>
-              </button>
-            )}
-          </div>
-
-          <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 pr-3">
-            <Clock size={13} className="text-amber-600" /> Standard Campus Curfew: 21:00 hrs
-          </span>
+          )}
         </div>
-      )}
 
-      {/* Process Flow Pipeline - shown in student apply mode */}
-      {(!isApprover || activeViewMode === "apply") && <ProcessFlowPipeline />}
+        <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 pr-3">
+          <Clock size={13} className="text-amber-600" /> Standard Campus Curfew: 21:00 hrs
+        </span>
+      </div>
+
+      {/* Process Flow Pipeline - shown in student apply mode only */}
+      {isStudentRole && activeViewMode === "apply" && <ProcessFlowPipeline />}
 
       {/* Notifications and Alerts */}
       {error && (
@@ -740,8 +793,8 @@ export default function LeaveManagement() {
         </div>
       )}
 
-      {/* Main Grid: Application Form & Leave Balances (Shown when applying for leave) */}
-      {(!isApprover || activeViewMode === "apply") && (
+      {/* Main Grid: Application Form & Leave Balances (Shown strictly when student is applying for leave) */}
+      {isStudentRole && activeViewMode === "apply" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
           {/* Leave Application Form */}
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
@@ -1141,23 +1194,23 @@ export default function LeaveManagement() {
         </section>
       )}
 
-      {/* Leave Requests Roster with Tabs */}
+      {/* Leave Requests Roster with Filter Bar & Tabs */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-900">
-              {isApprover
-                ? "Hostel Student Leave Requests Ledger"
+              {isApprover || isGuard || isAdmin
+                ? "Student Leave Requests Ledger"
                 : "My Submitted Requests"}
             </h2>
             <p className="text-xs text-slate-500">
-              {isApprover
-                ? "Review and manage all student leaves under your hostel jurisdiction."
+              {isApprover || isGuard || isAdmin
+                ? "Review, filter, and audit student leave history across campus hostels."
                 : "Track real-time status and view generated gate credentials."}
             </p>
           </div>
 
-          {/* Funnel Tabs */}
+          {/* Filter Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto text-xs pb-1 sm:pb-0">
             {["all", "approved", "pending", "draft", "completed"].map((tab) => (
               <button
@@ -1176,11 +1229,75 @@ export default function LeaveManagement() {
           </div>
         </div>
 
+        {/* Advanced Filters Toolbar */}
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 text-xs">
+          <div className="relative flex-1 min-w-[200px]">
+            <MagnifyingGlass
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              placeholder="Search student, roll number, hostel, destination..."
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342]"
+            />
+          </div>
+
+          <div className="w-full sm:w-44">
+            <select
+              value={filterLeaveType}
+              onChange={(e) => setFilterLeaveType(e.target.value)}
+              className="w-full py-2 px-3 text-xs rounded-xl border border-slate-300 bg-white font-semibold text-slate-700 focus:outline-hidden focus:border-[#0a2342]"
+            >
+              <option value="">All Categories</option>
+              {types.map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-500">From:</span>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="py-1.5 px-2.5 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342]"
+            />
+            <span className="text-[11px] font-bold text-slate-500">To:</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="py-1.5 px-2.5 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342]"
+            />
+          </div>
+
+          {(filterSearch || filterLeaveType || filterDateFrom || filterDateTo || requestFilterTab !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterSearch("");
+                setFilterLeaveType("");
+                setFilterDateFrom("");
+                setFilterDateTo("");
+                setRequestFilterTab("all");
+              }}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 transition"
+            >
+              <X size={13} /> Reset
+            </button>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px] text-left text-xs">
             <thead className="border-b text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">
               <tr>
-                {isApprover && <th className="p-3">Student &amp; Hostel</th>}
+                {(isApprover || isGuard || isAdmin) && <th className="p-3">Student &amp; Hostel</th>}
                 <th className="p-3">Category / ID</th>
                 <th className="p-3">Departure &amp; Return</th>
                 <th className="p-3">Destination</th>
@@ -1189,19 +1306,19 @@ export default function LeaveManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRequests.length === 0 ? (
+              {paginatedRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={isApprover ? 6 : 5} className="p-8 text-center text-slate-400">
-                    No leave requests found in this view.
+                  <td colSpan={(isApprover || isGuard || isAdmin) ? 6 : 5} className="p-8 text-center text-slate-400">
+                    No leave requests found matching the current criteria.
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map((r) => (
+                paginatedRequests.map((r) => (
                   <tr
                     key={r.id}
                     className="hover:bg-slate-50 transition-colors"
                   >
-                    {isApprover && (
+                    {(isApprover || isGuard || isAdmin) && (
                       <td className="p-3">
                         <div className="font-extrabold text-slate-900">
                           {r.student_name || "Student"}
@@ -1288,6 +1405,19 @@ export default function LeaveManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <Pagination
+          currentPage={ledgerPage}
+          totalItems={filteredRequests.length}
+          pageSize={ledgerPageSize}
+          onPageChange={(p) => setLedgerPage(p)}
+          onPageSizeChange={(sz) => {
+            setLedgerPageSize(sz);
+            setLedgerPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50]}
+        />
       </section>
 
       {/* Decision Confirmation Modal (Replaces window.prompt) */}
@@ -1300,10 +1430,12 @@ export default function LeaveManagement() {
         confirmText={
           confirmModal.action === "approve"
             ? "Approve & Issue Gate Pass"
-            : "Deny Request"
+            : confirmModal.action === "pending"
+              ? "Keep on Hold"
+              : "Deny Request"
         }
         requireReason={confirmModal.requireReason}
-        reasonPlaceholder="Specify the official administrative reason for rejecting this leave..."
+        reasonPlaceholder={confirmModal.reasonPlaceholder}
         isDanger={confirmModal.isDanger}
         isLoading={busy}
       />

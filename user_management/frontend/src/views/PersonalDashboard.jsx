@@ -45,7 +45,7 @@ const OPERATIONAL_ROLES = new Set([
 ]);
 
 export const PersonalDashboard = () => {
-  const { user, roles, email } = useAuth();
+  const { user, roles, email, fullName } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -101,6 +101,7 @@ export const PersonalDashboard = () => {
 
   const displayName =
     profile?.full_name ||
+    fullName ||
     user?.name ||
     user?.preferred_username ||
     email ||

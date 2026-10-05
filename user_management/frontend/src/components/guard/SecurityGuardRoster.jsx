@@ -18,7 +18,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import api from "@/services/api";
-import UserAccessDetail from "@/components/access/UserAccessDetail";
+import GuardDetailModal from "./GuardDetailModal";
 
 export const SecurityGuardRoster = () => {
   const [guards, setGuards] = useState([]);
@@ -256,17 +256,13 @@ export const SecurityGuardRoster = () => {
         </div>
       )}
 
-      {/* Slide-over Access Details Modal */}
+      {/* Detailed Guard Dossier & Access Modal */}
       {selectedGuardId && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-xs animate-fade-in">
-          <div className="w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col animate-slide-left">
-            <UserAccessDetail
-              userId={selectedGuardId}
-              onClose={() => setSelectedGuardId(null)}
-              onUserUpdated={fetchGuards}
-            />
-          </div>
-        </div>
+        <GuardDetailModal
+          guardId={selectedGuardId}
+          onClose={() => setSelectedGuardId(null)}
+          onGuardUpdated={fetchGuards}
+        />
       )}
     </div>
   );

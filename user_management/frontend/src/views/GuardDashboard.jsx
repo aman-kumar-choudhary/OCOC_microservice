@@ -105,7 +105,7 @@ const LeaveValidationBadge = ({ student }) => {
 };
 
 const GuardDashboard = () => {
-  const { user, roles } = useAuth();
+  const { user, roles, fullName } = useAuth();
   const roleSet = new Set((roles || []).map((r) => String(r).toUpperCase()));
   const isSecurityAdmin = ["SECURITY_ADMIN", "SUPER_ADMIN", "ADMIN"].some((r) =>
     roleSet.has(r),
@@ -282,7 +282,7 @@ const GuardDashboard = () => {
   };
 
   const humanGreeting = getHumanGreeting(
-    user?.name || user?.preferred_username || "Security Officer",
+    fullName || user?.name || user?.preferred_username || "Security Officer",
     roles?.[0] || "SECURITY_ADMIN",
   );
 
@@ -674,8 +674,8 @@ const GuardDashboard = () => {
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
                 className="form-input pl-9 py-2 text-sm"
-                placeholder="MagnifyingGlass student name, ID, phone"
-                aria-label="MagnifyingGlass students by student ID or name"
+                placeholder="Search student name, ID, phone"
+                aria-label="Search students by student ID or name"
               />
             </label>
             <select

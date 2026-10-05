@@ -45,6 +45,14 @@ const accessService = {
   },
 
   // ── Location Grants CRUD ──
+  syncUserLocations: async (userId, locationIds, accessLevel = "ENTRY", reason = "Assigned via Access Management") => {
+    const { data } = await api.put(`/access/users/${userId}/locations`, {
+      location_ids: locationIds,
+      access_level: accessLevel,
+      reason,
+    });
+    return data.data;
+  },
   createLocationGrant: async (payload) => {
     const { data } = await api.post("/access/grants", payload);
     return data.data;

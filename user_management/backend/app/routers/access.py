@@ -6,13 +6,13 @@ from app.schemas.access import (
     TemporaryAccessGrant, CreateTemporaryAccessRequest, AccessEvent,
     EvaluateAccessRequest, Location, RFIDAccessScanRequest, FaceVerificationRequest,
     AccessGroup, CreateAccessGroupRequest, AddAccessGroupMemberRequest, UpdateUserAccessRequest,
-    ResetCredentialsRequest,
+    ResetCredentialsRequest, BulkLocationGrantsRequest,
     # Enhanced schemas
     CreateLocationGrantRequest, UpdateLocationGrantRequest,
 )
 from app.services.access_service import access_service
 from app.services.hostel_service import hostel_service
-from app.core.security import Claims, get_current_claims, require_permission, require_role
+from app.core.security import Claims, get_current_claims, require_permission, require_role, ADMIN_ROLES, resolve_user_location_scope
 from app.core.database import get_db
 from app.services.role_service import role_service
 import asyncpg
@@ -44,10 +44,33 @@ async def update_user_access_configuration(
             user_id=user_id,
             role_names=req.roles,
             hostel_ids=req.hostel_ids,
+            location_ids=req.location_ids,
             issue_password=bool(req.issue_password),
             custom_password=req.custom_password,
         )
         return {"success": True, "data": access}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@router.put("/users/{user_id}/locations", response_model=Dict[str, Any])
+async def update_user_locations(
+    user_id: uuid.UUID,
+    req: BulkLocationGrantsRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN")),
+):
+    """Synchronize user location grants from checkbox selection."""
+    admin_id = await _resolve_actor_user_id(conn, claims)
+    try:
+        grants = await access_service.sync_user_location_grants(
+            conn=conn,
+            user_id=user_id,
+            location_ids=req.location_ids,
+            access_level=req.access_level,
+            admin_id=admin_id,
+            reason=req.reason,
+        )
+        return {"success": True, "data": grants}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -118,11 +141,21 @@ async def list_temporary_grants(conn: asyncpg.Connection = Depends(get_db), clai
 
 @router.post("/temporary-grants", response_model=Dict[str, Any])
 async def create_temporary_grant(req: CreateTemporaryAccessRequest, conn: asyncpg.Connection = Depends(get_db), claims: Claims = Depends(require_permission("access.grant.temporary"))):
-    try:
-        admin_id = uuid.UUID(claims.sub)
-    except (ValueError, AttributeError):
+    admin_id = await conn.fetchval(
+        "SELECT id FROM users WHERE keycloak_user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)) ORDER BY CASE WHEN keycloak_user_id = $1 THEN 0 ELSE 1 END LIMIT 1",
+        str(claims.sub),
+        str(claims.email or claims.preferred_username or ""),
+    )
+    if not admin_id:
+        try:
+            admin_id = await conn.fetchval("SELECT id FROM users WHERE id = $1", uuid.UUID(claims.sub))
+        except (ValueError, AttributeError):
+            pass
+
+    if not admin_id:
         from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=400, content={"success": False, "error": {"code": "INVALID_ACTOR", "message": "Actor ID is not a valid UUID"}})
+        return JSONResponse(status_code=400, content={"success": False, "error": {"code": "INVALID_ACTOR", "message": "Actor account has no local user record in database"}})
+
     grant = await access_service.create_temporary_grant(conn, req, admin_id)
     return {"success": True, "data": grant}
 
@@ -131,6 +164,8 @@ async def create_temporary_grant(req: CreateTemporaryAccessRequest, conn: asyncp
 
 @router.post("/evaluate", response_model=Dict[str, Any])
 async def evaluate_access(req: EvaluateAccessRequest, conn: asyncpg.Connection = Depends(get_db), claims: Claims = Depends(require_permission("gate.review.manual"))):
+    if not claims.has_any_role(*ADMIN_ROLES):
+        await resolve_user_location_scope(conn, claims, required_level="ENTRY", requested_location_id=req.location_id)
     event = await access_service.evaluate_access(conn, req.user_id, req.location_id, req.action, reader_id=req.reader_id, device_id=req.device_id, face_confidence=req.face_confidence)
     return {"success": True, "data": event}
 
@@ -163,6 +198,28 @@ async def occupancy(location_id: Optional[uuid.UUID] = None, conn: asyncpg.Conne
 
 @router.post("/scan", response_model=Dict[str, Any])
 async def scan_access(req: RFIDAccessScanRequest, conn: asyncpg.Connection = Depends(get_db), claims: Claims = Depends(require_permission("gate.review.manual"))):
+    if not claims.has_any_role(*ADMIN_ROLES):
+        location_id = req.location_id
+        if not location_id and req.device_id:
+            location_id = await conn.fetchval(
+                "SELECT location_id FROM devices WHERE id = $1",
+                req.device_id,
+            )
+        if not location_id and req.reader_id:
+            location_id = await conn.fetchval(
+                """SELECT hg.hostel_id FROM rfid_readers rr
+                   JOIN hostel_gates hg ON hg.id = rr.gate_id
+                   WHERE rr.id = $1""",
+                req.reader_id,
+            )
+        if not location_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "LOCATION_SCOPE_FORBIDDEN", "message": "scan location could not be resolved"},
+            )
+        await resolve_user_location_scope(
+            conn, claims, required_level="ENTRY", requested_location_id=location_id
+        )
     event = await access_service.evaluate_rfid_scan(conn, req.uid, req.location_id, req.action, req.reader_id, req.device_id, req.face_confidence)
     return {"success": True, "data": event}
 

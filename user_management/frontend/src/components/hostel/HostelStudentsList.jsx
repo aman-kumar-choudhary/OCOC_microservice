@@ -7,12 +7,14 @@ import {
   UserCircle
 } from "@phosphor-icons/react";
 import api from "../../services/api";
+import Pagination from "@/components/common/Pagination";
 import StudentProfileSlideOver from "./StudentProfileSlideOver";
 const HostelStudentsList = ({ hostelId }) => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -21,7 +23,7 @@ const HostelStudentsList = ({ hostelId }) => {
     const fetchStudents = async () => {
       setLoading(true);
       try {
-        const params = { limit: 50, page, user_type: "student" };
+        const params = { limit: pageSize, page, user_type: "student" };
         if (hostelId) params.hostel_id = hostelId;
         if (searchQuery.trim()) params.search = searchQuery.trim();
 
@@ -39,7 +41,7 @@ const HostelStudentsList = ({ hostelId }) => {
     // Simple debounce
     const timeout = setTimeout(fetchStudents, 300);
     return () => clearTimeout(timeout);
-  }, [hostelId, page, searchQuery]);
+  }, [hostelId, page, pageSize, searchQuery]);
 
   return (
     <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300">
@@ -172,27 +174,19 @@ const HostelStudentsList = ({ hostelId }) => {
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="p-4 border-t border-gray-200 flex justify-between items-center bg-gray-50">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-2 text-sm font-bold border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <span className="text-sm font-bold text-gray-600">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-4 py-2 text-sm font-bold border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      )}
+      <div className="p-4 border-t border-gray-200 bg-white">
+        <Pagination
+          currentPage={page}
+          totalItems={totalStudents}
+          pageSize={pageSize}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
+      </div>
 
       {selectedStudent && (
         <StudentProfileSlideOver

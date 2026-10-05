@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import userService from "@/services/userService";
 import PassportPhotoCapture from "@/components/PassportPhotoCapture";
+import AcademicBatchSelect from "@/components/common/AcademicBatchSelect";
 
 const ID_OPTIONS = {
   indian: [
@@ -416,14 +417,11 @@ export const UserProfileForm = ({
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Academic Batch *</label>
-              <input
-                type="text"
+            <div className="form-group sm:col-span-2 xl:col-span-1">
+              <AcademicBatchSelect
                 value={profile.batch || ""}
-                onChange={(e) => updateField("batch", e.target.value)}
-                className="form-input"
-                placeholder="e.g. 2024-2028"
+                onChange={(val) => updateField("batch", val)}
+                required
               />
             </div>
 

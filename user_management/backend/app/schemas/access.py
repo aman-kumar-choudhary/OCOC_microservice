@@ -135,8 +135,15 @@ class FaceVerificationRequest(BaseModel):
 class UpdateUserAccessRequest(BaseModel):
     roles: List[str] = Field(default_factory=list)
     hostel_ids: List[uuid.UUID] = Field(default_factory=list)
+    location_ids: Optional[List[uuid.UUID]] = None
     issue_password: Optional[bool] = False
     custom_password: Optional[str] = None
+
+
+class BulkLocationGrantsRequest(BaseModel):
+    location_ids: List[uuid.UUID] = Field(default_factory=list)
+    access_level: str = "ENTRY"
+    reason: Optional[str] = "Assigned via Access Management"
 
 
 class ResetCredentialsRequest(BaseModel):

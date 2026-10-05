@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Optional
 import uuid
 from fastapi import APIRouter, Depends, Query, status
@@ -20,6 +21,9 @@ async def list_audit_logs(
     operation: Optional[str] = Query(None),
     entity_type: Optional[str] = Query(None),
     entity_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     claims: Claims = Depends(require_permission("audit:read")),
@@ -32,6 +36,9 @@ async def list_audit_logs(
             operation=operation,
             entity_type=entity_type,
             entity_id=entity_id,
+            search=search,
+            start_date=start_date,
+            end_date=end_date,
             page=page,
             limit=limit,
         )

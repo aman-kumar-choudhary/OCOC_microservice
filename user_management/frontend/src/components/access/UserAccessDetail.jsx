@@ -1,24 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ArrowSquareOut,
   ArrowsClockwise,
   Buildings,
   Calendar,
-  CaretRight,
   Check,
   CheckCircle,
   Clock,
   ClockCounterClockwise,
   Copy,
+  Door,
   Eye,
   EyeSlash,
+  GraduationCap,
+  House,
   Key,
   Lock,
+  MagnifyingGlass,
   MapPin,
   Medal,
   Pencil,
   Plus,
   Shield,
+  ShieldCheck,
   ShieldWarning,
   Sparkle,
   SpinnerGap,
@@ -28,80 +32,204 @@ import {
   UserCheck,
   Warning,
   WarningCircle,
-  X
+  X,
 } from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
 import userService from "@/services/userService";
-import AssignAccessModal from "./AssignAccessModal";
-const OPERATIONAL_ROLES = [
+import { useToast } from "@/context/ToastContext";
+import { categorizeLocation } from "./AssignAccessModal";
+
+// ── Operational Roles Definitions & Responsibilities ─────────────────────────
+export const OPERATIONAL_ROLES_CONFIG = [
   {
-    id: "STUDENT",
-    label: "Student",
-    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-  {
-    id: "FACULTY",
-    label: "Faculty",
-    color: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  },
-  {
-    id: "SECURITY_GUARD",
-    label: "Security Guard",
+    id: "GUARD",
+    aliases: ["GUARD", "SECURITY_GUARD"],
+    title: "Security Guard",
+    description: "Gate monitoring, visitor pass verification, vehicle logging, turnstile review, and emergency alarms.",
+    capabilities: [
+      "Gate entry & exit review",
+      "Visitor pass creation & verification",
+      "Vehicle movement logging",
+      "Emergency gate alarm triggering",
+    ],
+    category: "Security",
     color: "bg-blue-50 text-blue-700 border-blue-200",
   },
   {
     id: "WARDEN",
-    label: "Hostel Warden",
+    aliases: ["WARDEN"],
+    title: "Hostel Warden",
+    description: "Hostel resident administration, student leave approval, curfew tracking, and room inspections.",
+    capabilities: [
+      "Hostel resident administration",
+      "Student leave pass approval & rejection",
+      "Hostel curfew monitoring & violation alerts",
+      "Hostel disciplinary action logs",
+    ],
+    category: "Hostel",
     color: "bg-amber-50 text-amber-700 border-amber-200",
   },
   {
+    id: "SECURITY_SUPERVISOR",
+    aliases: ["SECURITY_SUPERVISOR"],
+    title: "Security Supervisor",
+    description: "Campus security roster dispatch, incident escalation, perimeter oversight, and guard supervision.",
+    capabilities: [
+      "Security roster management & dispatch",
+      "Incident report escalation",
+      "Gate operations supervisor review",
+      "Perimeter patrol logging",
+    ],
+    category: "Security",
+    color: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  },
+  {
+    id: "HOSTEL_OPERATOR",
+    aliases: ["HOSTEL_OPERATOR"],
+    title: "Hostel Operator",
+    description: "Hostel check-in/check-out logs, maintenance requests, visitor guest logs, and occupancy tracking.",
+    capabilities: [
+      "Resident check-in & check-out logs",
+      "Hostel room maintenance requests",
+      "Guest and visitor hostel logs",
+      "Hostel facility inspections",
+    ],
+    category: "Hostel",
+    color: "bg-cyan-50 text-cyan-700 border-cyan-200",
+  },
+  {
+    id: "GATE_OPERATOR",
+    aliases: ["GATE_OPERATOR"],
+    title: "Gate Operator",
+    description: "Automated barrier gate management, delivery vehicle registration, and turnstile badge scanning.",
+    capabilities: [
+      "Barrier gate automation controls",
+      "Delivery & service vehicle registration",
+      "Turnstile visitor badge scanning",
+    ],
+    category: "Security",
+    color: "bg-sky-50 text-sky-700 border-sky-200",
+  },
+  {
+    id: "FACULTY",
+    aliases: ["FACULTY"],
+    title: "Academic Faculty",
+    description: "Teaching staff, department lab access, academic block privileges, and student review.",
+    capabilities: [
+      "Academic block & classroom access",
+      "Department research lab entry",
+      "Faculty lounge access",
+    ],
+    category: "Academic",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  {
+    id: "STUDENT",
+    aliases: ["STUDENT"],
+    title: "Student",
+    description: "Student identity, assigned residential hostel entry, campus common zones, and leave pass requests.",
+    capabilities: [
+      "Assigned hostel resident access",
+      "Campus common & library access",
+      "Leave pass submission",
+    ],
+    category: "Student",
+    color: "bg-purple-50 text-purple-700 border-purple-200",
+  },
+  {
     id: "STAFF",
-    label: "Staff Member",
+    aliases: ["STAFF"],
+    title: "Campus Staff",
+    description: "Administrative staff members, office facilities, and campus operations.",
+    capabilities: [
+      "Administrative building access",
+      "Department office access",
+      "Campus utility zones",
+    ],
+    category: "Operations",
     color: "bg-teal-50 text-teal-700 border-teal-200",
   },
   {
     id: "WORKER",
-    label: "Campus Worker",
+    aliases: ["WORKER"],
+    title: "Operations Worker",
+    description: "Campus maintenance, service zones, facility support, and utility equipment rooms.",
+    capabilities: [
+      "Campus maintenance areas",
+      "Facility equipment rooms",
+      "Service entrance gates",
+    ],
+    category: "Operations",
     color: "bg-orange-50 text-orange-700 border-orange-200",
   },
   {
     id: "VISITOR",
-    label: "Campus Visitor",
-    color: "bg-purple-50 text-purple-700 border-purple-200",
+    aliases: ["VISITOR"],
+    title: "Campus Visitor",
+    description: "Temporary external guest, time-limited campus access, public zones only.",
+    capabilities: [
+      "Public campus zones only",
+      "Time-restricted entry pass",
+    ],
+    category: "Visitor",
+    color: "bg-slate-50 text-slate-700 border-slate-200",
   },
 ];
 
+const CATEGORY_META = {
+  GATES: {
+    title: "Gates & Checkpoints",
+    description: "Perimeter entry/exit points, vehicle barriers, and turnstiles",
+    icon: Door,
+    requiredRoleDesc: "Requires Guard or Security role",
+  },
+  HOSTELS: {
+    title: "Hostels & Residential",
+    description: "Student residential halls and hostel premises",
+    icon: House,
+    requiredRoleDesc: "Requires Warden or Hostel Operator role",
+  },
+  ACADEMIC: {
+    title: "Academic & Research",
+    description: "Academic blocks, lecture halls, and laboratories",
+    icon: GraduationCap,
+    requiredRoleDesc: null,
+  },
+  ADMINISTRATION: {
+    title: "Administration & Facilities",
+    description: "Administrative offices, central library, and university amenities",
+    icon: Buildings,
+    requiredRoleDesc: null,
+  },
+};
+
 export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
+  const { toast } = useToast();
+
+  const [activeTab, setActiveTab] = useState("access_control"); // 'access_control' | 'audit_history' | 'security_credentials'
   const [detail, setDetail] = useState(null);
   const [effectivePerms, setEffectivePerms] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [hostelsList, setHostelsList] = useState([]);
-  const [locationTree, setLocationTree] = useState([]);
   const [locationsList, setLocationsList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("grants"); // 'grants' | 'roles' | 'credentials' | 'effective' | 'history'
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // Credentials & Workspace
-  const [issuedCredentials, setIssuedCredentials] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [copiedKey, setCopiedKey] = useState("");
-  const [issuingCredentials, setIssuingCredentials] = useState(false);
-  const [autoIssuePassword, setAutoIssuePassword] = useState(true);
-  const [customPasswordInput, setCustomPasswordInput] = useState("");
-
-  // Role editing
+  // Access Control Form State
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [selectedHostels, setSelectedHostels] = useState([]);
-  const [savingRoles, setSavingRoles] = useState(false);
-  const [roleMessage, setRoleMessage] = useState("");
+  const [selectedLocationIds, setSelectedLocationIds] = useState(new Set());
+  const [locationSearch, setLocationSearch] = useState("");
+  const [savingChanges, setSavingChanges] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
 
-  // Modals
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [revokingGrantId, setRevokingGrantId] = useState(null);
-  const [extendingGrant, setExtendingGrant] = useState(null);
-  const [newExpiryDate, setNewExpiryDate] = useState("");
-  const [extendLoading, setExtendLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  // Password Reset Modal State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [customPasswordInput, setCustomPasswordInput] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [issuedCredentials, setIssuedCredentials] = useState(null);
+  const [copiedKey, setCopiedKey] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -113,7 +241,7 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
     setLoading(true);
     setErrorMsg("");
     try {
-      const [userDetail, userAccess, perms, logs, tree, hostels, flatLocs] =
+      const [userDetail, userAccess, perms, logs, hostels, flatLocs] =
         await Promise.all([
           accessService.getAccessUserDetail(userId),
           accessService
@@ -121,9 +249,8 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
             .catch(() => ({ roles: [], hostels: [] })),
           accessService.getUserEffectivePermissions(userId).catch(() => []),
           accessService
-            .getAccessAuditLogs({ user_id: userId, page: 1, page_size: 15 })
+            .getAccessAuditLogs({ user_id: userId, page: 1, page_size: 25 })
             .catch(() => ({ logs: [] })),
-          accessService.getLocationTree().catch(() => []),
           userService.getHostels().catch(() => []),
           accessService.getLocations().catch(() => []),
         ]);
@@ -131,16 +258,32 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
       setDetail(userDetail);
       setEffectivePerms(perms || []);
       setAuditLogs(logs.logs || []);
-      setLocationTree(tree || []);
       setHostelsList(hostels || []);
       setLocationsList(flatLocs || []);
 
-      setSelectedRoles(userAccess.roles || userDetail.roles || []);
+      // Normalize current roles
+      const currentRoles = (userAccess.roles || userDetail.roles || []).map((r) =>
+        String(r).toUpperCase(),
+      );
+      setSelectedRoles(currentRoles);
+
+      // Normalize current hostel IDs
       setSelectedHostels(
         (userAccess.hostels || []).map((h) =>
           typeof h === "string" ? h : h.id,
         ),
       );
+
+      // Normalize current active location grant IDs
+      const activeLocIds = new Set();
+      if (userDetail.location_grants && Array.isArray(userDetail.location_grants)) {
+        userDetail.location_grants.forEach((g) => {
+          if (g.status === "active") {
+            activeLocIds.add(g.location_id);
+          }
+        });
+      }
+      setSelectedLocationIds(activeLocIds);
     } catch (err) {
       setErrorMsg(
         err.response?.data?.error?.message ||
@@ -152,6 +295,194 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
     }
   };
 
+  // Operational Role Check Helpers
+  const roleSet = useMemo(() => new Set(selectedRoles), [selectedRoles]);
+
+  const hasGuardRole = useMemo(() => {
+    return ["GUARD", "SECURITY_GUARD", "SECURITY_SUPERVISOR", "GATE_OPERATOR", "ADMIN", "SUPER_ADMIN"].some(
+      (r) => roleSet.has(r),
+    );
+  }, [roleSet]);
+
+  const hasWardenRole = useMemo(() => {
+    return ["WARDEN", "HOSTEL_OPERATOR", "ADMIN", "SUPER_ADMIN"].some((r) =>
+      roleSet.has(r),
+    );
+  }, [roleSet]);
+
+  // Operational Role Toggle with Cascading Location Grant Synchronization (Requirement 13.3)
+  const toggleRole = (roleId) => {
+    let newRoles;
+    if (selectedRoles.includes(roleId)) {
+      newRoles = selectedRoles.filter((r) => r !== roleId);
+    } else {
+      newRoles = [...selectedRoles, roleId];
+    }
+    setSelectedRoles(newRoles);
+
+    const newRoleSet = new Set(newRoles);
+    const stillHasGuard = ["GUARD", "SECURITY_GUARD", "SECURITY_SUPERVISOR", "GATE_OPERATOR", "ADMIN", "SUPER_ADMIN"].some(
+      (r) => newRoleSet.has(r),
+    );
+    const stillHasWarden = ["WARDEN", "HOSTEL_OPERATOR", "ADMIN", "SUPER_ADMIN"].some((r) =>
+      newRoleSet.has(r),
+    );
+
+    // If Guard role is removed, automatically remove/invalidate dependent gate location grants
+    if (hasGuardRole && !stillHasGuard) {
+      setSelectedLocationIds((prev) => {
+        const next = new Set(prev);
+        locationsList.forEach((loc) => {
+          if (categorizeLocation(loc) === "GATES") {
+            next.delete(loc.id);
+          }
+        });
+        return next;
+      });
+      toast.info("Guard role removed. Associated gate location access unselected.");
+    }
+
+    // If Warden role is removed, automatically remove/invalidate dependent hostel location grants
+    if (hasWardenRole && !stillHasWarden) {
+      setSelectedLocationIds((prev) => {
+        const next = new Set(prev);
+        locationsList.forEach((loc) => {
+          if (categorizeLocation(loc) === "HOSTELS") {
+            next.delete(loc.id);
+          }
+        });
+        return next;
+      });
+      setSelectedHostels([]);
+      toast.info("Warden role removed. Associated hostel access unselected.");
+    }
+  };
+
+  const toggleLocation = (locId) => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(locId)) {
+        next.delete(locId);
+      } else {
+        next.add(locId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllGroup = (groupKey, locs) => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      locs.forEach((l) => next.add(l.id));
+      return next;
+    });
+  };
+
+  const handleClearAllGroup = (groupKey, locs) => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      locs.forEach((l) => next.delete(l.id));
+      return next;
+    });
+  };
+
+  // Group locations for the checkbox interface
+  const groupedLocations = useMemo(() => {
+    const groups = {
+      GATES: [],
+      HOSTELS: [],
+      ACADEMIC: [],
+      ADMINISTRATION: [],
+    };
+
+    const q = locationSearch.toLowerCase().trim();
+    locationsList.forEach((loc) => {
+      if (q && !loc.name.toLowerCase().includes(q) && !(loc.type || "").toLowerCase().includes(q)) {
+        return;
+      }
+      const cat = categorizeLocation(loc);
+      if (groups[cat]) {
+        groups[cat].push(loc);
+      } else {
+        groups.ADMINISTRATION.push(loc);
+      }
+    });
+
+    Object.keys(groups).forEach((k) => {
+      groups[k].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    return groups;
+  }, [locationsList, locationSearch]);
+
+  // Save changes without touching passwords (Requirements 13.4 & 13.5)
+  const handleSaveAccessChanges = async () => {
+    setSavingChanges(true);
+    setFeedbackMessage("");
+    try {
+      // 1. Update roles in Keycloak & local database
+      await accessService.updateUserAccess(userId, {
+        roles: selectedRoles,
+        hostel_ids: selectedRoles.some((role) => ["WARDEN", "HOSTEL_OPERATOR"].includes(role))
+          ? selectedHostels
+          : [],
+        location_ids: Array.from(selectedLocationIds),
+        issue_password: false, // Strictly decoupled!
+      });
+
+      // 2. Synchronize location grants atomically
+      await accessService.syncUserLocations(
+        userId,
+        Array.from(selectedLocationIds),
+        "ENTRY",
+        "Assigned via Access Control configuration center",
+      );
+
+      toast.success(
+        "Access control configuration updated successfully! Password remains unchanged.",
+      );
+      setFeedbackMessage(
+        "Roles and location grants successfully synchronized. Password was not modified.",
+      );
+      await loadAllData();
+      if (onUserUpdated) onUserUpdated();
+    } catch (err) {
+      const msg =
+        err.response?.data?.error?.message ||
+          err.response?.data?.detail?.message ||
+          err.message ||
+          "Failed to save access changes.";
+      toast.error(msg);
+      setFeedbackMessage(`Error: ${msg}`);
+    } finally {
+      setSavingChanges(false);
+    }
+  };
+
+  // Explicit Password Reset (Requirement 13.4)
+  const handleExecuteResetPassword = async () => {
+    setResettingPassword(true);
+    try {
+      const res = await accessService.issueUserCredentials(
+        userId,
+        customPasswordInput.trim() || null,
+      );
+      setIssuedCredentials(res);
+      toast.success(`Password reset successfully for ${res.email}!`);
+      setCustomPasswordInput("");
+      await loadAllData();
+      if (onUserUpdated) onUserUpdated();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.error?.message ||
+          err.message ||
+          "Failed to reset user password.",
+      );
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const handleCopy = (text, key) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -159,1186 +490,888 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
     setTimeout(() => setCopiedKey(""), 2500);
   };
 
-  const handleIssueCredentials = async (customPwd = null) => {
-    setIssuingCredentials(true);
-    setRoleMessage("");
-    try {
-      const res = await accessService.issueUserCredentials(userId, customPwd);
-      setIssuedCredentials(res);
-      setActiveTab("credentials");
-      setRoleMessage(
-        `Credentials successfully generated and synchronized for ${res.email}!`,
+  // Derive Effective Capabilities for Section 13.7
+  const derivedCapabilities = useMemo(() => {
+    const list = [];
+    selectedRoles.forEach((role) => {
+      const cfg = OPERATIONAL_ROLES_CONFIG.find((c) =>
+        c.aliases.includes(role),
       );
-      await loadAllData();
-      if (onUserUpdated) onUserUpdated();
-    } catch (err) {
-      alert(
-        err.response?.data?.error?.message || "Failed to issue credentials.",
-      );
-    } finally {
-      setIssuingCredentials(false);
-      setCustomPasswordInput("");
-    }
-  };
-
-  // Save role updates
-  const handleSaveRoles = async () => {
-    setSavingRoles(true);
-    setRoleMessage("");
-    try {
-      const res = await accessService.updateUserAccess(userId, {
-        roles: selectedRoles,
-        hostel_ids: selectedRoles.includes("WARDEN") ? selectedHostels : [],
-        issue_password: autoIssuePassword,
-        custom_password: customPasswordInput
-          ? customPasswordInput.trim()
-          : undefined,
-      });
-      const assignedRoles =
-        (res.roles || []).join(", ") || "No operational roles";
-      const identity = detail?.email || userId;
-      const identityId = detail?.id || userId;
-      const kcId = res.keycloak_user_id
-        ? ` Keycloak ID: ${res.keycloak_user_id}.`
-        : "";
-
-      if (res.credentials?.password) {
-        setIssuedCredentials(res.credentials);
-        setActiveTab("credentials");
+      if (cfg && cfg.capabilities) {
+        cfg.capabilities.forEach((cap) => {
+          if (!list.includes(cap)) list.push(cap);
+        });
       }
+    });
+    return list;
+  }, [selectedRoles]);
 
-      const credentialsNotice = res.credentials?.password
-        ? " Login credentials have been generated and are ready to copy in the Login & Credentials tab."
-        : res.credentials_issued
-          ? " Login credentials generated."
-          : "";
-      setRoleMessage(
-        `Keycloak roles synchronized for ${identity} (User ID: ${identityId}). Assigned: ${assignedRoles}.${kcId}${credentialsNotice}`,
-      );
-      await loadAllData();
-      if (onUserUpdated) onUserUpdated();
-    } catch (err) {
-      setRoleMessage(
-        err.response?.data?.error?.message || "Failed to update roles.",
-      );
-    } finally {
-      setSavingRoles(false);
+  const assignedLocationNames = useMemo(() => {
+    return locationsList
+      .filter((l) => selectedLocationIds.has(l.id))
+      .map((l) => l.name);
+  }, [locationsList, selectedLocationIds]);
+
+  const derivedRestrictions = useMemo(() => {
+    const restrictions = [];
+    if (!hasWardenRole) {
+      restrictions.push("Hostel operations & student leave approvals (Warden role required)");
     }
-  };
-
-  const toggleRole = (roleId) => {
-    if (selectedRoles.includes(roleId)) {
-      setSelectedRoles(selectedRoles.filter((r) => r !== roleId));
-    } else {
-      setSelectedRoles([...selectedRoles, roleId]);
+    if (!hasGuardRole) {
+      restrictions.push("Gate barrier automation & live checkpoint review (Guard role required)");
     }
-  };
-
-  const toggleHostel = (hostelId) => {
-    if (selectedHostels.includes(hostelId)) {
-      setSelectedHostels(selectedHostels.filter((h) => h !== hostelId));
-    } else {
-      setSelectedHostels([...selectedHostels, hostelId]);
+    if (!selectedRoles.includes("ADMIN") && !selectedRoles.includes("SUPER_ADMIN")) {
+      restrictions.push("System-wide administrative settings & user role assignments (Admin only)");
     }
-  };
+    return restrictions;
+  }, [hasWardenRole, hasGuardRole, selectedRoles]);
 
-  // Revoke grant
-  const handleRevokeGrant = async (grantId) => {
-    if (!confirm("Are you sure you want to revoke this location access grant?"))
-      return;
-    setRevokingGrantId(grantId);
-    try {
-      await accessService.revokeLocationGrant(grantId);
-      await loadAllData();
-      if (onUserUpdated) onUserUpdated();
-    } catch (err) {
-      alert(err.response?.data?.error?.message || "Failed to revoke grant.");
-    } finally {
-      setRevokingGrantId(null);
-    }
-  };
-
-  // Extend / Edit grant expiry
-  const handleExtendGrantSubmit = async (e) => {
-    e.preventDefault();
-    if (!extendingGrant) return;
-    setExtendLoading(true);
-    try {
-      await accessService.updateLocationGrant(extendingGrant.id, {
-        valid_until: newExpiryDate
-          ? new Date(newExpiryDate).toISOString()
-          : null,
-        status: "active",
-      });
-      setExtendingGrant(null);
-      await loadAllData();
-      if (onUserUpdated) onUserUpdated();
-    } catch (err) {
-      alert(err.response?.data?.error?.message || "Failed to extend grant.");
-    } finally {
-      setExtendLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (loading && !detail) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-3 min-h-[400px]">
-        <SpinnerGap size={32} className="animate-spin text-amber-500" />
-        <p className="text-sm font-semibold text-slate-600">
-          Loading access profile...
+      <div className="flex-1 flex flex-col items-center justify-center p-12 space-y-4">
+        <SpinnerGap size={36} className="animate-spin text-[#0a2342]" />
+        <p className="text-sm font-bold text-slate-600">
+          Loading access control configuration...
         </p>
       </div>
     );
   }
 
-  if (errorMsg || !detail) {
-    return (
-      <div className="p-6">
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-3">
-          <WarningCircle size={20} className="shrink-0" />
-          <div className="flex-1">
-            <p className="font-bold">Error loading user access</p>
-            <p>{errorMsg || "User details not found"}</p>
+  return (
+    <div className="flex-1 flex flex-col h-full bg-slate-50/60 overflow-hidden text-slate-800">
+      {/* ── HEADER & NAVIGATION BAR ── */}
+      <div className="px-6 py-4 bg-white border-b border-slate-200 shrink-0 flex items-center justify-between shadow-2xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0a2342] px-2 py-0.5 rounded-md bg-[#0a2342]/10">
+              Access Control
+            </span>
+            <span className="text-xs text-slate-400">•</span>
+            <span className="text-xs text-slate-500 font-mono">
+              ID: {detail?.id?.slice(0, 8)}...
+            </span>
           </div>
-          <button onClick={loadAllData} className="btn btn-outline text-xs">
-            <ArrowsClockwise size={14} /> Retry
+          <h1 className="text-lg font-extrabold text-[#0a2342] mt-0.5">
+            {detail?.full_name || detail?.email}
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Navigation Tabs */}
+          <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab("access_control")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === "access_control"
+                  ? "bg-[#0a2342] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ShieldCheck size={14} weight="bold" />
+              Access Control
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("audit_history")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === "audit_history"
+                  ? "bg-[#0a2342] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ClockCounterClockwise size={14} weight="bold" />
+              Audit Logs
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("security_credentials")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === "security_credentials"
+                  ? "bg-[#0a2342] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Lock size={14} weight="bold" />
+              Security &amp; Password
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+          >
+            <X size={20} />
           </button>
         </div>
       </div>
-    );
-  }
 
-  // The API returns identity fields at the top level, not inside `user`.
-  const user = detail;
-  const { location_grants = [], temporary_grants = [] } = detail;
-
-  // Helper for access level badge
-  const renderAccessBadge = (level) => {
-    switch (level) {
-      case "ADMIN":
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-            ADMIN
-          </span>
-        );
-      case "MANAGE":
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-            MANAGE
-          </span>
-        );
-      case "ENTRY":
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            ENTRY
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-            {level}
-          </span>
-        );
-    }
-  };
-
-  const renderSourceBadge = (perm) => {
-    switch (perm.source) {
-      case "inherited":
-        return (
-          <span className="text-slate-600 flex items-center gap-1 font-medium">
-            <Stack size={12} className="text-amber-500" /> Inherited from {perm.inherited_from_name || "Parent Location"}
-          </span>
-        );
-      case "hostel_assignment":
-        return (
-          <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 font-bold flex items-center gap-1">
-            <Buildings size={12} /> Hostel Resident Rights
-          </span>
-        );
-      case "warden_jurisdiction":
-        return (
-          <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-bold flex items-center gap-1">
-            <Shield size={12} /> Warden Jurisdiction
-          </span>
-        );
-      case "security_role":
-        return (
-          <span className="text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 font-bold flex items-center gap-1">
-            <ShieldCheck size={12} /> Security Gate Checkpoint
-          </span>
-        );
-      case "department_affiliation":
-        return (
-          <span className="text-purple-800 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 font-bold flex items-center gap-1">
-            <Buildings size={12} /> Academic Department Member
-          </span>
-        );
-      case "common_campus_area":
-        return (
-          <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 font-bold flex items-center gap-1">
-            <Check size={12} /> General Campus Common Area
-          </span>
-        );
-      case "admin_full_access":
-        return (
-          <span className="text-rose-800 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 font-bold flex items-center gap-1">
-            <Sparkle size={12} /> Campus Admin Full Access
-          </span>
-        );
-      case "direct":
-      default:
-        return (
-          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-bold flex items-center gap-1">
-            <Check size={12} /> Explicit Grant
-          </span>
-        );
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full bg-white">
-      {/* ── Top Header / User Profile Summary ── */}
-      <div className="p-6 border-b border-[var(--border-light)] bg-gradient-to-b from-slate-50 to-white">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            {/* Avatar */}
-            {user.photo_reference ? (
-              <img
-                src={user.photo_reference}
-                alt={user.full_name}
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md ring-1 ring-slate-200"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-2xl bg-[#0a2342] text-amber-400 font-extrabold text-2xl flex items-center justify-center shadow-md">
-                {(user.full_name || user.email || "U").charAt(0).toUpperCase()}
-              </div>
-            )}
-
-            {/* Identity Details */}
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-extrabold text-[#0a2342] tracking-tight">
-                  {user.full_name || "Unnamed User"}
-                </h2>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                    user.status === "active"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : user.status === "suspended"
-                        ? "bg-amber-50 text-amber-700 border-amber-200"
-                        : "bg-rose-50 text-rose-700 border-rose-200"
-                  }`}
-                >
-                  {user.status || "active"}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-                  {user.user_type || "user"}
-                </span>
-              </div>
-
-              <p className="text-xs text-[var(--text-muted)] flex flex-wrap items-center gap-3">
-                <span>{user.email}</span>
-                {user.phone && <span>• {user.phone}</span>}
-                {(user.roll_number || user.employee_id) && (
-                  <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">
-                    ID: {user.roll_number || user.employee_id}
-                  </span>
-                )}
-              </p>
-
-              {/* Academic / Hostel tags */}
-              <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-600">
-                {user.department && (
-                  <span className="flex items-center gap-1 bg-blue-50/70 border border-blue-100 px-2 py-0.5 rounded-md text-blue-800 font-medium">
-                    <Buildings size={12} /> {user.department}
-                  </span>
-                )}
-                {user.course && (
-                  <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-700">
-                    Course: {user.course}{" "}
-                    {user.semester ? `(Sem ${user.semester})` : ""}
-                  </span>
-                )}
-                {user.hostel_name && (
-                  <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-amber-900 font-medium">
-                    Hostel: {user.hostel_name}
-                  </span>
-                )}
-                {user.keycloak_linked && (
-                  <span
-                    className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md text-emerald-800"
-                    title={`Keycloak ID: ${user.keycloak_user_id}`}
-                  >
-                    <Key size={11} /> Keycloak Synced
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={loadAllData}
-              title="Refresh access data"
-              className="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 transition"
-            >
-              <ArrowsClockwise size={16} />
-            </button>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 transition"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 mt-6 border-b border-slate-200">
-          {[
-            {
-              id: "grants",
-              label: "Location Grants",
-              icon: MapPin,
-              count: location_grants.length,
-            },
-            {
-              id: "roles",
-              label: "Operational Roles",
-              icon: Shield,
-              count: (detail.roles || []).length,
-            },
-            {
-              id: "credentials",
-              label: "Login & Credentials",
-              icon: Key,
-              badge: issuedCredentials ? "Ready" : null,
-            },
-            {
-              id: "effective",
-              label: "Effective Permissions",
-              icon: Stack,
-              count: effectivePerms.length,
-            },
-            {
-              id: "history",
-              label: "Audit ClockCounterClockwise",
-              icon: ClockCounterClockwise,
-              count: auditLogs.length,
-            },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition relative ${
-                  isActive
-                    ? "border-amber-500 text-amber-700 bg-amber-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <Icon size={14} />
-                <span>{tab.label}</span>
-                {tab.count !== undefined && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                      isActive
-                        ? "bg-amber-200/60 text-amber-900"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
-                {tab.badge && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Tab Content ── */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {/* ── 1. LOCATION GRANTS TAB ── */}
-        {activeTab === "grants" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800">
-                  Granted Location Access
-                </h3>
-                <p className="text-xs text-[var(--text-muted)]">
-                  Explicit location grants assigned to this user in PostgreSQL.
-                  Grants propagate to child zones automatically.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsAssignModalOpen(true)}
-                className="btn btn-primary text-xs"
-              >
-                <Plus size={15} /> Assign Location Access
-              </button>
-            </div>
-
-            {location_grants.length === 0 ? (
-              <div className="text-center py-12 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <MapPin size={36} className="mx-auto text-slate-300 mb-2" />
-                <h4 className="font-bold text-sm text-slate-700">
-                  No Location Grants Assigned
-                </h4>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-                  This user currently relies on default public access rules or
-                  role-based RFID rules.
-                </p>
-                <button
-                  onClick={() => setIsAssignModalOpen(true)}
-                  className="btn btn-outline text-xs"
-                >
-                  <Plus size={14} /> Assign First Location Grant
-                </button>
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-xl border border-[var(--border-light)] bg-white shadow-sm">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 text-[11px] font-bold text-[var(--text-muted)] uppercase border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3">Location</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Level</th>
-                      <th className="px-4 py-3">Validity</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {location_grants.map((grant) => {
-                      const isExpired =
-                        grant.status === "expired" ||
-                        (grant.valid_until &&
-                          new Date(grant.valid_until) < new Date());
-                      const isRevoked = grant.status === "revoked";
-                      return (
-                        <tr
-                          key={grant.id}
-                          className="hover:bg-slate-50/80 transition"
-                        >
-                          <td className="px-4 py-3 font-semibold text-slate-800">
-                            <div className="flex items-center gap-2">
-                              <MapPin
-                                size={14}
-                                className="text-amber-500 shrink-0"
-                              />
-                              <span>
-                                {grant.location_name ||
-                                  "Location " + grant.location_id.slice(0, 8)}
-                              </span>
-                            </div>
-                            {grant.reason && (
-                              <p className="text-[10px] text-slate-400 mt-0.5 ml-5">
-                                {grant.reason}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-slate-600 capitalize">
-                            {grant.location_type || "building"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {renderAccessBadge(grant.access_level)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {grant.valid_until ? (
-                              <span
-                                className={`flex items-center gap-1 font-medium ${
-                                  isExpired
-                                    ? "text-rose-600 line-through"
-                                    : "text-slate-700"
-                                }`}
-                              >
-                                <Clock size={12} />
-                                {new Date(
-                                  grant.valid_until,
-                                ).toLocaleDateString()}{" "}
-                                {new Date(grant.valid_until).toLocaleTimeString(
-                                  [],
-                                  { hour: "2-digit", minute: "2-digit" },
-                                )}
-                              </span>
-                            ) : (
-                              <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                                <Sparkle size={12} /> Permanent
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-                                isRevoked
-                                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                                  : isExpired
-                                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              }`}
-                            >
-                              {isRevoked
-                                ? "Revoked"
-                                : isExpired
-                                  ? "Expired"
-                                  : "Active"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setExtendingGrant(grant);
-                                  setNewExpiryDate(
-                                    grant.valid_until
-                                      ? new Date(grant.valid_until)
-                                          .toISOString()
-                                          .slice(0, 16)
-                                      : "",
-                                  );
-                                }}
-                                title="Edit / Extend expiration"
-                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              {!isRevoked && (
-                                <button
-                                  onClick={() => handleRevokeGrant(grant.id)}
-                                  disabled={revokingGrantId === grant.id}
-                                  title="Revoke access grant"
-                                  className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition disabled:opacity-50"
-                                >
-                                  {revokingGrantId === grant.id ? (
-                                    <SpinnerGap
-                                      size={13}
-                                      className="animate-spin"
-                                    />
-                                  ) : (
-                                    <TrashSimple size={13} />
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Temporary Grants Legacy Section if any */}
-            {temporary_grants.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-slate-200">
-                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">
-                  Temporary / Visitor Pass Grants
-                </h4>
-                <div className="space-y-2">
-                  {temporary_grants.map((tg) => (
-                    <div
-                      key={tg.id}
-                      className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <span className="font-bold text-slate-800">
-                          {tg.location_name || tg.location_id}
-                        </span>
-                        <span className="ml-2 text-slate-500">
-                          Valid: {new Date(tg.valid_from).toLocaleDateString()}{" "}
-                          – {new Date(tg.valid_to).toLocaleDateString()}
-                        </span>
-                        {tg.reason && (
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            {tg.reason}
-                          </p>
-                        )}
-                      </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                        {tg.status || "Active"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+      {/* ── SCROLLABLE WORKSPACE ── */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {errorMsg && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2.5">
+            <WarningCircle size={18} className="text-rose-600 shrink-0" />
+            <span className="font-semibold">{errorMsg}</span>
           </div>
         )}
 
-        {/* ── 2. OPERATIONAL ROLES TAB ── */}
-        {activeTab === "roles" && (
-          <div className="space-y-6 max-w-2xl">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-800">
-                Operational Role Management
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                Manage roles synchronized directly with Keycloak. Adding or
-                removing roles updates the user's Keycloak realm roles
-                instantly.
-              </p>
+        {/* ══════════════════════════════════════════════════════════════════════
+            TAB 1: UNIFIED ACCESS CONTROL
+            ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === "access_control" && (
+          <div className="space-y-6">
+            {/* 1. USER INFORMATION CARD (13.6) */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  {detail?.photo_reference ? (
+                    <img
+                      src={detail.photo_reference}
+                      alt={detail.full_name}
+                      className="w-16 h-20 rounded-xl object-cover border-2 border-slate-200 shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-20 rounded-xl bg-slate-100 border-2 border-slate-200 flex flex-col items-center justify-center text-slate-400 shrink-0">
+                      <User size={24} />
+                      <span className="text-[9px] uppercase mt-1">Photo</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base font-extrabold text-slate-900">
+                        {detail?.full_name || detail?.email}
+                      </h2>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border ${
+                          detail?.status === "active"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        <CheckCircle size={11} />
+                        {detail?.status?.toUpperCase() || "ACTIVE"}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 uppercase">
+                        {detail?.user_type || "User"}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-500 space-y-0.5 font-mono">
+                      <p>
+                        Email:{" "}
+                        <span className="text-slate-800 font-semibold font-sans">
+                          {detail?.email}
+                        </span>
+                      </p>
+                      <p>
+                        Identifier:{" "}
+                        <span className="text-slate-800 font-semibold">
+                          {detail?.employee_id || detail?.roll_number || detail?.id}
+                        </span>
+                      </p>
+                    </div>
+
+                    {detail?.department && (
+                      <p className="text-xs text-slate-500">
+                        Department:{" "}
+                        <span className="font-semibold text-slate-700">
+                          {detail.department}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-start sm:items-end justify-center space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">Keycloak SSO:</span>
+                    {detail?.keycloak_linked ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <Check size={11} weight="bold" /> Linked
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-bold text-[11px] bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                        Unlinked
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Roles configures authorization only. Passwords are never altered.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {roleMessage && (
-              <div
-                className={`p-3.5 rounded-xl border text-xs flex items-center gap-2 ${
-                  roleMessage.includes("synchronized")
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : "bg-rose-50 border-rose-200 text-rose-800"
-                }`}
-              >
-                <CheckCircle size={16} />
-                <span>{roleMessage}</span>
-              </div>
-            )}
+            {/* 2. OPERATIONAL ROLES SECTION (13.1 & 13.6) */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-lg bg-[#0a2342] text-[#f5bd19]">
+                      <Shield size={16} weight="fill" />
+                    </div>
+                    <h3 className="text-sm font-extrabold text-[#0a2342]">
+                      Operational Roles (What can this person do?)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select the operational roles determining the individual's campus permissions.
+                  </p>
+                </div>
 
-            {/* Role checkboxes */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">
-                Select Assigned Roles
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {OPERATIONAL_ROLES.map((role) => {
+                <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-[#0a2342]/10 text-[#0a2342]">
+                  {selectedRoles.length} Roles Selected
+                </span>
+              </div>
+
+              {/* Operational Roles Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {OPERATIONAL_ROLES_CONFIG.map((role) => {
                   const isChecked = selectedRoles.includes(role.id);
                   return (
                     <label
                       key={role.id}
-                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${
+                      className={`flex items-start gap-3 p-3.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
                         isChecked
-                          ? "border-amber-500 bg-amber-50/40 ring-1 ring-amber-500/20"
-                          : "border-slate-200 hover:bg-slate-50"
+                          ? "bg-slate-50/80 border-[#0a2342] shadow-xs ring-1 ring-[#0a2342]/10"
+                          : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/40"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleRole(role.id)}
-                          className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 border-slate-300"
-                        />
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">
-                            {role.label}
-                          </p>
-                          <p className="text-[10px] text-slate-500 font-mono">
-                            {role.id}
-                          </p>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleRole(role.id)}
+                        className="mt-0.5 w-4 h-4 rounded-sm border-slate-300 text-[#0a2342] focus:ring-[#0a2342] cursor-pointer"
+                      />
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-slate-900">
+                            {role.title}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${role.color}`}
+                          >
+                            {role.category}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          {role.description}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Warden Assigned Hostels if Warden role is checked */}
+              {selectedRoles.some((role) => ["WARDEN", "HOSTEL_OPERATOR"].includes(role)) && (
+                <div className="mt-4 p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <House size={15} weight="fill" />
+                      Hostel Jurisdiction (Required for Hostel Wardens)
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-800">
+                      {selectedHostels.length} Hostels Assigned
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                    {hostelsList.map((h) => {
+                      const hId = h.id;
+                      const isAssigned = selectedHostels.includes(hId);
+                      return (
+                        <label
+                          key={hId}
+                          className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer select-none transition ${
+                            isAssigned
+                              ? "bg-amber-100/70 border-amber-300 font-bold text-amber-950"
+                              : "bg-white border-amber-200/60 text-slate-700 hover:bg-amber-50/50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={() => {
+                              if (isAssigned) {
+                                setSelectedHostels(
+                                  selectedHostels.filter((x) => x !== hId),
+                                );
+                              } else {
+                                setSelectedHostels([...selectedHostels, hId]);
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded-sm border-amber-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="truncate">{h.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. LOCATION ACCESS SECTION (13.2 & 13.6 Checkbox-Based UI) */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-lg bg-[#0a2342] text-[#f5bd19]">
+                      <MapPin size={16} weight="fill" />
+                    </div>
+                    <h3 className="text-sm font-extrabold text-[#0a2342]">
+                      Location Grants (Where can this person operate?)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select locations where operational permissions apply (Checked = Access Granted, Unchecked = Denied).
+                  </p>
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <MagnifyingGlass
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search locations..."
+                    value={locationSearch}
+                    onChange={(e) => setLocationSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0a2342]/20 focus:border-[#0a2342]"
+                  />
+                </div>
+              </div>
+
+              {/* Grouped Location Checkbox Sections */}
+              <div className="space-y-4 pt-1">
+                {Object.entries(groupedLocations).map(([catKey, locs]) => {
+                  if (locs.length === 0) return null;
+                  const meta = CATEGORY_META[catKey];
+                  const IconComp = meta.icon;
+
+                  const isMissingRole =
+                    (catKey === "GATES" && !hasGuardRole) ||
+                    (catKey === "HOSTELS" && !hasWardenRole);
+
+                  const countSelected = locs.filter((l) =>
+                    selectedLocationIds.has(l.id),
+                  ).length;
+
+                  return (
+                    <div
+                      key={catKey}
+                      className="rounded-xl border border-slate-200 overflow-hidden bg-white"
+                    >
+                      <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <IconComp size={15} className="text-[#0a2342]" weight="bold" />
+                          <span className="text-xs font-bold text-slate-900">
+                            {meta.title}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 font-extrabold text-slate-700">
+                            {countSelected} / {locs.length}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllGroup(catKey, locs)}
+                            className="font-bold text-[#0a2342] hover:underline px-1.5 py-0.5 rounded hover:bg-white"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => handleClearAllGroup(catKey, locs)}
+                            className="font-bold text-slate-500 hover:text-slate-800 hover:underline px-1.5 py-0.5 rounded hover:bg-white"
+                          >
+                            Clear
+                          </button>
                         </div>
                       </div>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${role.color}`}
-                      >
-                        {role.id}
-                      </span>
-                    </label>
+
+                      {isMissingRole && (
+                        <div className="px-4 py-2 bg-amber-50/80 border-b border-amber-200/70 text-[11px] text-amber-800 flex items-center gap-2">
+                          <WarningCircle size={14} className="text-amber-600 shrink-0" />
+                          <span>
+                            {meta.requiredRoleDesc}. Granting location access without the operational role restricts active duty controls.
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        {locs.map((loc) => {
+                          const isChecked = selectedLocationIds.has(loc.id);
+                          return (
+                            <label
+                              key={loc.id}
+                              className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer select-none transition ${
+                                isChecked
+                                  ? "bg-emerald-50/40 border-emerald-300 shadow-2xs font-semibold text-emerald-950"
+                                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleLocation(loc.id)}
+                                  className="w-3.5 h-3.5 rounded-sm border-slate-300 text-[#0a2342] focus:ring-[#0a2342]"
+                                />
+                                <span className="truncate">{loc.name}</span>
+                              </div>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase shrink-0 ${
+                                  isChecked
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                    : "bg-slate-100 text-slate-400"
+                                }`}
+                              >
+                                {isChecked ? "Granted" : "Denied"}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Warden Hostel Scope if WARDEN role selected */}
-            {selectedRoles.includes("WARDEN") && (
-              <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-3 animate-fade-in">
-                <div className="flex items-center gap-2">
-                  <Buildings size={16} className="text-amber-700" />
-                  <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-                    Warden Hostel Scope Assignment
+            {/* 4. EFFECTIVE ACCESS SUMMARY (13.6 & 13.7) */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-lg bg-[#0a2342] text-[#f5bd19]">
+                  <Stack size={16} weight="fill" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-[#0a2342]">
+                    Effective Access Summary
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Real-time calculated authorization footprint for this user.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
+                {/* Who is this person? */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-1.5">
+                  <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <User size={14} className="text-[#0a2342]" />
+                    Who is this person?
                   </h4>
-                </div>
-                <p className="text-[11px] text-amber-800">
-                  Wardens are restricted to managing students and leave requests
-                  for specific assigned hostels. Select the hostels this warden
-                  oversees:
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {hostelsList.map((hostel) => {
-                    const isChecked = selectedHostels.includes(hostel.id);
-                    return (
-                      <label
-                        key={hostel.id}
-                        className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs cursor-pointer transition bg-white ${
-                          isChecked
-                            ? "border-amber-500 font-bold text-amber-900"
-                            : "border-slate-200 text-slate-700"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleHostel(hostel.id)}
-                          className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500"
-                        />
-                        <span>{hostel.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Auto issue credentials checkbox & Save Buttons */}
-            <div className="pt-3 border-t border-slate-200 space-y-3">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoIssuePassword}
-                  onChange={(e) => setAutoIssuePassword(e.target.checked)}
-                  className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 border-slate-300"
-                />
-                <span>Generate/refresh login credentials for this account</span>
-              </label>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleSaveRoles}
-                  disabled={savingRoles}
-                  className="btn btn-primary text-xs"
-                >
-                  {savingRoles ? (
-                    <SpinnerGap size={16} className="animate-spin" />
-                  ) : (
-                    <Shield size={16} />
-                  )}
-                  Save Roles & Sync Keycloak
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleIssueCredentials(null)}
-                  disabled={issuingCredentials}
-                  className="btn btn-outline text-xs flex items-center gap-1.5"
-                >
-                  {issuingCredentials ? (
-                    <SpinnerGap size={14} className="animate-spin" />
-                  ) : (
-                    <Key size={14} />
-                  )}
-                  <span>Issue / Reset Password Now</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── 3. LOGIN & CREDENTIALS TAB ── */}
-        {activeTab === "credentials" && (
-          <div className="space-y-6 max-w-2xl">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-800">
-                Login & Dashboard Credentials
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                Manage Keycloak authentication credentials and direct workspace
-                access for {detail.full_name || detail.email}.
-              </p>
-            </div>
-
-            {/* Issued Credentials Highlight Card */}
-            {issuedCredentials ? (
-              <div className="p-5 rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 shadow-md space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-emerald-500 text-white shadow-xs">
-                      <Key size={16} />
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-extrabold text-emerald-950 uppercase tracking-wider">
-                        Active Login Credentials Ready
-                      </h4>
-                      <p className="text-[11px] text-emerald-700">
-                        Synchronized with Keycloak identity provider
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    Ready to Use
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {/* Username / Email */}
-                  <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Email / Login ID
-                    </span>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-slate-900 select-all text-xs">
-                        {issuedCredentials.email || detail.email}
-                      </span>
-                      <button
-                        onClick={() =>
-                          handleCopy(
-                            issuedCredentials.email || detail.email,
-                            "email",
-                          )
-                        }
-                        className="p-1 text-slate-400 hover:text-slate-700"
-                        title="Copy Email"
-                      >
-                        {copiedKey === "email" ? (
-                          <Check size={14} className="text-emerald-600" />
-                        ) : (
-                          <Copy size={14} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Password */}
-                  <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Password
-                    </span>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-extrabold text-emerald-800 text-xs tracking-wider select-all">
-                        {showPassword
-                          ? issuedCredentials.password
-                          : "••••••••••••"}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="p-1 text-slate-400 hover:text-slate-700"
-                          title={showPassword ? "Hide" : "Show"}
+                  <p className="text-slate-800 font-semibold">
+                    {detail?.full_name || "Unknown"}
+                  </p>
+                  <p className="text-slate-500 font-mono text-[11px]">
+                    {detail?.email} (ID: {detail?.employee_id || detail?.roll_number || detail?.id?.slice(0, 8)})
+                  </p>
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {selectedRoles.length > 0 ? (
+                      selectedRoles.map((r) => (
+                        <span
+                          key={r}
+                          className="px-2 py-0.5 rounded-md bg-[#0a2342] text-white text-[10px] font-bold"
                         >
-                          {showPassword ? (
-                            <EyeSlash size={14} />
-                          ) : (
-                            <Eye size={14} />
-                          )}
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleCopy(issuedCredentials.password, "pwd")
-                          }
-                          className="p-1 text-slate-400 hover:text-slate-700"
-                          title="Copy Password"
-                        >
-                          {copiedKey === "pwd" ? (
-                            <Check size={14} className="text-emerald-600" />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Target Workspace */}
-                  <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs sm:col-span-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Assigned Workspace & Dashboard
-                    </span>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="p-1 rounded bg-[#0a2342] text-[#f5bd19]">
-                          <Shield size={13} />
+                          {r}
                         </span>
-                        <div>
-                          <p className="font-bold text-slate-800 text-xs">
-                            {issuedCredentials.dashboard_name ||
-                              "Assigned Workspace"}
-                          </p>
-                          <p className="font-mono text-[11px] text-slate-500">
-                            Path:{" "}
-                            {issuedCredentials.dashboard_path || "/dashboard"}
-                          </p>
-                        </div>
-                      </div>
-                      <a
-                        href={issuedCredentials.dashboard_path || "/dashboard"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                      >
-                        Preview <ArrowSquareOut size={12} />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Copy Complete Details Button */}
-                <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={() => {
-                      const text = `OCOC Campus Access Credentials\nUser: ${detail.full_name || detail.email}\nEmail: ${issuedCredentials.email || detail.email}\nPassword: ${issuedCredentials.password}\nRoles: ${(selectedRoles || []).join(", ") || "USER"}\nDashboard: ${issuedCredentials.dashboard_name} (${window.location.origin}${issuedCredentials.dashboard_path})\nLogin URL: ${window.location.origin}/login`;
-                      handleCopy(text, "all");
-                    }}
-                    className="btn btn-primary text-xs flex-1 flex items-center justify-center gap-2"
-                  >
-                    {copiedKey === "all" ? (
-                      <>
-                        <Check size={14} className="text-emerald-200" />
-                        <span>Copied All Credentials to Clipboard!</span>
-                      </>
+                      ))
                     ) : (
-                      <>
-                        <Copy size={14} />
-                        <span>Copy Complete Login Message</span>
-                      </>
+                      <span className="text-slate-400 italic">No operational roles assigned</span>
                     )}
-                  </button>
+                  </div>
+                </div>
+
+                {/* What can they do? */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-1.5">
+                  <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-emerald-600" />
+                    What can they do?
+                  </h4>
+                  {derivedCapabilities.length > 0 ? (
+                    <ul className="space-y-1 text-[11px] text-slate-700">
+                      {derivedCapabilities.slice(0, 5).map((cap, i) => (
+                        <li key={i} className="flex items-center gap-1.5">
+                          <Check size={12} weight="bold" className="text-emerald-600 shrink-0" />
+                          <span>{cap}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-slate-400 italic text-[11px]">
+                      No specialized operational permissions. Standard personal campus access only.
+                    </p>
+                  )}
+                </div>
+
+                {/* Where can they do it? */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-1.5">
+                  <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <MapPin size={14} className="text-amber-600" />
+                    Where can they do it?
+                  </h4>
+                  {assignedLocationNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pt-0.5">
+                      {assignedLocationNames.map((name, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 italic text-[11px]">
+                      No operational locations explicitly assigned.
+                    </p>
+                  )}
+                </div>
+
+                {/* What is restricted? */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-1.5">
+                  <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <ShieldWarning size={14} className="text-rose-600" />
+                    What is restricted?
+                  </h4>
+                  <ul className="space-y-1 text-[11px] text-slate-600">
+                    {derivedRestrictions.map((res, i) => (
+                      <li key={i} className="flex items-center gap-1.5">
+                        <X size={12} weight="bold" className="text-rose-500 shrink-0" />
+                        <span>{res}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            ) : (
-              <div className="p-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-3">
-                <Key size={32} className="mx-auto text-slate-400" />
-                <h4 className="font-bold text-sm text-slate-700">
-                  No Credentials Generated in this Session
-                </h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Click below to generate a new secure password and synchronize
-                  this account with Keycloak identity provider.
-                </p>
-              </div>
-            )}
+            </div>
 
-            {/* Quick Actions for Issuing / Resetting Password */}
-            <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-4">
-              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                Generate / Reset Login Password
-              </h4>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  placeholder="Optional custom password (leave blank to auto-generate)"
-                  value={customPasswordInput}
-                  onChange={(e) => setCustomPasswordInput(e.target.value)}
-                  className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-amber-500"
-                />
-                <button
-                  onClick={() =>
-                    handleIssueCredentials(
-                      customPasswordInput ? customPasswordInput.trim() : null,
-                    )
-                  }
-                  disabled={issuingCredentials}
-                  className="btn btn-primary text-xs"
-                >
-                  {issuingCredentials ? (
-                    <SpinnerGap size={14} className="animate-spin" />
-                  ) : (
-                    <ArrowsClockwise size={14} />
-                  )}
+            {/* 5. ACTION BUTTONS & FEEDBACK (13.6) */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                {feedbackMessage ? (
+                  <span className="font-bold text-slate-700">{feedbackMessage}</span>
+                ) : (
                   <span>
-                    {customPasswordInput
-                      ? "Set Custom Password"
-                      : "Auto-Generate Password"}
+                    Saving applies roles &amp; location grants atomically. Passwords are <strong className="text-slate-700">never</strong> reset.
                   </span>
-                </button>
+                )}
               </div>
 
-              <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-1 border-t border-slate-100">
-                <CheckCircle size={13} className="text-emerald-500 shrink-0" />
-                <span>
-                  Generates an 8+ character password compliant with Keycloak
-                  security policy and clears any pending account actions.
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── 4. EFFECTIVE PERMISSIONS TAB ── */}
-        {activeTab === "effective" && (
-          <div className="space-y-5">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-800">
-                Effective Permissions Matrix
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                Calculated permission tree showing all locations this user can
-                enter or manage, including cascading inheritance from parent
-                zones.
-              </p>
-            </div>
-
-            {effectivePerms.length === 0 ? (
-              <div className="text-center py-10 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <Stack size={32} className="mx-auto text-slate-300 mb-2" />
-                <p className="text-xs font-bold text-slate-600">
-                  No Effective Location Permissions Calculated
-                </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Assign a location grant or role to grant access rights.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {effectivePerms.map((perm) => (
-                  <div
-                    key={perm.location_id}
-                    className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-xs hover:border-slate-300 transition flex items-start justify-between"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <MapPin size={14} className="text-amber-500 shrink-0" />
-                        <span className="text-xs font-extrabold text-slate-800">
-                          {perm.location_name}
-                        </span>
-                        <span className="text-[10px] text-slate-500 capitalize">
-                          ({perm.location_type})
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] mt-1">
-                        {renderSourceBadge(perm)}
-                      </div>
-                    </div>
-                    <div>{renderAccessBadge(perm.access_level)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── 4. AUDIT HISTORY TAB ── */}
-        {activeTab === "history" && (
-          <div className="space-y-5">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-800">
-                Access Activity & Audit Log
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                Immutable security logs tracking all role modifications, access
-                grants, revocations, and expiry events.
-              </p>
-            </div>
-
-            {auditLogs.length === 0 ? (
-              <div className="text-center py-10 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <ClockCounterClockwise size={32} className="mx-auto text-slate-300 mb-2" />
-                <p className="text-xs font-bold text-slate-600">
-                  No Access Audit Logs Recorded
-                </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Actions performed on this user will appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {auditLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-3 rounded-xl border border-slate-200 bg-white text-xs flex items-start justify-between"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-800 font-mono text-[11px]">
-                          {log.operation}
-                        </span>
-                        <span className="text-slate-400">•</span>
-                        <span className="text-[11px] text-slate-500">
-                          Actor:{" "}
-                          <span className="font-semibold text-slate-700">
-                            {log.actor_email || log.actor_id || "System"}
-                          </span>
-                        </span>
-                      </div>
-                      {(log.after_state || log.before_state) && (
-                        <p className="text-[11px] text-slate-600">
-                          {JSON.stringify(log.after_state || log.before_state)}
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Assign Access Modal ── */}
-      <AssignAccessModal
-        isOpen={isAssignModalOpen}
-        onClose={() => setIsAssignModalOpen(false)}
-        user={user}
-        locations={locationsList}
-        locationTree={locationTree}
-        onSuccess={() => {
-          loadAllData();
-          if (onUserUpdated) onUserUpdated();
-        }}
-      />
-
-      {/* ── Extend / Edit Grant Modal ── */}
-      {extendingGrant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="glass-panel p-6 w-full max-w-sm bg-white rounded-2xl shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-sm text-slate-800">
-                Edit / Extend Access Expiry
-              </h3>
-              <button
-                onClick={() => setExtendingGrant(null)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleExtendGrantSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={
-                    extendingGrant.location_name || extendingGrant.location_id
-                  }
-                  className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">
-                  New Valid Until (Leave blank for Permanent)
-                </label>
-                <input
-                  type="datetime-local"
-                  value={newExpiryDate}
-                  onChange={(e) => setNewExpiryDate(e.target.value)}
-                  className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                 <button
                   type="button"
-                  onClick={() => setExtendingGrant(null)}
-                  className="btn btn-outline text-xs"
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold transition"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={extendLoading}
-                  className="btn btn-primary text-xs"
+                  type="button"
+                  onClick={handleSaveAccessChanges}
+                  disabled={savingChanges}
+                  className="px-6 py-2 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  {extendLoading ? (
-                    <SpinnerGap size={14} className="animate-spin" />
+                  {savingChanges ? (
+                    <>
+                      <SpinnerGap size={14} className="animate-spin" />
+                      Saving Configuration...
+                    </>
                   ) : (
-                    "Update Expiry"
+                    <>
+                      <CheckCircle size={15} weight="bold" className="text-[#f5bd19]" />
+                      Save Access Changes
+                    </>
                   )}
                 </button>
               </div>
-            </form>
+            </div>
+
+            {/* 6. DECOUPLED PASSWORD MANAGEMENT SECTION (13.4 & 13.6) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-100/70 p-5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center shadow-2xs">
+                    <Key size={20} weight="fill" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+                      Authentication &amp; Password Security
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Password management is strictly decoupled from access control. Passwords can only be reset manually.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                >
+                  <Lock size={14} />
+                  Reset User Password
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            TAB 2: AUDIT LOGS
+            ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === "audit_history" && (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-[#0a2342]">
+                    Access Activity &amp; Audit Log
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Immutable security logs tracking all role modifications, access grants, revocations, and expiry events.
+                  </p>
+                </div>
+                <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                  {auditLogs.length} Records
+                </span>
+              </div>
+
+              {auditLogs.length === 0 ? (
+                <div className="text-center py-12 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <ClockCounterClockwise size={32} className="mx-auto text-slate-300 mb-2" />
+                  <p className="text-xs font-bold text-slate-600">
+                    No Access Audit Logs Recorded
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Actions performed on this user will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {auditLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-3 rounded-xl border border-slate-200 bg-white text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-[#0a2342] font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded-md">
+                            {log.operation}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-[11px] text-slate-500">
+                            Actor:{" "}
+                            <span className="font-semibold text-slate-700">
+                              {log.actor_email || log.actor_id || "System"}
+                            </span>
+                          </span>
+                        </div>
+                        {(log.after_state || log.before_state) && (
+                          <p className="text-[11px] text-slate-600 font-mono mt-1 bg-slate-50 p-1.5 rounded-md border border-slate-100">
+                            {JSON.stringify(log.after_state || log.before_state)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                        {log.created_at ? new Date(log.created_at).toLocaleString() : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            TAB 3: SECURITY & CREDENTIALS
+            ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === "security_credentials" && (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-[#0a2342]">
+                  Security, Identity &amp; Keycloak SSO
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Manage user authentication credentials and verify single sign-on synchronization.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">
+                    Keycloak User Link:
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-900">
+                    {detail?.keycloak_user_id || "Not Linked"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">
+                    Authentication Realm:
+                  </span>
+                  <span className="text-xs font-mono text-slate-800">
+                    ococ-realm
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">
+                    SSO Status:
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <CheckCircle size={12} /> Active
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-2">
+                <h4 className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                  <Key size={15} />
+                  Explicit Password Reset
+                </h4>
+                <p className="text-[11px] text-blue-800 leading-relaxed">
+                  To reset this user's password, click the button below. You can either supply a specific custom password or let the system generate a secure temporary password.
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-[#0a2342] text-white hover:bg-[#12365f] text-xs font-bold shadow-2xs transition"
+                  >
+                    Reset Password Now
+                  </button>
+                </div>
+              </div>
+
+              {issuedCredentials && (
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-800">
+                    <CheckCircle size={16} />
+                    New Credentials Generated Successfully!
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between p-2 rounded bg-white border border-emerald-200">
+                      <span className="text-slate-500">Username:</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        {issuedCredentials.username || detail?.email}
+                      </span>
+                    </div>
+                    {issuedCredentials.password && (
+                      <div className="flex items-center justify-between p-2 rounded bg-white border border-emerald-200">
+                        <span className="text-slate-500">Password:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-900">
+                            {showPassword ? issuedCredentials.password : "••••••••••••"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="p-1 text-slate-400 hover:text-slate-600"
+                          >
+                            {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(issuedCredentials.password, "pwd")}
+                            className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]"
+                          >
+                            {copiedKey === "pwd" ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── RESET PASSWORD CONFIRMATION MODAL (13.4) ── */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-[#0a2342]/70 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+                  <Lock size={20} weight="fill" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    Reset User Password
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {detail?.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              This action will reset the user's Keycloak password. Enter a custom password below, or leave it blank to automatically generate a secure temporary password.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Custom Password (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="Leave blank for auto-generated password"
+                value={customPasswordInput}
+                onChange={(e) => setCustomPasswordInput(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0a2342]/20 focus:border-[#0a2342]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                disabled={resettingPassword}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleExecuteResetPassword();
+                  setIsResetModalOpen(false);
+                }}
+                disabled={resettingPassword}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {resettingPassword ? (
+                  <>
+                    <SpinnerGap size={14} className="animate-spin" />
+                    Resetting...
+                  </>
+                ) : (
+                  <>
+                    <Lock size={14} />
+                    Confirm Password Reset
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

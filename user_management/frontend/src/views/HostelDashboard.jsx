@@ -6,6 +6,7 @@ import {
   House,
   Lifebuoy,
   MagnifyingGlass,
+  ShieldCheck,
   SignIn,
   SignOut,
   Users,
@@ -22,10 +23,11 @@ import PermissionPanel from "../components/hostel/PermissionPanel";
 import MovementHistoryTable from "../components/hostel/MovementHistoryTable";
 import EmergencyMode from "../components/hostel/EmergencyMode";
 import HostelStudentsList from "../components/hostel/HostelStudentsList";
+import WardenDirectoryTable from "../components/hostel/WardenDirectoryTable";
 
 const HostelDashboard = () => {
-  const { user, roles } = useAuth();
-  const displayName = user?.name || user?.preferred_username || user?.email?.split("@")[0] || "Warden";
+  const { user, roles, fullName } = useAuth();
+  const displayName = fullName || user?.name || user?.preferred_username || user?.email?.split("@")[0] || "Warden";
   const greeting = getHumanGreeting(displayName, roles || ["WARDEN"]);
 
   const [hostels, setHostels] = useState([]);
@@ -83,9 +85,16 @@ const HostelDashboard = () => {
     };
   }, []);
 
+  const isAdmin = (roles || []).some((r) =>
+    ["SUPER_ADMIN", "ADMIN"].includes(String(r).toUpperCase()),
+  );
+
   const tabs = [
     { id: "overview", name: "Overview Dashboard", icon: ChartLineUp },
     { id: "directory", name: "Students Directory", icon: Users },
+    ...(isAdmin
+      ? [{ id: "wardens", name: "Warden Directory", icon: ShieldCheck }]
+      : []),
     { id: "live", name: "Live Status", icon: ChartLineUp },
     { id: "permissions", name: "Leave & Permissions", icon: Clock },
     { id: "history", name: "Movement History", icon: SignOut },
@@ -188,6 +197,9 @@ const HostelDashboard = () => {
         )}
         {activeTab === "directory" && (
           <HostelStudentsList hostelId={selectedHostel} />
+        )}
+        {activeTab === "wardens" && isAdmin && (
+          <WardenDirectoryTable />
         )}
         {activeTab === "live" && (
           <LiveStatusTable

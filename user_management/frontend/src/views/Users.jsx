@@ -17,6 +17,7 @@ import {
   DotsThreeVertical,
   DownloadSimple,
   Funnel,
+  House,
   MagnifyingGlass,
   PencilSimple,
   ShieldCheck,
@@ -28,6 +29,7 @@ import {
 } from "@phosphor-icons/react";
 import EditUserModal from "@/components/EditUserModal";
 import UserStatusModal from "@/components/UserStatusModal";
+import Pagination from "@/components/common/Pagination";
 const courses = [
   "B.Sc. IT",
   "BCA",
@@ -97,7 +99,7 @@ export const UsersView = () => {
   const [apiError, setApiError] = useState("");
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
 
   const [exportLoading, setExportLoading] = useState(false);
@@ -151,13 +153,15 @@ export const UsersView = () => {
 
   /* ── Fetching ── */
   const fetchUsers = useCallback(
-    async (customPage) => {
+    async (customPage, customLimit) => {
       setIsLoading(true);
       setApiError("");
       try {
+        const currentPage = customPage || page;
+        const currentLimit = customLimit || limit;
         const data = await userService.list({
-          page: customPage || page,
-          limit,
+          page: currentPage,
+          limit: currentLimit,
           ...filters,
         });
         setUsers(data.users || []);
@@ -409,11 +413,11 @@ export const UsersView = () => {
         </p>
       )}
 
-      {/* ── Funnel Panel ── */}
+      {/* ── Filter Panel ── */}
       <div className="app-panel border-slate-200/80 p-5 shadow-xs">
         {/* Row 1 — Always visible */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* MagnifyingGlass */}
+          {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
             <MagnifyingGlass
               size={15}
@@ -425,7 +429,7 @@ export const UsersView = () => {
                 setFilters({ ...filters, search: e.target.value })
               }
               type="text"
-              placeholder="MagnifyingGlass name, email, roll number…"
+              placeholder="Search by name, email, roll number…"
               className="w-full pl-9 pr-8"
               id="user-search-input"
             />
@@ -600,8 +604,8 @@ export const UsersView = () => {
               className="w-full"
             >
               <option value="">All Residence</option>
-              <option value="hosteller">🏠 Hosteller</option>
-              <option value="day_scholar">🏃 Day Scholar</option>
+              <option value="hosteller">Hosteller</option>
+              <option value="day_scholar">Day Scholar</option>
             </Sel>
           </div>
         )}
@@ -767,7 +771,8 @@ export const UsersView = () => {
                               className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-xs font-semibold text-purple-700 max-w-[110px] truncate"
                               title={hostelName}
                             >
-                              🏠 {hostelName}
+                              <House size={12} weight="fill" className="text-purple-600 shrink-0" />
+                              <span>{hostelName}</span>
                             </span>
                           ) : (
                             <span className="text-xs text-[var(--text-muted)]">
@@ -891,65 +896,22 @@ export const UsersView = () => {
         </div>
 
         {/* Pagination */}
-        <div className="px-4 py-3 border-t border-[var(--border-light)] flex justify-between items-center text-sm bg-slate-50/60">
-          <span className="text-[var(--text-muted)]">
-            Showing{" "}
-            <strong className="text-[var(--text-main)]">
-              {users.length ? (page - 1) * limit + 1 : 0}
-            </strong>
-            –
-            <strong className="text-[var(--text-main)]">
-              {Math.min(page * limit, total)}
-            </strong>{" "}
-            of{" "}
-            <strong className="text-[var(--text-main)]">
-              {total.toLocaleString()}
-            </strong>
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 hover:text-[#0a2342] disabled:opacity-40 disabled:cursor-not-allowed transition"
-              disabled={page <= 1}
-              onClick={() => {
-                const p = page - 1;
-                setPage(p);
-                fetchUsers(p);
-              }}
-              id="prev-page-btn"
-            >
-              <CaretLeft size={15} />
-            </button>
-            {Array.from(
-              { length: Math.min(totalPages, 7) },
-              (_, i) => i + 1,
-            ).map((p) => (
-              <button
-                key={p}
-                onClick={() => {
-                  setPage(p);
-                  fetchUsers(p);
-                }}
-                className={`h-8 min-w-[2rem] px-2 rounded-lg border text-xs font-bold transition ${p === page ? "bg-[#0a2342] text-[#f5bd19] border-[#0a2342]" : "border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 hover:text-[#0a2342]"}`}
-              >
-                {p}
-              </button>
-            ))}
-            {totalPages > 7 && (
-              <span className="text-[var(--text-muted)] px-1">…</span>
-            )}
-            <button
-              className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-[var(--text-muted)] hover:border-amber-400 hover:text-[#0a2342] disabled:opacity-40 disabled:cursor-not-allowed transition"
-              disabled={page >= totalPages}
-              onClick={() => {
-                const p = page + 1;
-                setPage(p);
-                fetchUsers(p);
-              }}
-              id="next-page-btn"
-            >
-              <CaretRight size={15} />
-            </button>
-          </div>
+        <div className="border-t border-slate-200">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={(p) => {
+              setPage(p);
+              fetchUsers(p);
+            }}
+            onLimitChange={(newSize) => {
+              setLimit(newSize);
+              setPage(1);
+              fetchUsers(1, newSize);
+            }}
+          />
         </div>
       </div>
 
@@ -1144,7 +1106,7 @@ export const UsersView = () => {
                         </p>
                         {viewTarget.profile?.hostel_flag ? (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-sm font-semibold text-purple-700">
-                            🏠{" "}
+                            <House size={14} className="text-purple-600" />
                             {viewTarget.profile?.hostel_id &&
                             hostelMap[viewTarget.profile.hostel_id]
                               ? hostelMap[viewTarget.profile.hostel_id]
@@ -1214,8 +1176,11 @@ export const UsersView = () => {
         <EditUserModal
           user={editTarget}
           onClose={() => setEditTarget(null)}
-          onSaved={() => {
+          onSaved={(updatedUser) => {
             setEditTarget(null);
+            if (updatedUser) {
+              setViewTarget((prev) => (prev && prev.id === updatedUser.id ? updatedUser : prev));
+            }
             fetchUsers();
           }}
         />

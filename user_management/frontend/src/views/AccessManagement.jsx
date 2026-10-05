@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ChartLineUp,
   Clock,
@@ -16,6 +16,8 @@ import accessService from "@/services/accessService";
 import userService from "@/services/userService";
 import { roleService } from "@/services/miscService";
 import UserAccessPanel from "@/components/access/UserAccessPanel";
+import Pagination from "@/components/common/Pagination";
+
 export const AccessManagement = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -25,6 +27,14 @@ export const AccessManagement = () => {
   const [rules, setRules] = useState([]);
   const [grants, setGrants] = useState([]);
   const [alerts, setAlerts] = useState([]);
+
+  // Pagination states
+  const [rulePage, setRulePage] = useState(1);
+  const [rulePageSize, setRulePageSize] = useState(10);
+  const [grantPage, setGrantPage] = useState(1);
+  const [grantPageSize, setGrantPageSize] = useState(10);
+  const [alertPage, setAlertPage] = useState(1);
+  const [alertPageSize, setAlertPageSize] = useState(10);
   const [stats, setStats] = useState({
     total: 0,
     enabled: 0,
@@ -249,6 +259,21 @@ export const AccessManagement = () => {
     locations.find((l) => l.id === id)?.name || "All Campus";
   const getUserName = (id) => users.find((u) => u.id === id)?.email || id;
 
+  const paginatedRules = useMemo(() => {
+    const start = (rulePage - 1) * rulePageSize;
+    return rules.slice(start, start + rulePageSize);
+  }, [rules, rulePage, rulePageSize]);
+
+  const paginatedGrants = useMemo(() => {
+    const start = (grantPage - 1) * grantPageSize;
+    return grants.slice(start, start + grantPageSize);
+  }, [grants, grantPage, grantPageSize]);
+
+  const paginatedAlerts = useMemo(() => {
+    const start = (alertPage - 1) * alertPageSize;
+    return alerts.slice(start, start + alertPageSize);
+  }, [alerts, alertPage, alertPageSize]);
+
   return (
     <div className="space-y-6 page-enter">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -343,7 +368,7 @@ export const AccessManagement = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-light)]">
-                {rules.length === 0 ? (
+                {paginatedRules.length === 0 ? (
                   <tr>
                     <td
                       colSpan={5}
@@ -353,7 +378,7 @@ export const AccessManagement = () => {
                     </td>
                   </tr>
                 ) : (
-                  rules.map((r) => (
+                  paginatedRules.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-semibold">{r.name}</td>
                       <td className="px-4 py-3 text-[var(--text-muted)]">
@@ -382,6 +407,21 @@ export const AccessManagement = () => {
                 )}
               </tbody>
             </table>
+
+            {/* Pagination for Rules */}
+            <div className="p-4 border-t border-[var(--border-light)] bg-white">
+              <Pagination
+                currentPage={rulePage}
+                totalItems={rules.length}
+                pageSize={rulePageSize}
+                onPageChange={(p) => setRulePage(p)}
+                onPageSizeChange={(sz) => {
+                  setRulePageSize(sz);
+                  setRulePage(1);
+                }}
+                pageSizeOptions={[10, 20, 50]}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -674,8 +714,8 @@ export const AccessManagement = () => {
           </div>
 
           <div className="pt-4 flex justify-end">
-            <button type="submit" className="btn btn-primary px-6">
-              FloppyDisk Rule
+            <button type="submit" className="btn btn-primary px-6 flex items-center gap-1.5">
+              <FloppyDisk size={16} /> Save Access Rule
             </button>
           </div>
         </form>
@@ -781,7 +821,7 @@ export const AccessManagement = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-light)]">
-                  {grants.length === 0 ? (
+                  {paginatedGrants.length === 0 ? (
                     <tr>
                       <td
                         colSpan={3}
@@ -791,7 +831,7 @@ export const AccessManagement = () => {
                       </td>
                     </tr>
                   ) : (
-                    grants.map((g) => (
+                    paginatedGrants.map((g) => (
                       <tr key={g.id}>
                         <td className="px-4 py-3 font-semibold">
                           {g.user_name || "Unknown"}
@@ -807,6 +847,21 @@ export const AccessManagement = () => {
                   )}
                 </tbody>
               </table>
+
+              {/* Grants Pagination */}
+              <div className="p-4 border-t border-[var(--border-light)] bg-white">
+                <Pagination
+                  currentPage={grantPage}
+                  totalItems={grants.length}
+                  pageSize={grantPageSize}
+                  onPageChange={(p) => setGrantPage(p)}
+                  onPageSizeChange={(sz) => {
+                    setGrantPageSize(sz);
+                    setGrantPage(1);
+                  }}
+                  pageSizeOptions={[5, 10, 25]}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -826,12 +881,12 @@ export const AccessManagement = () => {
             </button>
           </div>
           <div className="divide-y divide-[var(--border-light)]">
-            {alerts.length === 0 ? (
+            {paginatedAlerts.length === 0 ? (
               <div className="py-12 text-center text-[var(--text-muted)]">
                 No recent denied events.
               </div>
             ) : (
-              alerts.map((a) => (
+              paginatedAlerts.map((a) => (
                 <div
                   key={a.id}
                   className="p-4 hover:bg-slate-50 flex items-center gap-4"
@@ -862,6 +917,21 @@ export const AccessManagement = () => {
                 </div>
               ))
             )}
+          </div>
+
+          {/* Alerts Pagination */}
+          <div className="p-4 border-t border-[var(--border-light)] bg-white">
+            <Pagination
+              currentPage={alertPage}
+              totalItems={alerts.length}
+              pageSize={alertPageSize}
+              onPageChange={(p) => setAlertPage(p)}
+              onPageSizeChange={(sz) => {
+                setAlertPageSize(sz);
+                setAlertPage(1);
+              }}
+              pageSizeOptions={[5, 10, 25]}
+            />
           </div>
         </div>
       )}

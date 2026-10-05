@@ -26,6 +26,66 @@ async def get_assigned_hostels(
         rows = await conn.fetch("SELECT id, name, code, capacity FROM hostels WHERE id = ANY($1::uuid[]) ORDER BY name", scope)
     return success_response(data=[dict(row) for row in rows])
 
+@router.get("/wardens", response_model=Dict[str, Any])
+async def list_wardens(
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "ADMIN")),
+):
+    """Admin-only: list all users with role WARDEN and their assigned hostel details."""
+    query = """
+        SELECT 
+            u.id,
+            u.email,
+            u.phone,
+            u.status,
+            u.created_at,
+            COALESCE(fp.full_name, sp.full_name, wp.full_name, u.email) AS full_name,
+            COALESCE(fp.employee_id, wp.employee_id) AS employee_id,
+            wdp.hostel_block,
+            wdp.responsibilities AS warden_responsibilities,
+            wdp.emergency_contact,
+            COALESCE(
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', wh_h.id,
+                            'name', wh_h.name,
+                            'code', wh_h.code,
+                            'capacity', wh_h.capacity
+                        ) ORDER BY wh_h.name
+                    )
+                    FROM warden_hostels wh
+                    JOIN hostels wh_h ON wh_h.id = wh.hostel_id
+                    WHERE wh.user_id = u.id
+                ),
+                '[]'::json
+            ) AS assigned_hostels
+        FROM users u
+        LEFT JOIN faculty_profiles fp ON fp.user_id = u.id
+        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+        LEFT JOIN worker_profiles wp ON wp.user_id = u.id
+        LEFT JOIN warden_profiles wdp ON wdp.user_id = u.id
+        WHERE u.user_type = 'warden'
+           OR EXISTS (
+               SELECT 1 FROM user_roles ur 
+               JOIN roles r ON r.id = ur.role_id 
+               WHERE ur.user_id = u.id AND UPPER(r.name) = 'WARDEN'
+           )
+        ORDER BY full_name, u.email
+    """
+    rows = await conn.fetch(query)
+    data = []
+    for r in rows:
+        d = dict(r)
+        d["id"] = str(d["id"])
+        if d.get("created_at"):
+            d["created_at"] = d["created_at"].isoformat()
+        if isinstance(d.get("assigned_hostels"), str):
+            import json
+            d["assigned_hostels"] = json.loads(d["assigned_hostels"])
+        data.append(d)
+    return success_response(data=data)
+
 @router.get("/dashboard", response_model=Dict[str, Any])
 async def get_dashboard(
     hostel_id: Optional[uuid.UUID] = None,

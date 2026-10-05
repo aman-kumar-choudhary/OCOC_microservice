@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { hostelService } from "../../services/hostelService";
+import Pagination from "@/components/common/Pagination";
 
 const MovementHistoryTable = ({ hostelId }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     const fetchHistory = async () => {
       setLoading(true);
       try {
         const res = await hostelService.getMovementHistory(hostelId);
-        setHistory(res.data);
+        setHistory(res.data || []);
       } catch (err) {
         console.error(err);
       }
@@ -17,6 +21,11 @@ const MovementHistoryTable = ({ hostelId }) => {
     };
     fetchHistory();
   }, [hostelId]);
+
+  const paginatedHistory = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return (history || []).slice(start, start + pageSize);
+  }, [history, page, pageSize]);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
@@ -39,7 +48,7 @@ const MovementHistoryTable = ({ hostelId }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {history.map((m) => (
+            {paginatedHistory.map((m) => (
               <tr key={m.id} className="hover:bg-gray-50">
                 <td className="p-4 text-sm text-gray-600 whitespace-nowrap">
                   {new Date(m.event_time).toLocaleString([], {
@@ -94,6 +103,21 @@ const MovementHistoryTable = ({ hostelId }) => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="p-4 border-t border-gray-200 bg-white">
+        <Pagination
+          currentPage={page}
+          totalItems={(history || []).length}
+          pageSize={pageSize}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50]}
+        />
       </div>
     </div>
   );

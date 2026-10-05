@@ -13,13 +13,17 @@ import {
   X
 } from "@phosphor-icons/react";
 import AssignRFIDModal from "@/components/AssignRFIDModal";
+import Pagination from "@/components/common/Pagination";
+import { useToast } from "@/context/ToastContext";
 
 export const RFIDView = () => {
+  const { toast } = useToast();
   const [cards, setCards] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [serviceStatus, setServiceStatus] = useState("checking"); // 'connected' | 'disconnected' | 'checking'
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [replaceTarget, setReplaceTarget] = useState(null);
@@ -29,19 +33,21 @@ export const RFIDView = () => {
   const [filters, setFilters] = useState({ status: "" });
 
   const fetchCards = useCallback(
-    async (customPage) => {
+    async (customPage, customLimit) => {
       setIsLoading(true);
       try {
         const data = await rfidService.list({
-          page: customPage || page,
-          limit,
+          page: customPage ?? page,
+          limit: customLimit ?? limit,
           ...filters,
         });
         setCards(data.cards || []);
         setTotal(data.total);
         setTotalPages(data.total_pages);
+        setServiceStatus("connected");
       } catch (e) {
         console.error(e);
+        setServiceStatus("disconnected");
       } finally {
         setIsLoading(false);
       }
@@ -58,11 +64,13 @@ export const RFIDView = () => {
     setRevokeLoading(true);
     try {
       await rfidService.revoke(revokeTarget.id, revokeReason);
+      toast.success("RFID card successfully revoked.");
       setRevokeTarget(null);
       setRevokeReason("");
       fetchCards();
     } catch (e) {
       console.error(e);
+      toast.error(e.response?.data?.error?.message || "Failed to revoke card.");
     } finally {
       setRevokeLoading(false);
     }
@@ -86,9 +94,29 @@ export const RFIDView = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-sm font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>{" "}
-            Reader Online
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+              serviceStatus === "connected"
+                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                : serviceStatus === "disconnected"
+                ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                : "bg-slate-100 text-slate-600 border-slate-200"
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                serviceStatus === "connected"
+                  ? "bg-emerald-500 animate-pulse"
+                  : serviceStatus === "disconnected"
+                  ? "bg-rose-500"
+                  : "bg-slate-400"
+              }`}
+            ></span>{" "}
+            {serviceStatus === "connected"
+              ? "Service Connected"
+              : serviceStatus === "disconnected"
+              ? "Service Offline"
+              : "Checking..."}
           </div>
           <button
             onClick={() => fetchCards()}
@@ -238,45 +266,22 @@ export const RFIDView = () => {
         </table>
 
         {/* Pagination */}
-        <div className="p-4 border-t border-[var(--border-light)] flex justify-between items-center text-sm bg-[var(--bg-card)] rounded-b-2xl">
-          <div className="text-muted">
-            Showing{" "}
-            <span className="font-semibold text-[var(--text-main)]">
-              {cards.length ? (page - 1) * limit + 1 : 0}
-            </span>
-            –
-            <span className="font-semibold text-[var(--text-main)]">
-              {Math.min(page * limit, total)}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-[var(--text-main)]">
-              {total.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted transition hover:border-[#f5bd19] hover:text-[#0a2342] disabled:opacity-40 disabled:cursor-not-allowed"
-              disabled={page <= 1}
-              onClick={() => {
-                const prev = page - 1;
-                setPage(prev);
-                fetchCards(prev);
-              }}
-            >
-              <CaretLeft size={16} />
-            </button>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border-light)] text-muted transition hover:border-[#f5bd19] hover:text-[#0a2342] disabled:opacity-40 disabled:cursor-not-allowed"
-              disabled={page >= totalPages}
-              onClick={() => {
-                const next = page + 1;
-                setPage(next);
-                fetchCards(next);
-              }}
-            >
-              <CaretRight size={16} />
-            </button>
-          </div>
+        <div className="p-4 border-t border-[var(--border-light)] bg-white rounded-b-2xl">
+          <Pagination
+            currentPage={page}
+            totalItems={total}
+            pageSize={limit}
+            onPageChange={(p) => {
+              setPage(p);
+              fetchCards(p, limit);
+            }}
+            onPageSizeChange={(sz) => {
+              setLimit(sz);
+              setPage(1);
+              fetchCards(1, sz);
+            }}
+            pageSizeOptions={[10, 20, 50]}
+          />
         </div>
       </div>
 

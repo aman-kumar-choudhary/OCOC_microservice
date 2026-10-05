@@ -1,39 +1,102 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
-  BuildingOffice,
-  Calendar,
-  CaretRight,
+  Buildings,
   Check,
+  CheckCircle,
   Clock,
+  Door,
+  GraduationCap,
+  House,
+  MagnifyingGlass,
   MapPin,
   Shield,
-  Sparkle,
+  ShieldCheck,
   SpinnerGap,
-  Stack,
   WarningCircle,
-  X
+  X,
 } from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
-const ACCESS_LEVEL_INFO = {
-  ENTRY: {
-    label: "Entry Access",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    desc: "Authorized to tap card/face for RFID gate entry & door unlocks",
+
+// Helper to categorize a location into one of the 4 defined categories
+export const categorizeLocation = (loc) => {
+  const type = (loc.type || "").toLowerCase();
+  const name = (loc.name || "").toLowerCase();
+
+  if (
+    type === "gate" ||
+    type === "checkpoint" ||
+    type === "turnstile" ||
+    type === "security" ||
+    type === "control_room" ||
+    name.includes("gate") ||
+    name.includes("barrier") ||
+    name.includes("entry") ||
+    name.includes("exit")
+  ) {
+    return "GATES";
+  }
+
+  if (
+    type === "hostel" ||
+    type === "residential" ||
+    name.includes("hostel") ||
+    name.includes("bhawan") ||
+    name.includes("residence")
+  ) {
+    return "HOSTELS";
+  }
+
+  if (
+    type === "academic" ||
+    type === "department" ||
+    type === "lab" ||
+    type === "library" ||
+    type === "classroom" ||
+    name.includes("academic") ||
+    name.includes("department") ||
+    name.includes("lab") ||
+    name.includes("library") ||
+    name.includes("research") ||
+    name.includes("school")
+  ) {
+    return "ACADEMIC";
+  }
+
+  return "ADMINISTRATION";
+};
+
+const CATEGORY_META = {
+  GATES: {
+    title: "Gates & Checkpoints",
+    description: "Perimeter access points, vehicle barriers, and turnstiles",
+    icon: Door,
+    requiredRole: "GUARD",
+    roleLabel: "Guard / Security role",
+    accent: "border-amber-200 bg-amber-50/50 text-amber-800",
   },
-  VIEW: {
-    label: "View Only",
-    badge: "bg-blue-50 text-blue-700 border-blue-200",
-    desc: "Read-only access to location status, occupancy, and public areas",
+  HOSTELS: {
+    title: "Hostels & Residential",
+    description: "Student residential halls, quarters, and hostel gates",
+    icon: House,
+    requiredRole: "WARDEN",
+    roleLabel: "Warden / Hostel role",
+    accent: "border-blue-200 bg-blue-50/50 text-blue-800",
   },
-  MANAGE: {
-    label: "Manager",
-    badge: "bg-amber-50 text-amber-700 border-amber-200",
-    desc: "Operate area, approve student movement/leaves, manage passes",
+  ACADEMIC: {
+    title: "Academic & Research",
+    description: "Lecture halls, research laboratories, and central libraries",
+    icon: GraduationCap,
+    requiredRole: null,
+    roleLabel: null,
+    accent: "border-emerald-200 bg-emerald-50/50 text-emerald-800",
   },
-  ADMIN: {
-    label: "Admin",
-    badge: "bg-purple-50 text-purple-700 border-purple-200",
-    desc: "Full administrative control over devices, rules, and sub-locations",
+  ADMINISTRATION: {
+    title: "Administration & Facilities",
+    description: "Administrative offices, server rooms, and campus amenities",
+    icon: Buildings,
+    requiredRole: null,
+    roleLabel: null,
+    accent: "border-slate-200 bg-slate-50/50 text-slate-800",
   },
 };
 
@@ -42,437 +105,392 @@ export const AssignAccessModal = ({
   onClose,
   user,
   locations = [],
-  locationTree = [],
   onSuccess,
 }) => {
-  const [selectedLocationId, setSelectedLocationId] = useState("");
-  const [accessLevel, setAccessLevel] = useState("ENTRY");
-  const [isTemporary, setIsTemporary] = useState(false);
-  const [validFrom, setValidFrom] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [reason, setReason] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [availableLocations, setAvailableLocations] = useState(locations || []);
+  const [selectedLocationIds, setSelectedLocationIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [locationSearch, setLocationSearch] = useState("");
+  const [loadingLocs, setLoadingLocs] = useState(false);
 
-  // Flattened tree with indent & paths
-  const [flattenedLocations, setFlattenedLocations] = useState([]);
-
+  // Initialize selected location IDs from user's current active grants
   useEffect(() => {
-    if (!isOpen) {
-      // reset form
-      setSelectedLocationId("");
-      setAccessLevel("ENTRY");
-      setIsTemporary(false);
-      setValidFrom("");
-      setValidUntil("");
-      setReason("");
-      setError("");
-      setLocationSearch("");
-      return;
-    }
+    if (!isOpen || !user) return;
+    setError("");
+    setSearchQuery("");
 
-    // Build flattened location list from locationTree or flat locations
-    if (locationTree && locationTree.length > 0) {
-      const list = [];
-      const walk = (nodes, depth = 0, path = "") => {
-        nodes.forEach((node) => {
-          const currentPath = path ? `${path} > ${node.name}` : node.name;
-          list.push({
-            id: node.id,
-            name: node.name,
-            type: node.type,
-            depth,
-            path: currentPath,
-            childrenCount: node.children ? node.children.length : 0,
-          });
-          if (node.children && node.children.length > 0) {
-            walk(node.children, depth + 1, currentPath);
-          }
-        });
-      };
-      walk(locationTree);
-      setFlattenedLocations(list);
-    } else if (locations && locations.length > 0) {
-      setFlattenedLocations(
-        locations.map((loc) => ({
-          id: loc.id,
-          name: loc.name,
-          type: loc.type,
-          depth: 0,
-          path: loc.name,
-          childrenCount: 0,
-        })),
-      );
+    const activeGrantIds = new Set();
+    if (user.location_grants && Array.isArray(user.location_grants)) {
+      user.location_grants.forEach((g) => {
+        if (g.status === "active") {
+          activeGrantIds.add(g.location_id);
+        }
+      });
     }
-  }, [isOpen, locationTree, locations]);
+    setSelectedLocationIds(activeGrantIds);
+
+    // Fetch fresh locations list if empty
+    if (!locations || locations.length === 0) {
+      setLoadingLocs(true);
+      accessService
+        .getLocations()
+        .then((data) => setAvailableLocations(data || []))
+        .catch(() => {})
+        .finally(() => setLoadingLocs(false));
+    } else {
+      setAvailableLocations(locations);
+    }
+  }, [isOpen, user, locations]);
+
+  // Operational roles of the user for compatibility validation
+  const userRoles = useMemo(() => {
+    if (!user) return new Set();
+    const rawRoles = user.roles || [];
+    return new Set(rawRoles.map((r) => String(r).toUpperCase()));
+  }, [user]);
+
+  const hasGuardRole = useMemo(() => {
+    return ["GUARD", "SECURITY_GUARD", "SECURITY_SUPERVISOR", "GATE_OPERATOR", "ADMIN", "SUPER_ADMIN"].some(
+      (r) => userRoles.has(r),
+    );
+  }, [userRoles]);
+
+  const hasWardenRole = useMemo(() => {
+    return ["WARDEN", "HOSTEL_OPERATOR", "ADMIN", "SUPER_ADMIN"].some((r) =>
+      userRoles.has(r),
+    );
+  }, [userRoles]);
+
+  // Group locations by category with search filter
+  const groupedLocations = useMemo(() => {
+    const groups = {
+      GATES: [],
+      HOSTELS: [],
+      ACADEMIC: [],
+      ADMINISTRATION: [],
+    };
+
+    const q = searchQuery.toLowerCase().trim();
+    availableLocations.forEach((loc) => {
+      if (q && !loc.name.toLowerCase().includes(q) && !(loc.type || "").toLowerCase().includes(q)) {
+        return;
+      }
+      const category = categorizeLocation(loc);
+      if (groups[category]) {
+        groups[category].push(loc);
+      } else {
+        groups.ADMINISTRATION.push(loc);
+      }
+    });
+
+    // Sort alphabetically within each category
+    Object.keys(groups).forEach((key) => {
+      groups[key].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    return groups;
+  }, [availableLocations, searchQuery]);
 
   if (!isOpen || !user) return null;
 
-  // Quick preset helper for temporary valid_until
-  const applyPreset = (hours) => {
-    setIsTemporary(true);
-    const now = new Date();
-    const fromStr = now.toISOString().slice(0, 16);
-    setValidFrom(fromStr);
-
-    const until = new Date(now.getTime() + hours * 3600 * 1000);
-    setValidUntil(until.toISOString().slice(0, 16));
+  const toggleLocation = (locId) => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(locId)) {
+        next.delete(locId);
+      } else {
+        next.add(locId);
+      }
+      return next;
+    });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedLocationId) {
-      setError("Please select a location.");
-      return;
-    }
-    if (isTemporary && !validUntil) {
-      setError("Please provide an expiration date/time for temporary access.");
-      return;
-    }
+  const handleSelectAllGroup = (groupKey) => {
+    const locs = groupedLocations[groupKey] || [];
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      locs.forEach((l) => next.add(l.id));
+      return next;
+    });
+  };
 
-    setLoading(true);
+  const handleClearAllGroup = (groupKey) => {
+    const locs = groupedLocations[groupKey] || [];
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      locs.forEach((l) => next.delete(l.id));
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
     setError("");
     try {
-      await accessService.createLocationGrant({
-        user_id: user.id,
-        location_id: selectedLocationId,
-        access_level: accessLevel,
-        valid_from:
-          isTemporary && validFrom ? new Date(validFrom).toISOString() : null,
-        valid_until:
-          isTemporary && validUntil ? new Date(validUntil).toISOString() : null,
-        reason: reason.trim() || "Assigned via Access Management console",
-      });
-
+      const idsArray = Array.from(selectedLocationIds);
+      await accessService.syncUserLocations(
+        user.id,
+        idsArray,
+        "ENTRY",
+        "Assigned via Access Management location checkbox UI",
+      );
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      const msg =
+      setError(
         err.response?.data?.error?.message ||
-        err.message ||
-        "Failed to grant access.";
-      setError(msg);
+          err.response?.data?.detail?.message ||
+          err.message ||
+          "Failed to update location access.",
+      );
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const normalizedLocationSearch = locationSearch.trim().toLocaleLowerCase();
-  const filteredLocations = flattenedLocations.filter((loc) => {
-    if (!normalizedLocationSearch) return true;
-    // Match location name, type, and full path so nested locations remain easy to find.
-    return [loc.name, loc.type, loc.path]
-      .filter(Boolean)
-      .some((value) =>
-        value.toLocaleLowerCase().includes(normalizedLocationSearch),
-      );
-  });
-
-  const selectedLoc = flattenedLocations.find(
-    (l) => l.id === selectedLocationId,
-  );
+  const totalAssigned = selectedLocationIds.size;
+  const totalAvailable = availableLocations.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-[#0a2342]/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Dialog */}
-      <div className="relative z-10 glass-panel p-0 w-full max-w-2xl overflow-hidden shadow-2xl animate-fade-in my-8 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a2342]/60 backdrop-blur-xs p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden animate-scale-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)] bg-white">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-              <Shield size={20} />
+            <div className="w-10 h-10 rounded-xl bg-[#0a2342] text-[#f5bd19] flex items-center justify-center shadow-xs">
+              <MapPin size={22} weight="fill" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-[var(--color-navy)]">
+              <h2 className="text-base font-extrabold text-[#0a2342]">
                 Assign Location Access
               </h2>
-              <p className="text-xs text-[var(--text-muted)]">
-                Grant facility, building, hostel or gate access for{" "}
-                <span className="font-semibold text-slate-800">
+              <p className="text-xs text-slate-500">
+                Configure operational locations for{" "}
+                <span className="font-bold text-slate-800">
                   {user.full_name || user.email}
-                </span>
+                </span>{" "}
+                (Checked = Access Granted)
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form
-          onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto p-6 space-y-5"
-        >
-          {error && (
-            <div className="flex items-center gap-2 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
-              <WarningCircle size={18} className="shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* User Preview Mini-bar */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#0a2342] text-white flex items-center justify-center font-bold text-xs">
-                {(user.full_name || user.email || "U").charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-bold text-slate-800">
-                  {user.full_name || "Unnamed User"}
-                </p>
-                <p className="text-[var(--text-muted)]">
-                  {user.email} • ID: {user.university_id || "N/A"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] bg-slate-200 text-slate-700">
-                {user.user_type || "User"}
-              </span>
-            </div>
-          </div>
-
-          {/* Location Selector */}
-          <div>
-            <label className="form-label flex items-center justify-between text-xs font-bold text-slate-700 mb-1.5">
-              <span>
-                Location / Facility <span className="text-rose-500">*</span>
-              </span>
-              {selectedLoc && (
-                <span className="text-[11px] font-normal text-amber-700 flex items-center gap-1">
-                  <Sparkle size={12} /> Cascades to all child areas
-                </span>
-              )}
-            </label>
-
-            {/* Quick search input */}
-            <div className="relative mb-2">
-              <input
-                type="text"
-                placeholder="Type to filter locations (e.g. Hostel, Gate, Library)..."
-                value={locationSearch}
-                onChange={(e) => setLocationSearch(e.target.value)}
-                className="w-full text-xs py-2 pl-8 pr-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-              <MapPin
-                size={14}
-                className="absolute left-2.5 top-2.5 text-slate-400"
-              />
-            </div>
-
-            {/* Select Dropdown */}
-            <select
-              value={selectedLocationId}
-              onChange={(e) => setSelectedLocationId(e.target.value)}
-              required
-              size={Math.min(6, Math.max(3, filteredLocations.length + 1))}
-              className="w-full rounded-xl border border-[var(--border-light)] p-2 text-xs font-medium focus:ring-2 focus:ring-amber-500 bg-white"
-            >
-              <option value="" disabled>
-                -- Select a target location --
-              </option>
-              {filteredLocations.map((loc) => (
-                <option key={loc.id} value={loc.id} className="py-1 px-2">
-                  {"\u00A0\u00A0".repeat(loc.depth)}
-                  {loc.depth > 0 ? "↳ " : "🏛 "}
-                  {loc.name} ({loc.type}){" "}
-                  {loc.childrenCount > 0 ? `[+${loc.childrenCount} areas]` : ""}
-                </option>
-              ))}
-            </select>
-
-            {selectedLoc && (
-              <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
-                <CaretRight size={13} className="text-amber-500 shrink-0" />
-                Selected Path:{" "}
-                <span className="font-semibold text-slate-700">
-                  {selectedLoc.path}
-                </span>
-              </p>
-            )}
-          </div>
-
-          {/* Access Level Selector */}
-          <div>
-            <label className="form-label text-xs font-bold text-slate-700 mb-1.5 block">
-              Access Level <span className="text-rose-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {Object.entries(ACCESS_LEVEL_INFO).map(([key, info]) => {
-                const isSelected = accessLevel === key;
-                return (
-                  <button
-                    type="button"
-                    key={key}
-                    onClick={() => setAccessLevel(key)}
-                    className={`text-left p-3 rounded-xl border transition relative flex flex-col justify-between ${
-                      isSelected
-                        ? "border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] border font-bold ${info.badge}`}
-                        >
-                          {key}
-                        </span>
-                        {info.label}
-                      </span>
-                      {isSelected && (
-                        <Check size={16} className="text-amber-600 shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-[11px] text-[var(--text-muted)] line-clamp-2">
-                      {info.desc}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Grant Duration / Validity */}
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-800 flex items-center gap-2 cursor-pointer">
-                <Clock size={15} className="text-slate-600" />
-                Access Duration
-              </label>
-              <div className="flex items-center gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setIsTemporary(false)}
-                  className={`px-3 py-1 rounded-lg font-bold border transition ${
-                    !isTemporary
-                      ? "bg-white border-amber-500 text-slate-800 shadow-sm"
-                      : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  Permanent
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsTemporary(true);
-                    if (!validUntil) applyPreset(24);
-                  }}
-                  className={`px-3 py-1 rounded-lg font-bold border transition ${
-                    isTemporary
-                      ? "bg-white border-amber-500 text-slate-800 shadow-sm"
-                      : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  Temporary / Expiring
-                </button>
-              </div>
-            </div>
-
-            {isTemporary && (
-              <div className="space-y-3 pt-2 border-t border-slate-200 animate-fade-in">
-                {/* Presets */}
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[11px] text-slate-500 mr-1 font-semibold">
-                    Quick Presets:
-                  </span>
-                  {[
-                    { label: "+4 Hours", hours: 4 },
-                    { label: "+24 Hours", hours: 24 },
-                    { label: "+7 Days", hours: 168 },
-                    { label: "+30 Days", hours: 720 },
-                    { label: "+1 Semester (120d)", hours: 2880 },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => applyPreset(preset.hours)}
-                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:bg-amber-50 hover:border-amber-300 transition"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                      Valid From (Optional)
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={validFrom}
-                      onChange={(e) => setValidFrom(e.target.value)}
-                      className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                      Valid Until (Expiration){" "}
-                      <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={validUntil}
-                      onChange={(e) => setValidUntil(e.target.value)}
-                      required={isTemporary}
-                      className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:ring-1 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Reason / Notes */}
-          <div>
-            <label className="form-label text-xs font-bold text-slate-700 mb-1 block">
-              Administrative Reason / Reference Notes
-            </label>
+        {/* Search & Selection Summary Bar */}
+        <div className="px-6 py-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative w-full sm:w-80">
+            <MagnifyingGlass
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
             <input
               type="text"
-              placeholder="e.g. Lab internship semester 4, Guest faculty hostel access, Special project pass"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-xl border border-[var(--border-light)] bg-white focus:ring-2 focus:ring-amber-500"
+              placeholder="Filter locations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0a2342]/20 focus:border-[#0a2342] transition"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                ✕
+              </button>
+            )}
           </div>
-        </form>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-500">Selected Locations:</span>
+            <span className="font-extrabold px-2.5 py-0.5 rounded-full bg-[#0a2342] text-white text-[11px]">
+              {totalAssigned} / {totalAvailable}
+            </span>
+          </div>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+            <WarningCircle size={16} className="text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Scrollable Checkbox Categories */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {loadingLocs ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+              <SpinnerGap size={24} className="animate-spin text-[#0a2342]" />
+              <p className="text-xs">Loading campus locations...</p>
+            </div>
+          ) : (
+            Object.entries(groupedLocations).map(([categoryKey, locs]) => {
+              if (locs.length === 0) return null;
+              const meta = CATEGORY_META[categoryKey];
+              const IconComp = meta.icon;
+
+              const isRoleMissing =
+                (categoryKey === "GATES" && !hasGuardRole) ||
+                (categoryKey === "HOSTELS" && !hasWardenRole);
+
+              const selectedInGroup = locs.filter((l) =>
+                selectedLocationIds.has(l.id),
+              ).length;
+
+              return (
+                <div
+                  key={categoryKey}
+                  className="rounded-2xl border border-slate-200/90 overflow-hidden bg-white shadow-2xs"
+                >
+                  {/* Category Header */}
+                  <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-white shadow-xs text-[#0a2342] border border-slate-200">
+                        <IconComp size={16} weight="bold" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-bold text-slate-900">
+                            {meta.title}
+                          </h3>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 font-extrabold text-slate-700">
+                            {selectedInGroup} of {locs.length}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {meta.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectAllGroup(categoryKey)}
+                        className="text-[11px] font-bold text-[#0a2342] hover:underline px-2 py-1 rounded-md hover:bg-white"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => handleClearAllGroup(categoryKey)}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:underline px-2 py-1 rounded-md hover:bg-white"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Role warning banner if user lacks operational role */}
+                  {isRoleMissing && (
+                    <div className="px-4 py-2 bg-amber-50/70 border-b border-amber-200/60 flex items-center gap-2 text-[11px] text-amber-800">
+                      <WarningCircle size={14} className="text-amber-600 shrink-0" />
+                      <span>
+                        Note: User does not currently hold the{" "}
+                        <strong>{meta.roleLabel}</strong>. Granting access will
+                        authorize this location, but operational duties require
+                        the matching role.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Location Checkbox Grid */}
+                  <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {locs.map((loc) => {
+                      const isChecked = selectedLocationIds.has(loc.id);
+                      return (
+                        <label
+                          key={loc.id}
+                          className={`flex items-center justify-between p-3 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                            isChecked
+                              ? "bg-emerald-50/40 border-emerald-300 shadow-xs"
+                              : "bg-white border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleLocation(loc.id)}
+                              className="w-4 h-4 rounded-sm border-slate-300 text-[#0a2342] focus:ring-[#0a2342] cursor-pointer"
+                            />
+                            <div className="truncate">
+                              <p
+                                className={`font-semibold truncate ${
+                                  isChecked ? "text-emerald-950 font-bold" : "text-slate-800"
+                                }`}
+                              >
+                                {loc.name}
+                              </p>
+                              <span className="text-[10px] text-slate-400 capitalize">
+                                {loc.type || "Zone"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 ml-2">
+                            {isChecked ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-200">
+                                <Check size={10} weight="bold" /> Granted
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-medium border border-slate-200">
+                                Denied
+                              </span>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--border-light)] bg-slate-50">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="btn btn-outline text-xs"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading || !selectedLocationId}
-            className="btn btn-primary text-xs"
-          >
-            {loading ? (
-              <SpinnerGap size={16} className="animate-spin" />
-            ) : (
-              <Shield size={16} />
-            )}
-            Grant Access
-          </button>
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <div className="text-xs text-slate-500">
+            Passwords are <span className="font-semibold text-slate-700">never</span> reset by changing location access.
+          </div>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-white text-xs font-bold transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <SpinnerGap size={14} className="animate-spin" />
+                  Saving Changes...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={15} weight="bold" className="text-[#f5bd19]" />
+                  Save Changes ({totalAssigned} Locations)
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

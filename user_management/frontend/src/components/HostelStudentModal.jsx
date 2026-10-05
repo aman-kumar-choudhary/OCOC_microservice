@@ -7,6 +7,7 @@ import {
   X
 } from "@phosphor-icons/react";
 import api from "../services/api";
+import { useToast } from "@/context/ToastContext";
 
 const HostelStudentModal = ({
   student,
@@ -15,6 +16,7 @@ const HostelStudentModal = ({
   onTransferSuccess,
   onProfileUpdate,
 }) => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("profile");
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -60,10 +62,10 @@ const HostelStudentModal = ({
         profile: formData,
       });
       if (onProfileUpdate) onProfileUpdate();
-      alert("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Failed to update profile:", error);
-      alert("Failed to update profile.");
+      toast.error(error.response?.data?.error?.message || "Failed to update profile.");
     }
     setSavingProfile(false);
   };
@@ -77,11 +79,12 @@ const HostelStudentModal = ({
           hostel_id: selectedTransferHostel,
         },
       });
+      toast.success("Student transferred successfully!");
       onTransferSuccess();
       onClose();
     } catch (error) {
       console.error("Failed to transfer student:", error);
-      alert("Failed to transfer student.");
+      toast.error(error.response?.data?.error?.message || "Failed to transfer student.");
     }
     setTransferring(false);
   };
@@ -224,7 +227,7 @@ const HostelStudentModal = ({
                   className="bg-[#0a2342] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-[#11325c] transition flex items-center gap-2"
                 >
                   <FloppyDisk size={16} />
-                  {savingProfile ? "Saving..." : "FloppyDisk Changes"}
+                  {savingProfile ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>

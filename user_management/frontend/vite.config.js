@@ -11,6 +11,18 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-icons": ["@phosphor-icons/react"],
+          "vendor-charts": ["chart.js", "react-chartjs-2"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     // Make the development app reachable from other machines on the LAN.
     host: "0.0.0.0",

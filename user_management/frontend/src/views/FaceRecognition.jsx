@@ -20,6 +20,7 @@ export const FaceRecognition = () => {
   const [multiError, setMultiError] = useState("");
   const [singleBusy, setSingleBusy] = useState(false);
   const [multiBusy, setMultiBusy] = useState(false);
+  const multiBusyRef = useRef(false);
 
   const logRecognition = (result, authType) => {
     const livenessFailed = result.message === "Liveness check failed";
@@ -56,9 +57,10 @@ export const FaceRecognition = () => {
   };
 
   const recognizeMultiFrame = async () => {
-    if (multiBusy || activeTab !== "mass") return;
+    if (multiBusyRef.current || activeTab !== "mass") return;
     const frame = wideCameraRef.current?.capture();
     if (!frame) return;
+    multiBusyRef.current = true;
     setMultiBusy(true);
     setMultiError("");
     try {
@@ -68,6 +70,7 @@ export const FaceRecognition = () => {
     } catch (e) {
       setMultiError(e.response?.data?.detail || "Recognition unavailable");
     } finally {
+      multiBusyRef.current = false;
       setMultiBusy(false);
     }
   };
@@ -80,7 +83,7 @@ export const FaceRecognition = () => {
     return () => {
       if (multiTimer) clearInterval(multiTimer);
     };
-  }, [activeTab, multiBusy]);
+  }, [activeTab]);
 
   const singleState = !singleResult
     ? "Waiting for one live face"

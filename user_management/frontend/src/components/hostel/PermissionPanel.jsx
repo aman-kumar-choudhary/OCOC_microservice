@@ -9,8 +9,10 @@ import {
 } from "@phosphor-icons/react";
 import { hostelService } from "../../services/hostelService";
 import api from "../../services/api";
+import { useToast } from "@/context/ToastContext";
 
 const PermissionPanel = ({ hostelId }) => {
+  const { toast } = useToast();
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showGrantModal, setShowGrantModal] = useState(false);
@@ -36,9 +38,10 @@ const PermissionPanel = ({ hostelId }) => {
     if (window.confirm("Are you sure you want to revoke this permission?")) {
       try {
         await hostelService.revokePermission(id);
+        toast.success("Permission revoked successfully");
         fetchPermissions();
       } catch (err) {
-        alert("Failed to revoke");
+        toast.error("Failed to revoke permission");
       }
     }
   };
@@ -77,7 +80,7 @@ const PermissionPanel = ({ hostelId }) => {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              placeholder="MagnifyingGlass student..."
+              placeholder="Search student..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19] bg-white"
@@ -185,6 +188,7 @@ const PermissionPanel = ({ hostelId }) => {
 };
 
 const GrantModal = ({ onClose, onSuccess, hostelId }) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     student_id: "",
     permission_type: "HOSTEL_EXIT",
@@ -220,17 +224,17 @@ const GrantModal = ({ onClose, onSuccess, hostelId }) => {
         start_time: new Date(formData.start_time).toISOString(),
         end_time: new Date(formData.end_time).toISOString(),
       };
-      console.log("Sending payload:", payload);
       await hostelService.grantPermission(payload);
+      toast.success("Permission granted successfully!");
       onSuccess();
     } catch (err) {
       console.error("Backend Error Response:", err.response?.data);
-      alert(
-        "Failed to grant permission:\n" +
-          JSON.stringify(err.response?.data, null, 2) +
-          "\n\n" +
-          err.message,
-      );
+      const errorMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.detail ||
+        err.message ||
+        "Failed to grant permission";
+      toast.error(errorMsg);
     }
     setSubmitting(false);
   };

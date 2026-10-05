@@ -8,6 +8,8 @@ class Log(BaseModel):
     operation: str
     entity_type: str
     entity_id: str
+    actor_name: Optional[str] = None
+    actor_email: Optional[str] = None
     before_state: Optional[Any] = None
     after_state: Optional[Any] = None
     ip_address: Optional[str] = None

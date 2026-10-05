@@ -3,17 +3,30 @@ import userService from "@/services/userService";
 import rfidService from "@/services/rfidService";
 import { registerPerson } from "@/services/frecoService";
 import FaceOvalCamera from "@/components/FaceOvalCamera";
-import UserProfileForm from "@/components/UserProfileForm";
+import PassportPhotoCapture from "@/components/PassportPhotoCapture";
+import AcademicBatchSelect from "@/components/common/AcademicBatchSelect";
 import {
+  BookOpen,
+  Briefcase,
+  BuildingOffice,
   Camera,
   CheckCircle,
   CreditCard,
+  Envelope,
   FloppyDisk,
+  Hash,
+  House,
+  MapPin,
+  Phone,
   Scan,
+  ShieldCheck,
   SpinnerGap,
   User as UserIcon,
-  X
+  UserCircle,
+  WarningCircle,
+  X,
 } from "@phosphor-icons/react";
+
 const INITIAL_POSES = [
   {
     key: "center",
@@ -52,8 +65,99 @@ const INITIAL_POSES = [
   },
 ];
 
+const toDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const toCenteredJpeg = async (file) => {
+  const dataUrl = await toDataUrl(file);
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const sourceWidth = image.naturalWidth;
+      const sourceHeight = image.naturalHeight;
+      const sourceAspect = sourceWidth / sourceHeight;
+      const targetAspect = 3 / 4;
+      let cropWidth = sourceWidth;
+      let cropHeight = sourceHeight;
+
+      if (sourceAspect > targetAspect) {
+        cropWidth = sourceHeight * targetAspect;
+      } else {
+        cropHeight = sourceWidth / targetAspect;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 450;
+      canvas.height = 600;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        reject(new Error("Unable to process the captured photo."));
+        return;
+      }
+      context.drawImage(
+        image,
+        (sourceWidth - cropWidth) / 2,
+        (sourceHeight - cropHeight) / 2,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    image.onerror = () => reject(new Error("Unable to load the captured photo."));
+    image.src = dataUrl;
+  });
+};
+
 export const EditUserModal = ({ user, onClose, onSaved }) => {
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("profile"); // 'profile' | 'photo' | 'face' | 'rfid'
+
+  // Master form state
+  const [formData, setFormData] = useState({
+    email: user.email || "",
+    phone: user.phone || "",
+    profile: {
+      ...user.profile,
+      full_name: user.profile?.full_name || "",
+      roll_number: user.profile?.roll_number || "",
+      employee_id: user.profile?.employee_id || "",
+      school: user.profile?.school || "",
+      department: user.profile?.department || "",
+      department_id: user.profile?.department_id || null,
+      course: user.profile?.course || "",
+      semester: user.profile?.semester || "",
+      batch: user.profile?.batch || "",
+      hostel_flag: user.profile?.hostel_flag || false,
+      hostel_id: user.profile?.hostel_id || "",
+      room_number: user.profile?.room_number || "",
+      guardian_contact: user.profile?.guardian_contact || "",
+      emergency_contact: user.profile?.emergency_contact || "",
+      photo_reference: user.profile?.photo_reference || "",
+      designation: user.profile?.designation || "",
+      job_type: user.profile?.job_type || "",
+      work_area: user.profile?.work_area || "",
+      shift: user.profile?.shift || "",
+      hostel_block: user.profile?.hostel_block || "",
+      warden_responsibilities: user.profile?.warden_responsibilities || "",
+      visit_purpose: user.profile?.visit_purpose || "",
+      host_person: user.profile?.host_person || "",
+      host_contact: user.profile?.host_contact || "",
+    },
+  });
+
+  const [dbDepartments, setDbDepartments] = useState([]);
+  const [dbHostels, setDbHostels] = useState([]);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState(false);
 
   // Keyboard close
   useEffect(() => {
@@ -64,44 +168,61 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
     return () => window.removeEventListener("keydown", onKeydown);
   }, [onClose]);
 
-  // ─── Profile Tab State ───
-  const [formData, setFormData] = useState({
-    email: user.email || "",
-    phone: user.phone || "",
-    profile: {
-      ...user.profile,
-      full_name: user.profile?.full_name || "",
-      hostel_flag: user.profile?.hostel_flag || false,
-      hostel_id: user.profile?.hostel_id || undefined,
-      school: user.profile?.school || "",
-      department: user.profile?.department || "",
-      course: user.profile?.course || "",
-      semester: user.profile?.semester || "",
-      designation: user.profile?.designation || "",
-      employee_id: user.profile?.employee_id || "",
-      roll_number: user.profile?.roll_number || "",
-      guardian_contact: user.profile?.guardian_contact || "",
-    },
-  });
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState("");
-  const [profileSuccess, setProfileSuccess] = useState(false);
+  // Fetch departments and hostels
+  useEffect(() => {
+    userService.getDepartments().then((data) => setDbDepartments(data || [])).catch(console.error);
+    userService.getHostels().then((data) => setDbHostels(data || [])).catch(console.error);
+  }, []);
 
+  const updateProfileField = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateDepartment = (departmentName) => {
+    const department = dbDepartments.find((item) => item.name === departmentName);
+    setFormData((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        department: departmentName,
+        department_id: department?.id || null,
+      },
+    }));
+  };
+
+  const updateField = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // ─── Save Profile Handler ───
   const handleSaveProfile = async () => {
     setProfileError("");
     setIsProfileLoading(true);
     try {
-      await userService.update(user.id, {
+      const payload = {
         phone: formData.phone,
-        profile: formData.profile,
-      });
+        profile: {
+          ...formData.profile,
+          hostel_id: formData.profile.hostel_id || null,
+        },
+      };
+      const res = await userService.update(user.id, payload);
       setProfileSuccess(true);
       setTimeout(() => {
         setProfileSuccess(false);
-        onSaved();
+        onSaved?.(res);
       }, 1000);
     } catch (e) {
-      setProfileError(e.response?.data?.error?.message || "Update failed");
+      setProfileError(e.response?.data?.error?.message || e.message || "Update failed");
     } finally {
       setIsProfileLoading(false);
     }
@@ -133,6 +254,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
     }
   };
 
+  // ─── Face Enrollment & Sync with photo_reference ───
   const handleRegisterFace = async () => {
     const uncaptured = poses.filter((p) => !p.file);
     if (uncaptured.length > 0) {
@@ -145,18 +267,44 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
     setFaceError("");
     setIsFaceLoading(true);
     try {
+      // 1. Send all 5 poses to FRECO for biometric embedding extraction
       await registerPerson({
         externalId: user.id,
-        name: user.profile?.full_name || user.email,
+        name: formData.profile?.full_name || user.profile?.full_name || user.email,
         personType: user.user_type,
         email: user.email,
         images: poses.map((p) => p.file),
         poses: poses.map((p) => p.key),
       });
+
+      // 2. Synchronize front/center pose as the primary photo_reference in user_management
+      const centerPose = poses.find((p) => p.key === "center") || poses[0];
+      let centerDataUrl = null;
+      if (centerPose && centerPose.file) {
+        centerDataUrl = await toCenteredJpeg(centerPose.file);
+      }
+
+      let updatedUser = null;
+      if (centerDataUrl) {
+        const updatedProfile = {
+          ...formData.profile,
+          photo_reference: centerDataUrl,
+        };
+        const res = await userService.update(user.id, {
+          phone: formData.phone,
+          profile: updatedProfile,
+        });
+        setFormData((prev) => ({
+          ...prev,
+          profile: updatedProfile,
+        }));
+        updatedUser = res;
+      }
+
       setFaceSuccess(true);
       setTimeout(() => {
         setFaceSuccess(false);
-        onSaved();
+        onSaved?.(updatedUser);
       }, 1200);
     } catch (e) {
       setFaceError(
@@ -197,7 +345,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
       setRfidSuccess(true);
       setTimeout(() => {
         setRfidSuccess(false);
-        onSaved();
+        onSaved?.();
       }, 1000);
     } catch (e) {
       setRfidError(
@@ -208,126 +356,586 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
     }
   };
 
+  const userType = (user.user_type || "student").toLowerCase();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-[#0a2342]/60 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-3xl glass-panel p-0 overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+      <div className="relative z-10 w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-scale-in">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[var(--border-light)] flex items-center justify-between bg-[var(--bg-card)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#0a2342]/8 text-[#0a2342] flex items-center justify-center font-bold">
-              {(user.profile?.full_name || user.email).charAt(0).toUpperCase()}
+        <div className="px-6 py-4.5 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#0a2342] to-[#163a66] text-[#f5bd19] flex items-center justify-center font-black text-lg shadow-xs overflow-hidden">
+              {formData.profile.photo_reference ? (
+                <img
+                  src={formData.profile.photo_reference}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                (formData.profile.full_name || user.email).charAt(0).toUpperCase()
+              )}
             </div>
             <div>
-              <h2 className="text-lg font-extrabold">
-                {user.profile?.full_name || "Edit User"}
-              </h2>
-              <p className="text-xs text-muted font-mono">
-                {user.email} · {user.user_type}
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                  {formData.profile.full_name || "Edit Member Profile"}
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                  {userType}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-mono mt-0.5">
+                {user.email} · ID: {user.id.slice(0, 8)}…
               </p>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-[var(--border-light)] text-muted"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition icon-touch"
+            aria-label="Close dialog"
           >
-            <X size={18} />
+            <X size={20} weight="bold" />
           </button>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex border-b border-[var(--border-light)] px-6 bg-[var(--bg-card)]">
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-2 px-6 pt-3 border-b border-slate-200 bg-slate-50/70 overflow-x-auto">
           <button
+            type="button"
             onClick={() => setActiveTab("profile")}
-            className={`flex items-center gap-2 py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
               activeTab === "profile"
-                ? "border-[#f5bd19] text-[#0a2342]"
-                : "border-transparent text-muted hover:text-[#0a2342]"
+                ? "border-[#0a2342] text-[#0a2342] font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <UserIcon size={16} /> Profile Details
+            <UserCircle size={16} weight={activeTab === "profile" ? "fill" : "bold"} />
+            <span>Profile &amp; Demographics</span>
           </button>
+
           <button
+            type="button"
+            onClick={() => setActiveTab("photo")}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+              activeTab === "photo"
+                ? "border-[#0a2342] text-[#0a2342] font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Camera size={16} weight={activeTab === "photo" ? "fill" : "bold"} />
+            <span>Passport Photo</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab("face")}
-            className={`flex items-center gap-2 py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
               activeTab === "face"
-                ? "border-[#f5bd19] text-[#0a2342]"
-                : "border-transparent text-muted hover:text-[#0a2342]"
+                ? "border-[#0a2342] text-[#0a2342] font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Camera size={16} /> Face Enrollment
+            <Scan size={16} weight={activeTab === "face" ? "fill" : "bold"} />
+            <span>Face Biometrics (5 Poses)</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab("rfid")}
-            className={`flex items-center gap-2 py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
               activeTab === "rfid"
-                ? "border-[#f5bd19] text-[#0a2342]"
-                : "border-transparent text-muted hover:text-[#0a2342]"
+                ? "border-[#0a2342] text-[#0a2342] font-black"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <CreditCard size={16} /> RFID Credential
+            <CreditCard size={16} weight={activeTab === "rfid" ? "fill" : "bold"} />
+            <span>RFID Credential</span>
           </button>
         </div>
 
-        {/* Tab contents */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* ─── Profile Tab ─── */}
+        {/* Tab Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* ════════════════════ PROFILE TAB ════════════════════ */}
           {activeTab === "profile" && (
-            <div className="space-y-4">
-              <UserProfileForm
-                formData={formData}
-                onChange={setFormData}
-                persona={user.user_type}
-                isEdit={true}
-              />
+            <div className="space-y-6 animate-fade-in">
+              {/* Section 1: Personal Information */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0a2342] border-b border-slate-100 pb-2">
+                  <UserCircle size={16} className="text-[#f5bd19]" weight="fill" />
+                  <span>Personal Information</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Full Legal Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.profile.full_name}
+                      onChange={(e) => updateProfileField("full_name", e.target.value)}
+                      className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      placeholder="e.g. Aman Kumar"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Email Address (Keycloak OIDC Username)
+                    </label>
+                    <div className="relative">
+                      <Envelope size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        disabled
+                        value={formData.email}
+                        className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3.5 text-sm text-slate-500 font-mono cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Primary Phone Number <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="tel"
+                        required
+                        value={formData.phone}
+                        onChange={(e) => updateField("phone", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 pl-10 pr-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. +91 9876543210"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Emergency Contact Phone
+                    </label>
+                    <div className="relative">
+                      <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="tel"
+                        value={formData.profile.emergency_contact || ""}
+                        onChange={(e) => updateProfileField("emergency_contact", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 pl-10 pr-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. +91 9876500000"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Academic / Employment Information */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0a2342] border-b border-slate-100 pb-2">
+                  <BookOpen size={16} className="text-[#f5bd19]" weight="fill" />
+                  <span>
+                    {userType === "student"
+                      ? "Academic Enrollment Details"
+                      : "Employment & Institutional Assignment"}
+                  </span>
+                </div>
+
+                {userType === "student" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Scholar / Roll Number
+                      </label>
+                      <div className="relative">
+                        <Hash size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={formData.profile.roll_number || ""}
+                          onChange={(e) => updateProfileField("roll_number", e.target.value)}
+                          className="w-full h-10 rounded-xl border border-slate-200 pl-10 pr-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                          placeholder="e.g. 22BCA042"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Department
+                      </label>
+                      <select
+                        value={formData.profile.department || ""}
+                        onChange={(e) => updateDepartment(e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      >
+                        <option value="">Select Department...</option>
+                        {dbDepartments.map((d) => (
+                          <option key={d.id} value={d.name}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Course / Programme
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.course || ""}
+                        onChange={(e) => updateProfileField("course", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. BCA"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Current Semester
+                      </label>
+                      <select
+                        value={formData.profile.semester || ""}
+                        onChange={(e) => updateProfileField("semester", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      >
+                        <option value="">Select Semester...</option>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                          <option key={s} value={String(s)}>
+                            Semester {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <AcademicBatchSelect
+                        value={formData.profile.batch || ""}
+                        onChange={(batchStr) => updateProfileField("batch", batchStr)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {userType === "faculty" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Employee ID
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.employee_id || ""}
+                        onChange={(e) => updateProfileField("employee_id", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. FAC-2024-01"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Designation / Title
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.designation || ""}
+                        onChange={(e) => updateProfileField("designation", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. Assistant Professor"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Department
+                      </label>
+                      <select
+                        value={formData.profile.department || ""}
+                        onChange={(e) => updateDepartment(e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      >
+                        <option value="">Select Department...</option>
+                        {dbDepartments.map((d) => (
+                          <option key={d.id} value={d.name}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {userType === "worker" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Employee ID
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.employee_id || ""}
+                        onChange={(e) => updateProfileField("employee_id", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. WRK-2024-01"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Job Type / Role
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.job_type || ""}
+                        onChange={(e) => updateProfileField("job_type", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. Electrician, Security, Maintenance"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Assigned Work Area
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.work_area || ""}
+                        onChange={(e) => updateProfileField("work_area", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. Campus Zone A"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Work Shift
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.shift || ""}
+                        onChange={(e) => updateProfileField("shift", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. Morning (06:00 - 14:00)"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {userType === "visitor" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Purpose of Campus Visit
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.visit_purpose || ""}
+                        onChange={(e) => updateProfileField("visit_purpose", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. Guest Lecture / Campus Tour"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Host Person / Department
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.profile.host_person || ""}
+                        onChange={(e) => updateProfileField("host_person", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. Dr. Sharma"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Host Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.profile.host_contact || ""}
+                        onChange={(e) => updateProfileField("host_contact", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                        placeholder="e.g. +91 9876543210"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 3: Residential & Hostel Information */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0a2342] border-b border-slate-100 pb-2">
+                  <House size={16} className="text-[#f5bd19]" weight="fill" />
+                  <span>Residential &amp; Hostel Details</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Assigned Hostel
+                    </label>
+                    <select
+                      value={formData.profile.hostel_id || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateProfileField("hostel_id", val);
+                        updateProfileField("hostel_flag", !!val);
+                      }}
+                      className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                    >
+                      <option value="">Day Scholar / Non-Residential</option>
+                      {dbHostels.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name} ({h.code || "Hostel"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Room Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.profile.room_number || ""}
+                      onChange={(e) => updateProfileField("room_number", e.target.value)}
+                      className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      placeholder="e.g. B-204"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Guardian / Parent Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.profile.guardian_contact || ""}
+                      onChange={(e) => updateProfileField("guardian_contact", e.target.value)}
+                      className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      placeholder="e.g. +91 9876543210"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {profileError && (
-                <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm font-semibold border border-red-200">
-                  {profileError}
+                <div className="p-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-center gap-2">
+                  <WarningCircle size={16} weight="bold" className="shrink-0" />
+                  <span>{profileError}</span>
                 </div>
               )}
               {profileSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200 flex items-center gap-2">
-                  <CheckCircle size={16} /> Profile updated successfully!
+                <div className="p-4 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                  <CheckCircle size={16} weight="fill" className="shrink-0 text-emerald-600" />
+                  <span>User profile updated successfully!</span>
                 </div>
               )}
-              <div className="flex justify-end pt-4">
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
                   onClick={handleSaveProfile}
                   disabled={isProfileLoading}
-                  className="btn btn-primary"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0a2342] hover:bg-[#163a66] text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
                 >
                   {isProfileLoading ? (
-                    <SpinnerGap className="animate-spin" size={16} />
+                    <SpinnerGap className="animate-spin" size={15} />
                   ) : (
-                    <FloppyDisk size={16} />
+                    <FloppyDisk size={15} weight="bold" className="text-[#f5bd19]" />
                   )}
-                  FloppyDisk Changes
+                  <span>Save Profile Changes</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* ─── Face Tab ─── */}
+          {/* ════════════════════ PASSPORT PHOTO TAB ════════════════════ */}
+          {activeTab === "photo" && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0a2342] border-b border-slate-100 pb-2">
+                  <Camera size={16} className="text-[#f5bd19]" weight="fill" />
+                  <span>Official Passport-Style Photo</span>
+                </div>
+
+                <PassportPhotoCapture
+                  value={formData.profile.photo_reference || ""}
+                  onChange={(val) => updateProfileField("photo_reference", val)}
+                  label="Official Institutional Portrait"
+                  helperText="Clear front-facing portrait used across User Directory, ID Cards, and Turnstile Displays"
+                />
+              </div>
+
+              {profileError && (
+                <div className="p-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-center gap-2">
+                  <WarningCircle size={16} weight="bold" className="shrink-0" />
+                  <span>{profileError}</span>
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="p-4 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                  <CheckCircle size={16} weight="fill" className="shrink-0 text-emerald-600" />
+                  <span>Photo saved successfully!</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  disabled={isProfileLoading}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0a2342] hover:bg-[#163a66] text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
+                >
+                  {isProfileLoading ? (
+                    <SpinnerGap className="animate-spin" size={15} />
+                  ) : (
+                    <FloppyDisk size={15} weight="bold" className="text-[#f5bd19]" />
+                  )}
+                  <span>Save Photo Changes</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════ FACE BIOMETRICS TAB ════════════════════ */}
           {activeTab === "face" && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-fade-in">
+              {/* Pose Selection Strip */}
               <div className="flex gap-2 justify-center flex-wrap">
                 {poses.map((pose, idx) => (
                   <button
                     key={pose.key}
                     type="button"
                     onClick={() => setCurrentPoseIdx(idx)}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all w-24 ${
+                    className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all w-24 ${
                       idx === currentPoseIdx
-                        ? "border-[#f5bd19] bg-[#f5bd19]/5 scale-105"
+                        ? "border-[#f5bd19] bg-[#f5bd19]/10 shadow-xs scale-105"
                         : pose.file
-                          ? "border-emerald-500/50 bg-emerald-50"
-                          : "border-[var(--border-light)]"
+                          ? "border-emerald-500/60 bg-emerald-50/70"
+                          : "border-slate-200 bg-slate-50"
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border flex items-center justify-center text-sm font-bold bg-white">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center text-xs font-bold bg-white">
                       {pose.preview ? (
                         <img
                           src={pose.preview}
@@ -338,16 +946,18 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         idx + 1
                       )}
                     </div>
-                    <span className="text-[11px] font-bold">{pose.label}</span>
+                    <span className="text-[10px] font-bold text-slate-700">{pose.label}</span>
                   </button>
                 ))}
               </div>
 
-              <div className="text-center">
-                <h3 className="text-base font-bold mb-1">
-                  {currentPose.label}
+              {/* Guided Oval Viewfinder */}
+              <div className="text-center bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                <h3 className="text-sm font-extrabold text-slate-900 mb-0.5">
+                  Pose {currentPoseIdx + 1} of 5: {currentPose.label}
                 </h3>
-                <p className="text-xs text-muted mb-4">{currentPose.hint}</p>
+                <p className="text-xs text-slate-500 mb-4">{currentPose.hint}</p>
+
                 <div className="flex justify-center mb-3">
                   <FaceOvalCamera
                     mode="registration"
@@ -356,114 +966,128 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                     onCapture={handleAutoCapture}
                   />
                 </div>
-                <p className="text-xs text-muted">
-                  {capturedCount} / {poses.length} poses captured
+                <p className="text-xs font-bold text-slate-600">
+                  {capturedCount} of 5 poses completed
                 </p>
               </div>
 
               {faceError && (
-                <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm font-semibold border border-red-200">
-                  {faceError}
+                <div className="p-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-center gap-2">
+                  <WarningCircle size={16} weight="bold" className="shrink-0" />
+                  <span>{faceError}</span>
                 </div>
               )}
               {faceSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200 flex items-center gap-2">
-                  <CheckCircle size={16} /> Face enrolled successfully!
+                <div className="p-4 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                  <CheckCircle size={16} weight="fill" className="shrink-0 text-emerald-600" />
+                  <span>Biometric face enrollment and profile photo updated successfully!</span>
                 </div>
               )}
 
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs text-slate-500">
+                  Enrolling face also synchronizes the frontal passport photo to the user's profile.
+                </span>
                 <button
+                  type="button"
                   onClick={handleRegisterFace}
                   disabled={isFaceLoading || capturedCount < 5}
-                  className="btn btn-primary"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0a2342] hover:bg-[#163a66] text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
                 >
                   {isFaceLoading ? (
-                    <SpinnerGap className="animate-spin" size={16} />
+                    <SpinnerGap className="animate-spin" size={15} />
                   ) : (
-                    <Camera size={16} />
+                    <Camera size={15} weight="bold" className="text-[#f5bd19]" />
                   )}
-                  Enroll Face ({capturedCount}/5)
+                  <span>Enroll Face Biometrics ({capturedCount}/5)</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* ─── RFID Tab ─── */}
+          {/* ════════════════════ RFID TAB ════════════════════ */}
           {activeTab === "rfid" && (
-            <div className="space-y-6">
-              <div className="p-4 rounded-xl border border-[var(--border-light)] bg-[var(--bg-card)]">
-                <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">
+            <div className="space-y-6 animate-fade-in">
+              <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-2xs">
+                <p className="text-xs text-slate-500 font-extrabold uppercase tracking-wider mb-2">
                   Current Hardware Token
                 </p>
                 {user.active_rfid ? (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <CreditCard className="text-emerald-600" size={24} />
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                        <CreditCard size={22} weight="bold" />
+                      </div>
                       <div>
-                        <p className="font-mono font-bold text-base">
+                        <p className="font-mono font-black text-base text-slate-900">
                           {user.active_rfid}
                         </p>
-                        <span className="badge badge-active">Active</span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                          <CheckCircle size={13} weight="fill" /> Active Physical Credential
+                        </span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted">
-                    No active RFID tag assigned to this user.
+                  <p className="text-xs font-semibold text-slate-500">
+                    No physical RFID badge is currently linked to this profile.
                   </p>
                 )}
               </div>
 
-              <div className="p-4 rounded-xl border border-[var(--border-light)] bg-[var(--bg-main)] space-y-4">
-                <h4 className="font-bold text-sm">
-                  Assign New / Replacement RFID Tag
+              <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 space-y-4">
+                <h4 className="font-black text-sm text-slate-900">
+                  Assign New or Replacement RFID Token
                 </h4>
                 <div className="flex items-center gap-3">
                   <input
                     type="text"
                     value={rfidUid}
                     onChange={(e) => setRfidUid(e.target.value)}
-                    placeholder="Scan or type RFID UID…"
-                    className="form-input font-mono flex-1"
+                    placeholder="Scan on reader or enter card UID…"
+                    className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition flex-1"
                   />
                   <button
+                    type="button"
                     onClick={handleScanRFID}
                     disabled={isScanning}
-                    className="btn btn-outline"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition disabled:opacity-50"
                   >
                     {isScanning ? (
-                      <SpinnerGap className="animate-spin" size={16} />
+                      <SpinnerGap className="animate-spin" size={15} />
                     ) : (
-                      <Scan size={16} />
+                      <Scan size={15} weight="bold" className="text-[#0a2342]" />
                     )}
-                    Scan
+                    <span>Scan Token</span>
                   </button>
                 </div>
 
                 {rfidError && (
-                  <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm font-semibold border border-red-200">
-                    {rfidError}
+                  <div className="p-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-center gap-2">
+                    <WarningCircle size={16} weight="bold" className="shrink-0" />
+                    <span>{rfidError}</span>
                   </div>
                 )}
                 {rfidSuccess && (
-                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200 flex items-center gap-2">
-                    <CheckCircle size={16} /> RFID assigned successfully!
+                  <div className="p-4 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                    <CheckCircle size={16} weight="fill" className="shrink-0 text-emerald-600" />
+                    <span>RFID credential linked and issued successfully!</span>
                   </div>
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex justify-end pt-2">
                   <button
+                    type="button"
                     onClick={handleAssignRFID}
                     disabled={!rfidUid || isRfidLoading}
-                    className="btn btn-primary"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0a2342] hover:bg-[#163a66] text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
                   >
                     {isRfidLoading ? (
-                      <SpinnerGap className="animate-spin" size={16} />
+                      <SpinnerGap className="animate-spin" size={15} />
                     ) : (
-                      <CreditCard size={16} />
+                      <CreditCard size={15} weight="bold" className="text-[#f5bd19]" />
                     )}
-                    Issue Card
+                    <span>Issue RFID Credential</span>
                   </button>
                 </div>
               </div>

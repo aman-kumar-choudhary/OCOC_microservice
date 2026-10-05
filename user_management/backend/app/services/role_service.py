@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 # This list is intentionally limited to the roles Access Management owns.
 # ADMIN and SUPER_ADMIN continue to be administered by their existing flow.
 OPERATIONAL_ROLES = {
-    "GUARD", "SECURITY_GUARD", "WARDEN", "FACULTY",
-    "STUDENT", "STAFF", "WORKER", "VISITOR",
+    "GUARD", "SECURITY_GUARD", "SECURITY_SUPERVISOR", "GATE_OPERATOR",
+    "WARDEN", "HOSTEL_OPERATOR", "FACULTY",
+    "STUDENT", "STAFF", "WORKER", "VISITOR", "USER_MANAGER",
 }
 
 
@@ -187,7 +188,7 @@ class RoleService:
             temporary_password = self._temporary_password()
             name_parts = str(target["full_name"]).strip().split(maxsplit=1)
             first_name = name_parts[0] if name_parts else username
-            last_name = name_parts[1] if len(name_parts) > 1 else (str(target["user_type"]).capitalize() if target.get("user_type") else "User")
+            last_name = name_parts[1] if len(name_parts) > 1 else (str(target["user_type"]).capitalize() if "user_type" in target and target["user_type"] else "User")
             keycloak_id = await keycloak_client.create_user(
                 username=username,
                 email=target["email"].lower(),
@@ -238,6 +239,7 @@ class RoleService:
     async def update_user_access(
         self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID,
         role_names: List[str], hostel_ids: List[uuid.UUID],
+        location_ids: Optional[List[uuid.UUID]] = None,
         issue_password: bool = False,
         custom_password: Optional[str] = None,
     ) -> dict[str, Any]:
@@ -245,8 +247,8 @@ class RoleService:
         if not requested_roles.issubset(OPERATIONAL_ROLES):
             invalid = sorted(requested_roles - OPERATIONAL_ROLES)
             raise ValueError(f"Unsupported operational roles: {', '.join(invalid)}")
-        if hostel_ids and "WARDEN" not in requested_roles:
-            raise ValueError("Hostel assignments require the WARDEN role")
+        if hostel_ids and not any(r in requested_roles for r in ("WARDEN", "HOSTEL_OPERATOR")):
+            raise ValueError("Hostel assignments require the WARDEN or HOSTEL_OPERATOR role")
 
         before = await self.get_user_access(conn, user_id)
         actor_local_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id=$1", actor_id) if actor_id else None
@@ -254,6 +256,14 @@ class RoleService:
         target = await conn.fetchrow("SELECT id, keycloak_user_id, email FROM users WHERE id=$1", user_id)
         if not target:
             raise ValueError("User not found")
+
+        # Ensure any missing operational roles exist in local roles table
+        for r_name in requested_roles:
+            await conn.execute(
+                "INSERT INTO roles (name, description, user_type) VALUES ($1, 'OCOC operational role', NULL) ON CONFLICT (name) DO NOTHING",
+                r_name,
+            )
+
         available_roles = await conn.fetch("SELECT id, name FROM roles WHERE name = ANY($1::text[])", list(requested_roles))
         role_ids = {row["name"]: row["id"] for row in available_roles}
         if set(role_ids) != requested_roles:
@@ -264,18 +274,13 @@ class RoleService:
                 raise ValueError("One or more selected hostels do not exist")
 
         keycloak_id = target["keycloak_user_id"]
-        temporary_password = None
-        if requested_roles:
-            keycloak_id, temporary_password = await self._provision_keycloak_identity(conn, user_id)
+        if requested_roles and not keycloak_id:
+            keycloak_id, _ = await self._provision_keycloak_identity(conn, user_id)
         if keycloak_id:
             await keycloak_client.update_user_roles(keycloak_id, list(requested_roles), list(OPERATIONAL_ROLES))
 
-        final_password = None
-        if issue_password or temporary_password:
-            final_password = custom_password.strip() if custom_password and custom_password.strip() else (temporary_password or self._temporary_password())
-            if keycloak_id:
-                await keycloak_client.reset_password(keycloak_id, final_password, temporary=False)
-                await keycloak_client.clear_required_actions(keycloak_id)
+        # NOTE: Changing roles, location grants, or access control NEVER resets the user's password.
+        # Password resets are strictly explicit and handled via issue_or_reset_credentials.
 
         try:
             async with conn.transaction():
@@ -306,6 +311,75 @@ class RoleService:
                     await audit_service.log(conn, audit_actor_id, "HOSTEL_ACCESS_GRANTED", "user", str(user_id), after_state={"hostel_id": hostel_id})
                 for hostel_id in sorted(before_hostels - after_hostels):
                     await audit_service.log(conn, audit_actor_id, "HOSTEL_ACCESS_REVOKED", "user", str(user_id), before_state={"hostel_id": hostel_id})
+
+                # Cascading Revocation of dependent location grants
+                guard_roles = {"GUARD", "SECURITY_GUARD", "SECURITY_SUPERVISOR", "GATE_OPERATOR"}
+                warden_roles = {"WARDEN", "HOSTEL_OPERATOR"}
+
+                had_guard = bool(before_roles.intersection(guard_roles))
+                has_guard = bool(after_roles.intersection(guard_roles))
+                if had_guard and not has_guard:
+                    # Guard role removed: revoke all gate and checkpoint location grants
+                    gate_grants = await conn.fetch("""
+                        SELECT ula.id, ula.location_id, l.name AS location_name
+                        FROM user_location_access ula
+                        JOIN locations l ON l.id = ula.location_id
+                        WHERE ula.user_id = $1 AND ula.status = 'active'
+                          AND (l.type IN ('gate', 'checkpoint', 'turnstile', 'security', 'control_room')
+                               OR l.name ILIKE '%gate%' OR l.name ILIKE '%barrier%')
+                    """, user_id)
+                    for gg in gate_grants:
+                        await conn.execute("""
+                            UPDATE user_location_access
+                            SET status = 'revoked', revoked_at = now(), revoked_by = $1, updated_at = now()
+                            WHERE id = $2
+                        """, actor_local_id, gg["id"])
+                        await audit_service.log(
+                            conn, audit_actor_id, "LOCATION_ACCESS_REVOKED", "user", str(user_id),
+                            before_state={"location_id": str(gg["location_id"]), "location_name": gg["location_name"], "reason": "Operational role (Guard) removed"},
+                        )
+
+                had_warden = bool(before_roles.intersection(warden_roles))
+                has_warden = bool(after_roles.intersection(warden_roles))
+                if had_warden and not has_warden:
+                    # Warden role removed: revoke all hostel location grants
+                    hostel_grants = await conn.fetch("""
+                        SELECT ula.id, ula.location_id, l.name AS location_name
+                        FROM user_location_access ula
+                        JOIN locations l ON l.id = ula.location_id
+                        WHERE ula.user_id = $1 AND ula.status = 'active'
+                          AND (l.type IN ('hostel', 'residential', 'zone') OR l.name ILIKE '%hostel%')
+                    """, user_id)
+                    for hg in hostel_grants:
+                        await conn.execute("""
+                            UPDATE user_location_access
+                            SET status = 'revoked', revoked_at = now(), revoked_by = $1, updated_at = now()
+                            WHERE id = $2
+                        """, actor_local_id, hg["id"])
+                        await audit_service.log(
+                            conn, audit_actor_id, "LOCATION_ACCESS_REVOKED", "user", str(user_id),
+                            before_state={"location_id": str(hg["location_id"]), "location_name": hg["location_name"], "reason": "Operational role (Warden) removed"},
+                        )
+
+                if before_roles and not after_roles:
+                    # All operational roles removed: revoke any operational location grants
+                    all_grants = await conn.fetch("""
+                        SELECT ula.id, ula.location_id, l.name AS location_name
+                        FROM user_location_access ula
+                        JOIN locations l ON l.id = ula.location_id
+                        WHERE ula.user_id = $1 AND ula.status = 'active'
+                    """, user_id)
+                    for ag in all_grants:
+                        await conn.execute("""
+                            UPDATE user_location_access
+                            SET status = 'revoked', revoked_at = now(), revoked_by = $1, updated_at = now()
+                            WHERE id = $2
+                        """, actor_local_id, ag["id"])
+                        await audit_service.log(
+                            conn, audit_actor_id, "LOCATION_ACCESS_REVOKED", "user", str(user_id),
+                            before_state={"location_id": str(ag["location_id"]), "location_name": ag["location_name"], "reason": "All operational roles removed"},
+                        )
+
                 await audit_service.log(conn, audit_actor_id, "ACCESS_CONFIGURATION_UPDATED", "user", str(user_id), before, after)
         except Exception:
             try:
@@ -315,11 +389,18 @@ class RoleService:
                 logger.critical("Keycloak role rollback failed for user %s: %s", user_id, rollback_error)
             raise
 
-        if final_password:
-            self._log_temporary_credentials(
-                target["email"].lower(), final_password, requested_roles,
-                after["hostels"], str(user_id), keycloak_id,
+        # If location_ids was explicitly passed, synchronize location grants as well
+        if location_ids is not None:
+            from app.services.access_service import access_service
+            await access_service.sync_user_location_grants(
+                conn=conn,
+                user_id=user_id,
+                location_ids=location_ids,
+                access_level="ENTRY",
+                admin_id=actor_local_id,
+                reason="Synchronized via Access Management",
             )
+
         logger.info(
             "ACCESS ROLES SYNCHRONIZED | User ID: %s | Email: %s | Keycloak ID: %s | Roles: %s | Hostels: %s",
             user_id, target["email"], keycloak_id or "unlinked",
@@ -327,16 +408,14 @@ class RoleService:
             ", ".join(h["name"] for h in after["hostels"]) or "None",
         )
         dash = self.get_dashboard_info(requested_roles)
-        after["credentials_issued"] = bool(final_password)
-        after["credentials_printed"] = bool(
-            final_password and settings.ENVIRONMENT.lower() in {"development", "dev", "test"}
-        )
+        after["credentials_issued"] = False
+        after["credentials_printed"] = False
         after["dashboard_path"] = dash["path"]
         after["dashboard_name"] = dash["name"]
         after["credentials"] = {
             "username": target["email"].lower(),
             "email": target["email"].lower(),
-            "password": final_password,
+            "password": None,
             "dashboard_path": dash["path"],
             "dashboard_name": dash["name"],
             "roles": sorted(list(requested_roles)),
@@ -379,7 +458,7 @@ class RoleService:
             else:
                 name_parts = str(target["full_name"]).strip().split(maxsplit=1)
                 first_name = name_parts[0] if name_parts else target["email"].lower()
-                last_name = name_parts[1] if len(name_parts) > 1 else (str(target["user_type"]).capitalize() if target.get("user_type") else "User")
+                last_name = name_parts[1] if len(name_parts) > 1 else (str(target["user_type"]).capitalize() if "user_type" in target and target["user_type"] else "User")
                 keycloak_id = await keycloak_client.create_user(
                     username=target["email"].lower(),
                     email=target["email"].lower(),

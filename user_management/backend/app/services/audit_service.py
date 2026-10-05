@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import logging
+from datetime import datetime
 from typing import Any, Optional
 import uuid
 import asyncpg
@@ -8,6 +9,15 @@ import asyncpg
 from app.schemas.audit import AuditListResult, Log
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_date_filter(value: datetime | str) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if value.endswith("Z"):
+        value = f"{value[:-1]}+00:00"
+    return datetime.fromisoformat(value)
+
 
 class AuditService:
     async def log(
@@ -67,10 +77,18 @@ class AuditService:
     async def get_by_id(self, conn: asyncpg.Connection, log_id: uuid.UUID) -> Optional[Log]:
         row = await conn.fetchrow(
             """
-            SELECT id, COALESCE(actor_id::text, '') as actor_id, operation, entity_type, entity_id,
-                   before_state, after_state, COALESCE(ip_address, '') as ip_address,
-                   COALESCE(user_agent, '') as user_agent, created_at
-            FROM audit_logs WHERE id=$1
+            SELECT a.id, COALESCE(a.actor_id::text, '') as actor_id, a.operation, a.entity_type, a.entity_id,
+                   a.before_state, a.after_state, COALESCE(a.ip_address, '') as ip_address,
+                   COALESCE(a.user_agent, '') as user_agent, a.created_at,
+                   COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name, u.email, 'System') as actor_name,
+                   COALESCE(u.email, '') as actor_email
+            FROM audit_logs a
+            LEFT JOIN users u ON a.actor_id = u.id
+            LEFT JOIN student_profiles sp ON u.id = sp.user_id
+            LEFT JOIN faculty_profiles fp ON u.id = fp.user_id
+            LEFT JOIN worker_profiles wp ON u.id = wp.user_id
+            LEFT JOIN visitor_profiles vp ON u.id = vp.user_id
+            WHERE a.id=$1
             """,
             log_id,
         )
@@ -79,6 +97,8 @@ class AuditService:
         return Log(
             id=str(row["id"]),
             actor_id=row["actor_id"] or None,
+            actor_name=row["actor_name"] or "System",
+            actor_email=row["actor_email"] or None,
             operation=row["operation"],
             entity_type=row["entity_type"],
             entity_id=row["entity_id"],
@@ -96,6 +116,9 @@ class AuditService:
         operation: Optional[str] = None,
         entity_type: Optional[str] = None,
         entity_id: Optional[str] = None,
+        search: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         page: int = 1,
         limit: int = 20,
     ) -> AuditListResult:
@@ -110,34 +133,64 @@ class AuditService:
         if actor_id:
             try:
                 actor_uuid = uuid.UUID(actor_id)
-                clauses.append(f"actor_id = ${idx}")
+                clauses.append(f"a.actor_id = ${idx}")
                 args.append(actor_uuid)
                 idx += 1
             except Exception:
                 pass
         if operation:
-            clauses.append(f"operation = ${idx}")
+            clauses.append(f"a.operation = ${idx}")
             args.append(operation)
             idx += 1
         if entity_type:
-            clauses.append(f"entity_type = ${idx}")
+            clauses.append(f"a.entity_type = ${idx}")
             args.append(entity_type)
             idx += 1
         if entity_id:
-            clauses.append(f"entity_id = ${idx}")
+            clauses.append(f"a.entity_id = ${idx}")
             args.append(entity_id)
+            idx += 1
+        if start_date:
+            clauses.append(f"a.created_at >= ${idx}")
+            args.append(_parse_date_filter(start_date))
+            idx += 1
+        if end_date:
+            clauses.append(f"a.created_at <= ${idx}")
+            args.append(_parse_date_filter(end_date))
+            idx += 1
+        if search:
+            clauses.append(f"(a.operation ILIKE ${idx} OR a.entity_type ILIKE ${idx} OR a.entity_id ILIKE ${idx} OR COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name, u.email, '') ILIKE ${idx})")
+            args.append(f"%{search}%")
             idx += 1
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
-        total = await conn.fetchval(f"SELECT COUNT(*) FROM audit_logs {where_sql}", *args)
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM audit_logs a
+            LEFT JOIN users u ON a.actor_id = u.id
+            LEFT JOIN student_profiles sp ON u.id = sp.user_id
+            LEFT JOIN faculty_profiles fp ON u.id = fp.user_id
+            LEFT JOIN worker_profiles wp ON u.id = wp.user_id
+            LEFT JOIN visitor_profiles vp ON u.id = vp.user_id
+            {where_sql}
+        """
+        total = await conn.fetchval(count_query, *args)
 
         query = f"""
-            SELECT id, COALESCE(actor_id::text, '') as actor_id, operation, entity_type, entity_id,
-                   before_state, after_state, COALESCE(ip_address, '') as ip_address,
-                   COALESCE(user_agent, '') as user_agent, created_at
-            FROM audit_logs {where_sql}
-            ORDER BY created_at DESC
+            SELECT a.id, COALESCE(a.actor_id::text, '') as actor_id, a.operation, a.entity_type, a.entity_id,
+                   a.before_state, a.after_state, COALESCE(a.ip_address, '') as ip_address,
+                   COALESCE(a.user_agent, '') as user_agent, a.created_at,
+                   COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name, u.email, 'System') as actor_name,
+                   COALESCE(u.email, '') as actor_email
+            FROM audit_logs a
+            LEFT JOIN users u ON a.actor_id = u.id
+            LEFT JOIN student_profiles sp ON u.id = sp.user_id
+            LEFT JOIN faculty_profiles fp ON u.id = fp.user_id
+            LEFT JOIN worker_profiles wp ON u.id = wp.user_id
+            LEFT JOIN visitor_profiles vp ON u.id = vp.user_id
+            {where_sql}
+            ORDER BY a.created_at DESC
             LIMIT ${idx} OFFSET ${idx + 1}
         """
         rows = await conn.fetch(query, *args, limit, offset)
@@ -146,6 +199,8 @@ class AuditService:
             Log(
                 id=str(r["id"]),
                 actor_id=r["actor_id"] or None,
+                actor_name=r["actor_name"] or "System",
+                actor_email=r["actor_email"] or None,
                 operation=r["operation"],
                 entity_type=r["entity_type"],
                 entity_id=r["entity_id"],

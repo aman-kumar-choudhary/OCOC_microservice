@@ -28,7 +28,7 @@ import accessService from "@/services/accessService";
 import userService from "@/services/userService";
 import UserAccessDetail from "./UserAccessDetail";
 export const UserAccessPanel = () => {
-  // ── MagnifyingGlass & Funnel State ──
+  // ── Search & Filter State ──
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [userType, setUserType] = useState("");
@@ -215,7 +215,7 @@ export const UserAccessPanel = () => {
 
   return (
     <div className="space-y-5">
-      {/* ── MagnifyingGlass and Funnel Header Card ── */}
+      {/* ── Search and Filter Header Card ── */}
       <div className="rounded-2xl border border-[var(--border-light)] bg-white p-5 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -223,7 +223,7 @@ export const UserAccessPanel = () => {
               People & Access
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Funnel by person type, then review each person’s Keycloak roles
+              Filter by person type, then review each person’s Keycloak roles
               and location grants.
             </p>
           </div>
@@ -255,7 +255,7 @@ export const UserAccessPanel = () => {
           ))}
         </div>
 
-        {/* MagnifyingGlass Bar & Funnel Toggle */}
+        {/* Search Bar & Filter Toggle */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div className="relative flex-1">
             <MagnifyingGlass
@@ -264,7 +264,7 @@ export const UserAccessPanel = () => {
             />
             <input
               type="text"
-              placeholder="MagnifyingGlass 5,000+ users by name, email, university ID (enrollment/employee), or phone..."
+              placeholder="Search 5,000+ users by name, email, university ID (enrollment/employee), or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
@@ -322,7 +322,7 @@ export const UserAccessPanel = () => {
           </div>
         </div>
 
-        {/* Primary Funnel Dropdowns */}
+        {/* Primary Filter Dropdowns */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
           {/* User Type */}
           <div>
@@ -609,7 +609,7 @@ export const UserAccessPanel = () => {
           <div className="p-16 text-center space-y-2">
             <User size={36} className="mx-auto text-slate-300" />
             <h4 className="font-bold text-sm text-slate-700">
-              No Users Match Funnel Criteria
+              No Users Match Filter Criteria
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Try adjusting your search query, clearing specific filters, or

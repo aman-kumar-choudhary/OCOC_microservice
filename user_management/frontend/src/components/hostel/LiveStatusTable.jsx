@@ -1,21 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
+  Clock,
   MagnifyingGlass,
-  UserCircle
+  UserCircle,
+  Warning
 } from "@phosphor-icons/react";
 import { hostelService } from "../../services/hostelService";
+import Pagination from "@/components/common/Pagination";
 
 const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     const fetchLiveStatus = async () => {
       setLoading(true);
       try {
         const res = await hostelService.getLiveStatus(hostelId);
-        setStudents(res.data);
+        setStudents(res.data || []);
       } catch (err) {
         console.error("Failed to fetch live status", err);
       }
@@ -27,50 +33,66 @@ const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
     return () => clearInterval(interval);
   }, [hostelId, liveVersion]);
 
-  const filteredStudents = students.filter((s) => {
-    if (statusFilter && s.current_status !== statusFilter) return false;
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const name = (s.student_name || "").toLowerCase();
-    const roll = (s.student_roll || "").toLowerCase();
-    return name.includes(q) || roll.includes(q);
-  });
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      if (statusFilter && s.current_status !== statusFilter) return false;
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      const name = (s.student_name || "").toLowerCase();
+      const roll = (s.student_roll || "").toLowerCase();
+      return name.includes(q) || roll.includes(q);
+    });
+  }, [students, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const paginatedStudents = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, page, pageSize]);
 
   const getStatusBadge = (status) => {
     switch (status) {
       case "INSIDE":
         return (
-          <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-black rounded-full uppercase">
-            🟢 Inside
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200 uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Inside
           </span>
         );
       case "OUTSIDE":
         return (
-          <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-black rounded-full uppercase">
-            🔴 Outside
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-bold rounded-full border border-orange-200 uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+            Outside
           </span>
         );
       case "ON_LEAVE":
         return (
-          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-black rounded-full uppercase">
-            🟡 On Leave
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-full border border-purple-200 uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+            On Leave
           </span>
         );
       case "UNAUTHORIZED":
         return (
-          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-black rounded-full uppercase animate-pulse">
-            ⚠ Unauthorized
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-full border border-rose-200 uppercase animate-pulse">
+            <Warning size={12} className="text-rose-500" />
+            Unauthorized
           </span>
         );
       case "LATE_RETURN":
         return (
-          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-black rounded-full uppercase">
-            ⚠ Late
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200 uppercase">
+            <Clock size={12} className="text-amber-500" />
+            Late Return
           </span>
         );
       default:
         return (
-          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-black rounded-full uppercase">
+          <span className="inline-flex items-center px-2.5 py-1 bg-gray-50 text-gray-700 text-xs font-bold rounded-full border border-gray-200 uppercase">
             {status}
           </span>
         );
@@ -99,7 +121,7 @@ const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              placeholder="MagnifyingGlass by name or roll no..."
+              placeholder="Search by name or roll no..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#f5bd19] focus:ring-1 focus:ring-[#f5bd19] transition-all bg-white shadow-sm"
@@ -133,7 +155,7 @@ const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredStudents.map((s) => (
+              {paginatedStudents.map((s) => (
                 <tr
                   key={s.student_id}
                   className="hover:bg-gray-50 transition-colors"
@@ -190,6 +212,21 @@ const LiveStatusTable = ({ hostelId, liveVersion = 0 }) => {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Pagination */}
+      <div className="p-4 border-t border-[var(--border-light)] bg-white rounded-b-xl">
+        <Pagination
+          currentPage={page}
+          totalItems={filteredStudents.length}
+          pageSize={pageSize}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50]}
+        />
       </div>
     </div>
   );

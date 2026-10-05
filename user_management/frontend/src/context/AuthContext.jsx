@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
 import api from "@/services/api";
 
@@ -19,7 +19,9 @@ export const AuthProvider = ({ children }) => {
     }
     return null;
   });
+  const [profile, setProfile] = useState(null);
   const [isInitializing, setIsInitializing] = useState(false);
+
   const parseToken = (t) => {
     try {
       const decoded = jwtDecode(t);
@@ -32,16 +34,40 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => {
-    const savedToken = sessionStorage.getItem("access_token");
-    if (savedToken && !user) {
-      parseToken(savedToken);
+  const fetchProfile = useCallback(async () => {
+    const activeToken = sessionStorage.getItem("access_token");
+    if (!activeToken) return;
+    try {
+      const { data } = await api.get("/users/me");
+      if (data?.data) {
+        setProfile(data.data);
+      }
+    } catch (e) {
+      // Profile fallback silently handled by JWT claims
     }
   }, []);
 
+  useEffect(() => {
+    const savedToken = sessionStorage.getItem("access_token");
+    if (savedToken) {
+      if (!user) parseToken(savedToken);
+      fetchProfile();
+    }
+  }, [fetchProfile]);
+
   const isAuthenticated = !!token;
   const roles = user?.realm_access?.roles || [];
-  const email = user?.email || "";
+  const email = profile?.email || user?.email || "";
+
+  // Compute full name consistently from database profile or JWT claims
+  const fullName =
+    profile?.full_name?.trim() ||
+    user?.name?.trim() ||
+    (user?.given_name
+      ? `${user.given_name} ${user.family_name || ""}`.trim()
+      : null) ||
+    user?.preferred_username ||
+    (email ? email.split("@")[0] : "Campus Member");
 
   // Treat Keycloak role matching case-insensitively; role names remain stored
   // and displayed exactly as Keycloak issues them.
@@ -57,10 +83,10 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.setItem("access_token", access_token);
     sessionStorage.setItem("refresh_token", refresh_token);
 
-    // Return the claims as well as storing them in state.  State updates are
-    // asynchronous, while the login page needs the roles immediately to pick
-    // the correct first dashboard.
-    return parseToken(access_token);
+    const claims = parseToken(access_token);
+    // Fetch profile in parallel for full database name & details
+    fetchProfile();
+    return claims;
   };
 
   const logout = async () => {
@@ -74,6 +100,7 @@ export const AuthProvider = ({ children }) => {
     }
     setToken(null);
     setUser(null);
+    setProfile(null);
     sessionStorage.removeItem("access_token");
     sessionStorage.removeItem("refresh_token");
   };
@@ -83,6 +110,8 @@ export const AuthProvider = ({ children }) => {
       value={{
         token,
         user,
+        profile,
+        fullName,
         isInitializing,
         isAuthenticated,
         roles,
@@ -91,6 +120,7 @@ export const AuthProvider = ({ children }) => {
         hasAnyRole,
         login,
         logout,
+        refreshProfile: fetchProfile,
       }}
     >
       {children}

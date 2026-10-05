@@ -1,28 +1,38 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import AuthLayout from "@/layouts/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
-// Views
-import Login from "@/views/Login";
-import ForgotPassword from "@/views/ForgotPassword";
-import Register from "@/views/Register";
-import Dashboard from "@/views/Dashboard";
-import PersonalDashboard from "@/views/PersonalDashboard";
-import UsersView from "@/views/Users";
-import Onboarding from "@/views/Onboarding";
-import Analytics from "@/views/Analytics";
-import RFIDView from "@/views/RFID";
-import FaceRecognition from "@/views/FaceRecognition";
-import FaceAuthLog from "@/views/FaceAuthLog";
-import AuditView from "@/views/Audit";
-import AccessManagement from "@/views/AccessManagement";
-import GuardDashboard from "@/views/GuardDashboard";
-import HostelDashboard from "@/views/HostelDashboard";
-import DeviceRegistry from "@/views/DeviceRegistry";
-import LeaveManagement from "@/views/LeaveManagement";
-import Legal from "@/views/Legal";
 import { roleDashboardPath, isAuthorizedForRoute } from "@/utils/roleDashboard";
+
+// Lazy-loaded Views for bundle splitting and sub-second initial load
+const Login = lazy(() => import("@/views/Login"));
+const ForgotPassword = lazy(() => import("@/views/ForgotPassword"));
+const Register = lazy(() => import("@/views/Register"));
+const Dashboard = lazy(() => import("@/views/Dashboard"));
+const PersonalDashboard = lazy(() => import("@/views/PersonalDashboard"));
+const UsersView = lazy(() => import("@/views/Users"));
+const Onboarding = lazy(() => import("@/views/Onboarding"));
+const Analytics = lazy(() => import("@/views/Analytics"));
+const RFIDView = lazy(() => import("@/views/RFID"));
+const FaceRecognition = lazy(() => import("@/views/FaceRecognition"));
+const FaceAuthLog = lazy(() => import("@/views/FaceAuthLog"));
+const AuditView = lazy(() => import("@/views/Audit"));
+const AccessManagement = lazy(() => import("@/views/AccessManagement"));
+const GuardDashboard = lazy(() => import("@/views/GuardDashboard"));
+const HostelDashboard = lazy(() => import("@/views/HostelDashboard"));
+const DeviceRegistry = lazy(() => import("@/views/DeviceRegistry"));
+const LeaveManagement = lazy(() => import("@/views/LeaveManagement"));
+const Legal = lazy(() => import("@/views/Legal"));
+
+const RouteLoadingFallback = () => (
+  <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3 py-16 animate-in fade-in duration-200">
+    <div className="w-9 h-9 rounded-full border-3 border-slate-200 border-t-[#f5bd19] animate-spin" />
+    <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
+      Loading workspace...
+    </p>
+  </div>
+);
 
 /**
  * Root redirector: sends authenticated users to their authorized workspace
@@ -123,9 +133,10 @@ const DashboardRouter = () => {
 
 export const App = () => {
   return (
-    <Routes>
-      {/* Root redirect */}
-      <Route path="/" element={<RootRedirect />} />
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <Routes>
+        {/* Root redirect */}
+        <Route path="/" element={<RootRedirect />} />
 
       {/* Public Auth Routes */}
       <Route
@@ -292,6 +303,7 @@ export const App = () => {
       {/* Catch-all */}
       <Route path="*" element={<RootRedirect />} />
     </Routes>
+    </Suspense>
   );
 };
 

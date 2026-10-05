@@ -572,6 +572,7 @@ class AccessService:
                     type IN ('public', 'common', 'campus', 'library', 'temple', 'canteen', 'garden')
                     OR name ILIKE '%library%' OR name ILIKE '%main campus%' OR name ILIKE '%mandir%'
                 )
+                AND type <> 'campus' AND name NOT ILIKE '%main campus%'
             """)
             for c_loc in common_locs:
                 loc_id = c_loc["id"]
@@ -868,5 +869,115 @@ class AccessService:
             logs=logs, total=total, page=page,
             page_size=page_size, total_pages=total_pages,
         )
+
+    async def get_user_location_grants(
+        self, conn: asyncpg.Connection, user_id: uuid.UUID
+    ) -> List[UserLocationAccessGrant]:
+        """Fetch all location grants for a given user."""
+        rows = await conn.fetch("""
+            SELECT ula.*, l.name AS location_name, l.type AS location_type,
+                   COALESCE(sp2.full_name,fp2.full_name,wp2.full_name,vp2.full_name) AS granted_by_name
+            FROM user_location_access ula
+            JOIN locations l ON l.id=ula.location_id
+            LEFT JOIN users u2 ON u2.id=ula.granted_by
+            LEFT JOIN student_profiles sp2 ON sp2.user_id=u2.id
+            LEFT JOIN faculty_profiles fp2 ON fp2.user_id=u2.id
+            LEFT JOIN worker_profiles wp2 ON wp2.user_id=u2.id
+            LEFT JOIN visitor_profiles vp2 ON vp2.user_id=u2.id
+            WHERE ula.user_id=$1
+            ORDER BY CASE WHEN ula.status='active' THEN 0 ELSE 1 END, l.name
+        """, user_id)
+        return [
+            UserLocationAccessGrant(
+                id=g["id"], location_id=g["location_id"],
+                location_name=g["location_name"], location_type=g["location_type"],
+                access_level=g["access_level"],
+                valid_from=g["valid_from"], valid_until=g["valid_until"],
+                status=g["status"], granted_by=g["granted_by"],
+                granted_by_name=g["granted_by_name"],
+                revoked_at=g["revoked_at"], revoked_by=g["revoked_by"],
+                reason=g["reason"],
+                created_at=g["created_at"], updated_at=g["updated_at"],
+            )
+            for g in rows
+        ]
+
+    async def sync_user_location_grants(
+        self,
+        conn: asyncpg.Connection,
+        user_id: uuid.UUID,
+        location_ids: List[uuid.UUID],
+        access_level: str = "ENTRY",
+        admin_id: Optional[uuid.UUID] = None,
+        reason: Optional[str] = "Assigned via Access Management",
+    ) -> List[UserLocationAccessGrant]:
+        """Atomically synchronize active location grants for a user."""
+        level = (access_level or "ENTRY").upper()
+        if level not in ACCESS_LEVELS_ORDER:
+            level = "ENTRY"
+
+        user_exists = await conn.fetchval("SELECT EXISTS(SELECT 1 FROM users WHERE id=$1)", user_id)
+        if not user_exists:
+            raise ValueError("User not found")
+
+        # Verify all location_ids exist
+        target_ids = set(location_ids)
+        if target_ids:
+            found_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM locations WHERE id = ANY($1::uuid[])", list(target_ids)
+            )
+            if found_count != len(target_ids):
+                raise ValueError("One or more selected locations do not exist")
+
+        existing = await conn.fetch(
+            "SELECT id, location_id FROM user_location_access WHERE user_id = $1 AND status = 'active'",
+            user_id,
+        )
+        existing_map: Dict[uuid.UUID, List[uuid.UUID]] = {}
+        for row in existing:
+            existing_map.setdefault(row["location_id"], []).append(row["id"])
+
+        to_revoke = set(existing_map.keys()) - target_ids
+        to_grant = target_ids - set(existing_map.keys())
+
+        from app.services.audit_service import audit_service
+
+        async with conn.transaction():
+            # Revoke unselected locations
+            for loc_id in to_revoke:
+                loc_name = await conn.fetchval("SELECT name FROM locations WHERE id = $1", loc_id)
+                for grant_id in existing_map[loc_id]:
+                    await conn.execute(
+                        """
+                        UPDATE user_location_access
+                        SET status = 'revoked', revoked_at = now(), revoked_by = $1, updated_at = now()
+                        WHERE id = $2
+                        """,
+                        admin_id, grant_id,
+                    )
+                    await audit_service.log(
+                        conn, str(admin_id) if admin_id else None, "LOCATION_ACCESS_REVOKED", "user", str(user_id),
+                        before_state={"location_id": str(loc_id), "location_name": loc_name, "reason": "Revoked via Access Management sync"},
+                    )
+
+            # Insert / reactivate selected locations
+            for loc_id in to_grant:
+                await conn.execute("""
+                    INSERT INTO user_location_access
+                        (user_id, location_id, access_level, valid_from, valid_until, status, granted_by, reason)
+                    VALUES ($1, $2, $3, now(), NULL, 'active', $4, $5)
+                    ON CONFLICT (user_id, location_id, access_level) DO UPDATE SET
+                        valid_from=EXCLUDED.valid_from, valid_until=EXCLUDED.valid_until,
+                        status='active', granted_by=EXCLUDED.granted_by, reason=EXCLUDED.reason,
+                        revoked_at=NULL, revoked_by=NULL, updated_at=now()
+                """, user_id, loc_id, level, admin_id, reason)
+                loc_name = await conn.fetchval("SELECT name FROM locations WHERE id = $1", loc_id)
+                await audit_service.log(
+                    conn, str(admin_id) if admin_id else None, "LOCATION_ACCESS_GRANTED", "user", str(user_id),
+                    after_state={"location_id": str(loc_id), "location_name": loc_name, "access_level": level, "reason": reason},
+                )
+
+        return await self.get_user_location_grants(conn, user_id)
+
 
 access_service = AccessService()

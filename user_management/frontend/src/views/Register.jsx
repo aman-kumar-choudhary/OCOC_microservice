@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import registrationService from "@/services/registrationService";
 import PasswordStrengthMeter from "@/components/PasswordStrengthMeter";
 import LegalModal from "@/components/LegalModal";
+import { useToast } from "@/context/ToastContext";
 import {
   ArrowRight,
   Briefcase,
@@ -47,6 +48,7 @@ const ROLE_PRESETS = [
 
 export const Register = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Preset or custom multi-role mode
   const [selectedPreset, setSelectedPreset] = useState("student");
@@ -280,12 +282,14 @@ export const Register = () => {
     try {
       const result = await registrationService.register(payload);
       setRegistrationResult(result);
+      toast.success("Account registered successfully!");
     } catch (err) {
       const message =
         err.response?.data?.error?.message ||
         err.message ||
         "Registration failed. Please try again.";
       setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

@@ -178,39 +178,104 @@ async def create_request(body: LeaveInput, draft: bool = Query(True), conn=Depen
 
 
 @router.get("/requests")
-async def list_requests(conn=Depends(get_db), claims: Claims = Depends(get_current_claims), status_filter: Optional[str] = Query(None, alias="status"), limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
+async def list_requests(
+    conn=Depends(get_db),
+    claims: Claims = Depends(get_current_claims),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    leave_type_filter: Optional[str] = Query(None, alias="leave_type"),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    search: Optional[str] = Query(None),
+    hostel_id: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
     actor = await local_user(conn, claims)
-    base_select = """
-        SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
-               COALESCE(sp.full_name, u.email) AS student_name,
-               sp.roll_number, sp.room_number, sp.course, sp.semester,
-               h.name AS hostel_name, u.email AS student_email, u.phone AS student_phone
+    base_from = """
         FROM leave_requests r
         JOIN leave_types t ON t.id=r.leave_type_id
         LEFT JOIN student_profiles sp ON sp.user_id=r.student_id
         LEFT JOIN hostels h ON h.id=sp.hostel_id
         LEFT JOIN users u ON u.id=r.student_id
     """
-    if claims.has_any_role("SUPER_ADMIN", "ADMIN"):
-        rows = await conn.fetch(f"""{base_select}
-          WHERE ($1::text IS NULL OR r.status=$1) ORDER BY r.created_at DESC LIMIT $2 OFFSET $3""", status_filter, limit, offset)
+    conditions = []
+    params = []
+
+    # 1. Role-based scoping
+    if claims.has_any_role("SUPER_ADMIN", "ADMIN") or claims.has_any_role("GUARD", "SECURITY_GUARD", "SECURITY_ADMIN", "VIEWER"):
+        if hostel_id and hostel_id.strip():
+            try:
+                h_uuid = uuid.UUID(hostel_id.strip())
+                conditions.append(f"sp.hostel_id = ${len(params)+1}")
+                params.append(h_uuid)
+            except Exception:
+                pass
     elif claims.has_any_role("WARDEN"):
         warden_hostels = await resolve_warden_hostel_scope(conn, claims)
         if not warden_hostels:
-            rows = []
-        else:
-            rows = await conn.fetch(f"""{base_select}
-              WHERE sp.hostel_id = ANY($1::uuid[]) AND ($2::text IS NULL OR r.status=$2)
-              ORDER BY r.created_at DESC LIMIT $3 OFFSET $4""", warden_hostels, status_filter, limit, offset)
+            return {"success": True, "data": [], "pagination": {"limit": limit, "offset": offset, "total": 0}}
+        conditions.append(f"sp.hostel_id = ANY(${len(params)+1}::uuid[])")
+        params.append(warden_hostels)
     elif any(can_approve(claims, permission) for permission in STAGE_PERMISSIONS):
         permissions = [permission for permission in STAGE_PERMISSIONS if can_approve(claims, permission)]
-        rows = await conn.fetch(f"""{base_select}
-          WHERE ((r.status='PENDING_APPROVAL' AND r.workflow_snapshot->>r.current_stage = ANY($1::text[])) OR EXISTS(SELECT 1 FROM leave_approvals a WHERE a.request_id=r.id AND a.actor_id=$2))
-            AND ($3::text IS NULL OR r.status=$3) ORDER BY r.created_at DESC LIMIT $4 OFFSET $5""", permissions, actor, status_filter, limit, offset)
+        conditions.append(
+            f"((r.status='PENDING_APPROVAL' AND r.workflow_snapshot->>r.current_stage = ANY(${len(params)+1}::text[])) "
+            f"OR EXISTS(SELECT 1 FROM leave_approvals a WHERE a.request_id=r.id AND a.actor_id=${len(params)+2}))"
+        )
+        params.extend([permissions, actor])
     else:
-        rows = await conn.fetch(f"""{base_select}
-          WHERE r.student_id=$1 AND ($2::text IS NULL OR r.status=$2) ORDER BY r.created_at DESC LIMIT $3 OFFSET $4""", actor, status_filter, limit, offset)
-    return {"success": True, "data": [dict(r) for r in rows], "pagination": {"limit": limit, "offset": offset}}
+        conditions.append(f"r.student_id = ${len(params)+1}")
+        params.append(actor)
+
+    # 2. Dynamic criteria filters
+    if status_filter and status_filter.strip():
+        conditions.append(f"r.status = ${len(params)+1}")
+        params.append(status_filter.strip())
+
+    if leave_type_filter and leave_type_filter.strip():
+        conditions.append(f"(t.code = ${len(params)+1} OR t.id::text = ${len(params)+1} OR t.name ILIKE ${len(params)+1})")
+        params.append(leave_type_filter.strip())
+
+    if date_from:
+        conditions.append(f"r.end_at >= ${len(params)+1}")
+        params.append(date_from)
+
+    if date_to:
+        conditions.append(f"r.start_at <= ${len(params)+1}")
+        params.append(date_to)
+
+    if search and search.strip():
+        search_pattern = f"%{search.strip()}%"
+        conditions.append(
+            f"(COALESCE(sp.full_name, u.email) ILIKE ${len(params)+1} "
+            f"OR u.email ILIKE ${len(params)+1} "
+            f"OR sp.roll_number ILIKE ${len(params)+1} "
+            f"OR r.destination ILIKE ${len(params)+1})"
+        )
+        params.append(search_pattern)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    total = await conn.fetchval(f"SELECT COUNT(*) {base_from} {where_clause}", *params)
+
+    p_limit = len(params) + 1
+    p_offset = len(params) + 2
+    query = f"""
+        SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
+               COALESCE(sp.full_name, u.email) AS student_name,
+               sp.roll_number, sp.room_number, sp.course, sp.semester,
+               h.name AS hostel_name, u.email AS student_email, u.phone AS student_phone
+        {base_from}
+        {where_clause}
+        ORDER BY r.created_at DESC
+        LIMIT ${p_limit} OFFSET ${p_offset}
+    """
+    rows = await conn.fetch(query, *params, limit, offset)
+    return {
+        "success": True,
+        "data": [dict(r) for r in rows],
+        "pagination": {"limit": limit, "offset": offset, "total": total or 0},
+    }
 
 
 async def accessible_request(conn, claims, request_id):
@@ -219,7 +284,8 @@ async def accessible_request(conn, claims, request_id):
     actor = await local_user(conn, claims)
     stage = item["workflow_snapshot"][item["current_stage"]] if item["status"] == "PENDING_APPROVAL" and item["current_stage"] < len(item["workflow_snapshot"]) else None
     prior_approver = await conn.fetchval("SELECT EXISTS(SELECT 1 FROM leave_approvals WHERE request_id=$1 AND actor_id=$2)", request_id, actor)
-    if item["student_id"] != actor and not (stage and can_approve(claims, stage)) and not prior_approver and not claims.has_any_role("SUPER_ADMIN", "ADMIN"):
+    is_security = claims.has_any_role("SUPER_ADMIN", "ADMIN", "GUARD", "SECURITY_GUARD", "SECURITY_ADMIN", "VIEWER")
+    if item["student_id"] != actor and not (stage and can_approve(claims, stage)) and not prior_approver and not is_security:
         raise HTTPException(403, "You cannot access this leave request")
     return item, actor
 

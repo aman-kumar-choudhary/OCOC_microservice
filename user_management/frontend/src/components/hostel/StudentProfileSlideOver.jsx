@@ -14,8 +14,10 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import api from "../../services/api";
+import { useToast } from "@/context/ToastContext";
 
 const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -65,10 +67,11 @@ const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
         },
       });
       setIsEditing(false);
+      toast.success("Student details updated successfully!");
       onUpdate();
     } catch (err) {
       console.error("Failed to update student", err);
-      alert("Failed to update student details.");
+      toast.error(err.response?.data?.error?.message || "Failed to update student details.");
     }
     setLoading(false);
   };
@@ -91,10 +94,11 @@ const StudentProfileSlideOver = ({ student, onClose, onUpdate }) => {
         status: newStatus,
         reason: `Residential status changed by Hostel Warden`,
       });
+      toast.success(`Student status updated to ${newStatus}.`);
       onUpdate();
     } catch (err) {
       console.error("Failed to change status", err);
-      alert("Failed to change student status.");
+      toast.error(err.response?.data?.error?.message || "Failed to change student status.");
     }
     setLoading(false);
   };

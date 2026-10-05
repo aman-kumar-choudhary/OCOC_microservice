@@ -72,7 +72,7 @@ export default function Legal() {
 
       {/* Main Content Area */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full space-y-6">
-        {/* Navigation Tabs and Quick MagnifyingGlass */}
+        {/* Navigation Tabs and Quick Search */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-3 no-print">
           <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
             <button
@@ -126,7 +126,7 @@ export default function Legal() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="MagnifyingGlass policy clauses..."
+              placeholder="Search policy clauses..."
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342]"
             />
           </div>

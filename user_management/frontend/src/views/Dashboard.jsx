@@ -40,8 +40,8 @@ ChartJS.register(
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, roles } = useAuth();
-  const displayName = user?.name || user?.preferred_username || user?.email?.split("@")[0] || "Administrator";
+  const { user, roles, fullName } = useAuth();
+  const displayName = fullName || user?.name || user?.preferred_username || "Administrator";
   const greeting = getHumanGreeting(displayName, roles || ["ADMIN"]);
 
   const [overview, setOverview] = useState(null);

@@ -68,11 +68,37 @@ async def websocket_endpoint(websocket: WebSocket):
     token = websocket.query_params.get("token")
     if token:
         try:
-            payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False})
-            realm_access = payload.get("realm_access", {})
-            roles = realm_access.get("roles", []) if isinstance(realm_access, dict) else []
-        except Exception:
-            logger.warning("WebSocket connected with an unreadable reviewer token")
+            from app.core.security import fetch_jwks
+            from app.config import settings
+            jwks = await fetch_jwks()
+            payload = None
+            if jwks and "keys" in jwks:
+                try:
+                    unverified_header = jwt.get_unverified_header(token)
+                    kid = unverified_header.get("kid")
+                    key_data = next((k for k in jwks["keys"] if k.get("kid") == kid), None)
+                    if key_data:
+                        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
+                        payload = jwt.decode(
+                            token,
+                            public_key,
+                            algorithms=["RS256"],
+                            options={"verify_aud": False},
+                        )
+                except Exception as e:
+                    logger.debug("JWKS validation failed for WS token: %s", e)
+
+            if payload is None and settings.ENVIRONMENT.lower() in {"development", "dev", "test"}:
+                try:
+                    payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False})
+                except Exception:
+                    pass
+
+            if payload:
+                realm_access = payload.get("realm_access", {})
+                roles = realm_access.get("roles", []) if isinstance(realm_access, dict) else []
+        except Exception as e:
+            logger.warning("WebSocket connected with an invalid token: %s", e)
     await manager.connect(websocket, roles)
     try:
         while True:
