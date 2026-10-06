@@ -17,9 +17,9 @@ const Analytics = lazy(() => import("@/views/Analytics"));
 const RFIDView = lazy(() => import("@/views/RFID"));
 const FaceRecognition = lazy(() => import("@/views/FaceRecognition"));
 const FaceAuthLog = lazy(() => import("@/views/FaceAuthLog"));
-const AuditView = lazy(() => import("@/views/Audit"));
 const AccessManagement = lazy(() => import("@/views/AccessManagement"));
 const GuardDashboard = lazy(() => import("@/views/GuardDashboard"));
+const SecurityAdminDashboard = lazy(() => import("@/views/SecurityAdminDashboard"));
 const HostelDashboard = lazy(() => import("@/views/HostelDashboard"));
 const DeviceRegistry = lazy(() => import("@/views/DeviceRegistry"));
 const LeaveManagement = lazy(() => import("@/views/LeaveManagement"));
@@ -118,12 +118,13 @@ const DashboardRouter = () => {
     return <Navigate to="/hostel" replace />;
   }
 
+  // Security Admin: strictly limited to Security Command Center
+  if (assigned.has("SECURITY_ADMIN")) {
+    return <Navigate to="/security-admin" replace />;
+  }
+
   // Guard: strictly limited to Guard Console
-  if (
-    assigned.has("GUARD") ||
-    assigned.has("SECURITY_GUARD") ||
-    assigned.has("SECURITY_ADMIN")
-  ) {
+  if (assigned.has("GUARD") || assigned.has("SECURITY_GUARD")) {
     return <Navigate to="/guard" replace />;
   }
 
@@ -249,6 +250,17 @@ export const App = () => {
         }
       />
       <Route
+        path="/security-admin"
+        element={
+          <ProtectedRoute
+            path="/security-admin"
+            roles={["SUPER_ADMIN", "SECURITY_ADMIN"]}
+          >
+            <SecurityAdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/guard"
         element={
           <ProtectedRoute
@@ -288,17 +300,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/audit"
-        element={
-          <ProtectedRoute
-            path="/audit"
-            roles={["SUPER_ADMIN", "SECURITY_ADMIN", "VIEWER"]}
-          >
-            <AuditView />
-          </ProtectedRoute>
-        }
-      />
+
 
       {/* Catch-all */}
       <Route path="*" element={<RootRedirect />} />

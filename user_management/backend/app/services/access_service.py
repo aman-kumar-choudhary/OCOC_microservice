@@ -151,6 +151,28 @@ class AccessService:
             current_time = now.timetz().replace(tzinfo=None)
             if current_time >= datetime.time(20, 0) or current_time < datetime.time(5, 0):
                 await self._notify_alert(conn, "CURFEW_VIOLATION", f"Late hostel return: {user['full_name']} checked in at {now.strftime('%H:%M UTC')}.", user_id, location_id)
+
+            # Hostel Gender Isolation Policy: Boys cannot enter Girls hostel, Girls cannot enter Boys hostel
+            BOYS_HOSTELS = {"arvind", "paninni"}
+            GIRLS_HOSTELS = {"shanghmitra", "nivedita"}
+
+            target_loc_name = (location["name"] or "").lower()
+            student_hostel_name = (await conn.fetchval("SELECT lower(name) FROM hostels WHERE id=$1", user["hostel_id"])) or ""
+
+            is_student_boy = any(b in student_hostel_name for b in BOYS_HOSTELS)
+            is_student_girl = any(g in student_hostel_name for g in GIRLS_HOSTELS)
+            is_target_girls = any(g in target_loc_name for g in GIRLS_HOSTELS)
+            is_target_boys = any(b in target_loc_name for b in BOYS_HOSTELS)
+
+            if is_student_boy and is_target_girls:
+                return await self._log_event(conn, user_id, location_id, action, "DENIED", "Gender Protection Policy: Male student strictly restricted from Girls Hostel", rfid_uid, reader_id, device_id, face_confidence)
+            if is_student_girl and is_target_boys:
+                return await self._log_event(conn, user_id, location_id, action, "DENIED", "Gender Protection Policy: Female student strictly restricted from Boys Hostel", rfid_uid, reader_id, device_id, face_confidence)
+
+        # Faculty All-Campus Privilege: Faculty can access all locations across campus
+        if user["user_type"] == "faculty":
+            return await self._log_event(conn, user_id, location_id, action, "GRANTED", "Faculty campus-wide unrestricted access", rfid_uid, reader_id, device_id, face_confidence)
+
         if action=="ENTRY":
             last=await conn.fetchval("""SELECT action FROM access_events WHERE rfid_uid=$1 AND location_id=$2 AND status='GRANTED' ORDER BY event_time DESC LIMIT 1""",rfid_uid,location_id) if rfid_uid else await conn.fetchval("SELECT last_action FROM user_last_locations WHERE user_id=$1 AND location_id=$2",user_id,location_id)
             if last=="ENTRY": return await self._log_event(conn,user_id,location_id,action,"DENIED","Anti-passback: card is already inside this zone",rfid_uid,reader_id,device_id,face_confidence)
@@ -186,6 +208,8 @@ class AccessService:
         if direct_grant:
             return await self._log_event(conn,user_id,location_id,action,"GRANTED","Direct location access grant",rfid_uid,reader_id,device_id,face_confidence)
         if temporary: return await self._log_event(conn,user_id,location_id,action,"GRANTED","Temporary access grant",rfid_uid,reader_id,device_id,face_confidence)
+        if user["user_type"] == "student" and (not location or location["type"].lower() != "hostel"):
+            return await self._log_event(conn, user_id, location_id, action, "GRANTED", "Campus Freedom: Student authorized for general campus zone", rfid_uid, reader_id, device_id, face_confidence)
         if effect!="ALLOW": return await self._log_event(conn,user_id,location_id,action,"DENIED",reason,rfid_uid,reader_id,device_id,face_confidence)
         return await self._log_event(conn,user_id,location_id,action,"GRANTED",reason,rfid_uid,reader_id,device_id,face_confidence)
 

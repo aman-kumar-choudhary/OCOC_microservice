@@ -135,6 +135,38 @@ const accessService = {
     const { data } = await api.post("/access/verify-face", payload);
     return data.data;
   },
+
+  // ── Guard Movement & Visitor Operations ──
+  recordGuardMovement: async (payload) => {
+    const { data } = await api.post("/access/guard/movement", payload);
+    return data;
+  },
+  registerGuardVisitor: async (payload) => {
+    const { data } = await api.post("/access/guard/visitor", payload);
+    return data;
+  },
+  getGuardVisitors: async (limit = 50) => {
+    const { data } = await api.get(`/access/guard/visitors?limit=${limit}`);
+    return data.data;
+  },
+  checkoutGuardVisitor: async (visitorId) => {
+    const { data } = await api.post(`/access/guard/visitor/${visitorId}/checkout`);
+    return data;
+  },
+
+  assignGuardDuty: async (payload) => {
+    const { data } = await api.post("/access/security-admin/assign-duty", payload);
+    return data;
+  },
+  getSecurityAdminOverview: async () => {
+    const { data } = await api.get("/access/security-admin/overview");
+    return data.data;
+  },
+  executeSecurityCommand: async (payload) => {
+    const { data } = await api.post("/access/security-admin/command", payload);
+    return data;
+  },
 };
 
 export default accessService;
+

@@ -14,6 +14,9 @@ import {
   SpinnerGap,
   WarningCircle,
   X,
+  XCircle,
+  IdentificationCard,
+  Sparkle,
 } from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
 
@@ -161,6 +164,28 @@ export const AssignAccessModal = ({
       userRoles.has(r),
     );
   }, [userRoles]);
+
+  const userPersona = (user?.user_type || "").toLowerCase();
+  const isGuardPersona = useMemo(() => {
+    return (
+      userPersona === "guard" ||
+      ["GUARD", "SECURITY_GUARD", "SECURITY_ADMIN", "SECURITY_SUPERVISOR", "GATE_OPERATOR"].some((r) =>
+        userRoles.has(r)
+      )
+    );
+  }, [userPersona, userRoles]);
+
+  const isStudentPersona = useMemo(() => {
+    return userPersona === "student" || userRoles.has("STUDENT");
+  }, [userPersona, userRoles]);
+
+  const isFacultyPersona = useMemo(() => {
+    return userPersona === "faculty" || userRoles.has("FACULTY");
+  }, [userPersona, userRoles]);
+
+  const isVisitorPersona = useMemo(() => {
+    return userPersona === "visitor" || userRoles.has("VISITOR");
+  }, [userPersona, userRoles]);
 
   // Group locations by category with search filter
   const groupedLocations = useMemo(() => {
@@ -324,9 +349,96 @@ export const AssignAccessModal = ({
           </div>
         )}
 
-        {/* Scrollable Checkbox Categories */}
+        {/* Scrollable Checkbox Categories or Persona Policy */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {loadingLocs ? (
+          {isGuardPersona ? (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-600 text-white shrink-0">
+                  <ShieldCheck size={24} weight="fill" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-blue-950">
+                    Guard Duty Posts Managed by Security Admin
+                  </h3>
+                  <p className="text-xs text-blue-800 mt-1 leading-relaxed">
+                    Gate deployments, security post assignments, and shift rosters for guards are handled in the <strong className="font-bold">Security Command Center</strong> (<span className="font-mono text-blue-900">/security-admin</span>). Manual location assignments in Access Management are disabled for guard personnel.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : isStudentPersona ? (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-indigo-600 text-white shrink-0">
+                  <Buildings size={24} weight="fill" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-indigo-950">
+                    Hostel Gender Isolation & Open Campus Access Policy
+                  </h3>
+                  <p className="text-xs text-indigo-800 mt-1 leading-relaxed">
+                    Student location permissions are enforced automatically based on university campus rules:
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/70 space-y-1">
+                  <div className="flex items-center gap-2 text-rose-900 font-bold text-xs">
+                    <XCircle size={16} weight="fill" className="text-rose-600 shrink-0" />
+                    <span>Strict Hostel Gender Isolation</span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 leading-relaxed">
+                    • <strong className="font-semibold">Male Students:</strong> Prohibited from Girls Hostels (Shanghmitra, Nivedita).<br />
+                    • <strong className="font-semibold">Female Students:</strong> Prohibited from Boys Hostels (Arvind, Paninni).
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                    <CheckCircle size={16} weight="fill" className="text-emerald-600 shrink-0" />
+                    <span>Unrestricted Campus Facilities</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    Automated access to all Academic Blocks, Central Library, Research Laboratories, Sports Arena, and Food Courts.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : isFacultyPersona ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-600 text-white shrink-0">
+                  <Sparkle size={24} weight="fill" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-emerald-950">
+                    Faculty Universal Campus-Wide Access
+                  </h3>
+                  <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
+                    Faculty members possess universal campus-wide authorization across all academic buildings, seminar halls, labs, faculty lounges, and campus gates. Manual location grants are not required and are disabled.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : isVisitorPersona ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-600 text-white shrink-0">
+                  <IdentificationCard size={24} weight="fill" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-950">
+                    Visitor Access Governed by Gate Desk
+                  </h3>
+                  <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                    Visitor access is managed dynamically at gates via Guard Console passes (Temporary 5:00 AM – 5:00 PM IST or Special Function ID cards). Manual location grants are disabled.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : loadingLocs ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
               <SpinnerGap size={24} className="animate-spin text-[#0a2342]" />
               <p className="text-xs">Loading campus locations...</p>
@@ -464,32 +576,44 @@ export const AssignAccessModal = ({
             Passwords are <span className="font-semibold text-slate-700">never</span> reset by changing location access.
           </div>
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-white text-xs font-bold transition disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="px-5 py-2 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <SpinnerGap size={14} className="animate-spin" />
-                  Saving Changes...
-                </>
-              ) : (
-                <>
-                  <CheckCircle size={15} weight="bold" className="text-[#f5bd19]" />
-                  Save Changes ({totalAssigned} Locations)
-                </>
-              )}
-            </button>
+            {isGuardPersona || isStudentPersona || isFacultyPersona || isVisitorPersona ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2 rounded-xl bg-[#0a2342] text-white text-xs font-bold hover:bg-[#12365f] transition"
+              >
+                Close Policy View
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-white text-xs font-bold transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-5 py-2 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <SpinnerGap size={14} className="animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={15} weight="bold" className="text-[#f5bd19]" />
+                      Save Changes ({totalAssigned} Locations)
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

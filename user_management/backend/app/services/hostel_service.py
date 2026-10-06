@@ -26,17 +26,18 @@ class HostelService:
                 u.phone AS student_phone,
                 h.name AS hostel_name,
                 COALESCE(shs.current_status, 'INSIDE') AS current_status,
-                shs.last_event_time,
+                COALESCE(shs.last_event_time, hm.event_time) AS last_event_time,
                 hm.event_type AS last_movement_type,
                 hm.status AS last_movement_status,
-                hg.name AS last_gate_name,
-                hp.id AS permission_id,
-                hp.permission_type,
-                hp.start_time AS permission_start_time,
-                hp.end_time AS permission_end_time,
-                hp.reason AS permission_reason,
-                hp.status AS permission_status,
-                COALESCE(wp.full_name, fp.full_name, gp.full_name, 'Hostel Management') AS granted_by_name
+                COALESCE(hg.name, 'Main Campus Gate') AS last_gate_name,
+                COALESCE(hp.id, lr.id) AS permission_id,
+                COALESCE(hp.permission_type, lr.leave_type_code, lr.leave_type_name, 'CAMPUS_LEAVE') AS permission_type,
+                COALESCE(hp.start_time, lr.start_at) AS permission_start_time,
+                COALESCE(hp.end_time, lr.end_at) AS permission_end_time,
+                COALESCE(hp.reason, lr.reason) AS permission_reason,
+                COALESCE(hp.status, lr.status) AS permission_status,
+                lr.destination AS destination,
+                COALESCE(wp.full_name, fp.full_name, gp.full_name, lr.approved_by_name, 'Warden Office') AS granted_by_name
             FROM users u
             JOIN student_profiles sp ON sp.user_id = u.id
             LEFT JOIN hostels h ON h.id = sp.hostel_id
@@ -44,14 +45,27 @@ class HostelService:
             LEFT JOIN hostel_movement hm ON hm.id = shs.last_movement_id
             LEFT JOIN hostel_gates hg ON hg.id = hm.gate_id
             LEFT JOIN LATERAL (
-                SELECT p.*
+                SELECT p.id, p.permission_type, p.start_time, p.end_time, p.reason, p.status, p.granted_by
                 FROM hostel_permissions p
                 WHERE p.student_id = u.id
-                  AND p.status = 'ACTIVE'
-                  AND p.end_time >= NOW()
+                  AND p.status IN ('ACTIVE', 'APPROVED')
                 ORDER BY p.end_time DESC
                 LIMIT 1
             ) hp ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT r.id, t.code AS leave_type_code, t.name AS leave_type_name,
+                       r.start_at, r.end_at, r.destination, r.reason, r.status,
+                       COALESCE(ap.full_name, au.email) AS approved_by_name
+                FROM leave_requests r
+                JOIN leave_types t ON t.id = r.leave_type_id
+                LEFT JOIN leave_approvals a ON a.request_id = r.id AND a.decision = 'APPROVED'
+                LEFT JOIN users au ON au.id = a.actor_id
+                LEFT JOIN student_profiles ap ON ap.user_id = a.actor_id
+                WHERE r.student_id = u.id
+                  AND r.status IN ('APPROVED', 'PENDING_APPROVAL', 'ACTIVE', 'COMPLETED')
+                ORDER BY r.end_at DESC
+                LIMIT 1
+            ) lr ON TRUE
             LEFT JOIN users grantor ON grantor.id = hp.granted_by
             LEFT JOIN worker_profiles wp ON wp.user_id = grantor.id
             LEFT JOIN faculty_profiles fp ON fp.user_id = grantor.id
@@ -61,7 +75,7 @@ class HostelService:
                 CASE COALESCE(shs.current_status, 'INSIDE')
                     WHEN 'ON_LEAVE' THEN 0 WHEN 'OUTSIDE' THEN 1 ELSE 2
                 END,
-                shs.last_event_time DESC NULLS LAST,
+                COALESCE(hp.start_time, lr.start_at, shs.last_event_time) DESC NULLS LAST,
                 sp.full_name
             LIMIT 500
         """)

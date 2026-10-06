@@ -53,10 +53,11 @@ export const DashboardLayout = ({ children }) => {
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: SquaresFour },
+    { name: "Security Command", path: "/security-admin", icon: ShieldCheck },
+    { name: "Guard Console", path: "/guard", icon: Shield },
     { name: "Access Control", path: "/access", icon: Lock },
     { name: "Hostel Management", path: "/hostel", icon: House },
     { name: "Leave Management", path: "/leave", icon: CalendarDots },
-    { name: "Guard Console", path: "/guard", icon: Shield },
     { name: "RFID Cards", path: "/rfid", icon: CreditCard },
     { name: "Face Lab", path: "/face-recognition", icon: UserFocus },
     { name: "Auth Monitor", path: "/face-auth-log", icon: ShieldWarning },
@@ -64,7 +65,7 @@ export const DashboardLayout = ({ children }) => {
     { name: "Onboard Person", path: "/onboarding", icon: UserPlus },
     { name: "Device Registry", path: "/devices", icon: HardDrives },
     { name: "Analytics", path: "/analytics", icon: ChartBar },
-    { name: "Audit Log", path: "/audit", icon: ChartLineUp },
+    { name: "Audit Logs", path: "/audit", icon: FileText },
   ];
 
   const filteredNavItems = navItems.filter((item) =>

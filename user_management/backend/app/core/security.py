@@ -134,6 +134,7 @@ async def get_current_claims(
                     public_key,
                     algorithms=["RS256"],
                     options={"verify_aud": False},
+                    leeway=30,
                 )
         except jwt.ExpiredSignatureError:
             raise HTTPException(
@@ -155,9 +156,9 @@ async def get_current_claims(
         try:
             logger.warning("SECURITY ALERT: Decoding unverified JWT token because ALLOW_UNVERIFIED_JWT_DEV is active")
             payload = jwt.decode(raw_token, options={"verify_signature": False})
-            # Check expiry even in unverified mode
+            # Check expiry even in unverified mode with 30s tolerance
             exp = payload.get("exp")
-            if exp and time.time() > exp:
+            if exp and time.time() > (exp + 30):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail={"code": "TOKEN_EXPIRED", "message": "token expired"},

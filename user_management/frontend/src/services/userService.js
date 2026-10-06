@@ -11,6 +11,10 @@ export default {
     return data.data;
   },
 
+  async getUserById(id) {
+    return this.getById(id);
+  },
+
   async update(id, payload) {
     const { data } = await api.patch(`/users/${id}`, payload);
     return data.data;

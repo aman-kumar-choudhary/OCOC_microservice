@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # This list is intentionally limited to the roles Access Management owns.
 # ADMIN and SUPER_ADMIN continue to be administered by their existing flow.
 OPERATIONAL_ROLES = {
+    "SECURITY_ADMIN",
     "GUARD", "SECURITY_GUARD", "SECURITY_SUPERVISOR", "GATE_OPERATOR",
     "WARDEN", "HOSTEL_OPERATOR", "FACULTY",
     "STUDENT", "STAFF", "WORKER", "VISITOR", "USER_MANAGER",
@@ -218,11 +219,17 @@ class RoleService:
     @staticmethod
     def get_dashboard_info(roles: set[str] | list[str]) -> dict[str, str]:
         r = {str(x).upper() for x in roles}
-        if "SUPER_ADMIN" in r or "ADMIN" in r or "USER_MANAGER" in r:
-            return {"path": "/dashboard", "name": "Campus Operations Workspace", "category": "ADMIN"}
+        if "SUPER_ADMIN" in r:
+            return {"path": "/dashboard", "name": "Campus Operations Workspace", "category": "SUPER_ADMIN"}
+        if "ADMIN" in r:
+            return {"path": "/access", "name": "Access Management Workspace", "category": "ADMIN"}
+        if "USER_MANAGER" in r:
+            return {"path": "/users", "name": "User Operations Workspace", "category": "ADMIN"}
+        if "SECURITY_ADMIN" in r:
+            return {"path": "/security-admin", "name": "Security Command Center", "category": "SECURITY_ADMIN"}
         if "WARDEN" in r:
             return {"path": "/hostel", "name": "Hostel Management Workspace", "category": "WARDEN"}
-        if "GUARD" in r or "SECURITY_GUARD" in r or "SECURITY_ADMIN" in r:
+        if "GUARD" in r or "SECURITY_GUARD" in r:
             return {"path": "/guard", "name": "Guard Console Workspace", "category": "GUARD"}
         if "VIEWER" in r:
             return {"path": "/analytics", "name": "Campus Analytics Workspace", "category": "VIEWER"}

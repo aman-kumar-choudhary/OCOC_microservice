@@ -21,11 +21,10 @@ export const roleDashboardPath = (roles = []) => {
   if (assigned.has("WARDEN")) {
     return "/hostel";
   }
-  if (
-    assigned.has("GUARD") ||
-    assigned.has("SECURITY_GUARD") ||
-    assigned.has("SECURITY_ADMIN")
-  ) {
+  if (assigned.has("SECURITY_ADMIN")) {
+    return "/security-admin";
+  }
+  if (assigned.has("GUARD") || assigned.has("SECURITY_GUARD")) {
     return "/guard";
   }
   if (assigned.has("USER_MANAGER")) {
@@ -56,6 +55,7 @@ export const ROUTE_PERMISSIONS = {
   "/analytics": ["SUPER_ADMIN", "VIEWER"],
   "/access": ["SUPER_ADMIN", "ADMIN"],
   "/devices": ["SUPER_ADMIN", "ADMIN"],
+  "/security-admin": ["SUPER_ADMIN", "SECURITY_ADMIN"],
   "/guard": ["SUPER_ADMIN", "GUARD", "SECURITY_GUARD", "SECURITY_ADMIN"],
   "/rfid": ["SUPER_ADMIN", "GUARD", "SECURITY_GUARD", "SECURITY_ADMIN"],
   "/face-recognition": [
@@ -99,18 +99,16 @@ export const isAuthorizedForRoute = (path, roles = []) => {
   // Route-specific checks
   const normalizedPath = path.split("?")[0].split("#")[0];
 
-  // Admin may use the explicitly assigned user-management and operations routes.
+  // Admin: strictly limited to Access Management & Device registry
   if (assigned.has("ADMIN") && !assigned.has("SUPER_ADMIN")) {
     if (
       normalizedPath === "/access" ||
       normalizedPath === "/devices" ||
-      normalizedPath === "/users" ||
-      normalizedPath === "/onboarding" ||
-      normalizedPath === "/leave"
+      normalizedPath === "/rfid"
     ) {
       return true;
     }
-    // Admin is not allowed on unrelated dashboards or modules.
+    // Admin is not allowed on unrelated dashboards or security command.
     return false;
   }
 
@@ -122,11 +120,27 @@ export const isAuthorizedForRoute = (path, roles = []) => {
     return false;
   }
 
-  // Pure Guard: restricted exclusively to Guard Console and gate scanners
+  // Security Admin: access to Security Command Center, Guard Console, scanners, biometrics, and audit
+  if (assigned.has("SECURITY_ADMIN") && !assigned.has("SUPER_ADMIN")) {
+    if (
+      [
+        "/security-admin",
+        "/guard",
+        "/rfid",
+        "/face-recognition",
+        "/face-auth-log",
+        "/leave",
+        "/audit",
+      ].includes(normalizedPath)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // Pure Guard: restricted to Guard Console and gate scanners
   if (
-    (assigned.has("GUARD") ||
-      assigned.has("SECURITY_GUARD") ||
-      assigned.has("SECURITY_ADMIN")) &&
+    (assigned.has("GUARD") || assigned.has("SECURITY_GUARD")) &&
     !assigned.has("SUPER_ADMIN")
   ) {
     if (
@@ -142,6 +156,7 @@ export const isAuthorizedForRoute = (path, roles = []) => {
     }
     return false;
   }
+
 
   // Standard route permissions for other roles
   const allowedRoles = ROUTE_PERMISSIONS[normalizedPath];

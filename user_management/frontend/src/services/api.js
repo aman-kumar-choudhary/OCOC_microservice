@@ -1,4 +1,5 @@
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 let refreshRequest = null;
 
@@ -9,17 +10,76 @@ const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem("access_token");
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+const doRefreshToken = async () => {
+  const refreshToken = sessionStorage.getItem("refresh_token");
+  if (!refreshToken) {
+    throw new Error("No refresh token");
   }
+  if (!refreshRequest) {
+    refreshRequest = axios
+      .post("/api/v1/auth/refresh", { refresh_token: refreshToken })
+      .then(({ data }) => {
+        const tokens = data.data;
+        sessionStorage.setItem("access_token", tokens.access_token);
+        if (tokens.refresh_token) {
+          sessionStorage.setItem("refresh_token", tokens.refresh_token);
+        }
+        return tokens.access_token;
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+  return refreshRequest;
+};
+
+api.interceptors.request.use(async (config) => {
+  const isAuthEndpoint =
+    config.url?.includes("/auth/login") ||
+    config.url?.includes("/auth/refresh");
+
+  if (!isAuthEndpoint) {
+    // If a refresh is currently in progress, wait for it so we don't send an expired token
+    if (refreshRequest) {
+      try {
+        await refreshRequest;
+      } catch {
+        // ignore here, will fall through or fail
+      }
+    }
+
+    let token = sessionStorage.getItem("access_token");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        const currentTime = Math.floor(Date.now() / 1000);
+        // If token expires in less than 60 seconds, proactively refresh it before dispatching
+        if (decoded.exp && decoded.exp - currentTime < 60) {
+          const refreshToken = sessionStorage.getItem("refresh_token");
+          if (refreshToken) {
+            token = await doRefreshToken();
+          }
+        }
+      } catch {
+        // invalid token format, continue
+      }
+    }
+
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
   return config;
 });
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
     const isAuthEndpoint =
       originalRequest.url?.includes("/auth/login") ||
@@ -34,30 +94,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = sessionStorage.getItem("refresh_token");
-        if (!refreshToken) {
-          throw new Error("No refresh token");
-        }
-
-        // Try to refresh token
-        // Refresh-token rotation is one-time. Share one refresh call when several
-        // requests expire together so they do not invalidate each other's token.
-        if (!refreshRequest) {
-          refreshRequest = axios
-            .post("/api/v1/auth/refresh", { refresh_token: refreshToken })
-            .then(({ data }) => {
-              const tokens = data.data;
-              sessionStorage.setItem("access_token", tokens.access_token);
-              if (tokens.refresh_token)
-                sessionStorage.setItem("refresh_token", tokens.refresh_token);
-              return tokens.access_token;
-            })
-            .finally(() => {
-              refreshRequest = null;
-            });
-        }
-        const access_token = await refreshRequest;
-
+        const access_token = await doRefreshToken();
         // Update header and retry request
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return api(originalRequest);

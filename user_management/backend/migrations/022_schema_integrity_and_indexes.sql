@@ -1,8 +1,23 @@
 -- Migration 022: Schema Integrity, Composite Indexes and Status Constraint Hardening
 
 -- 1. Performance Indexes for Query Hotspots
-CREATE INDEX IF NOT EXISTS idx_access_logs_user_timestamp 
-    ON access_logs (user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_access_events_user_timestamp 
+    ON access_events (user_id, event_time DESC);
+
+CREATE OR REPLACE VIEW access_logs AS
+SELECT
+    id,
+    user_id,
+    location_id,
+    action,
+    status,
+    reason,
+    event_time AS timestamp,
+    rfid_uid,
+    reader_id,
+    device_id,
+    face_confidence
+FROM access_events;
 
 CREATE INDEX IF NOT EXISTS idx_student_hostel_status_status 
     ON student_hostel_status (current_status);

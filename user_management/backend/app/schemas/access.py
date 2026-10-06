@@ -308,3 +308,46 @@ class AccessAuditLogResult(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ── Guard Operations & Visitor Desk Schemas ───────────────────────────────────
+
+class GuardManualMovementRequest(BaseModel):
+    student_id: uuid.UUID
+    action: str = Field(..., pattern="^(ENTRY|EXIT|IN|OUT)$")
+    gate_name: Optional[str] = "Main Campus Gate"
+    reason: Optional[str] = None
+
+
+class GuardVisitorRegisterRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=150)
+    phone: str = Field(min_length=5, max_length=20)
+    email: Optional[str] = None
+    visit_purpose: str = Field(default="Campus Visit", max_length=300)
+    host_person: str = Field(default="Campus Administration", max_length=150)
+    host_contact: Optional[str] = None
+    gov_id_type: Optional[str] = "Aadhaar Card"
+    gov_id_number: Optional[str] = None
+    pass_type: str = Field(default="TEMPORARY_DAY", pattern="^(TEMPORARY_DAY|SPECIAL_FUNCTION)$")
+    valid_from: Optional[datetime.datetime] = None
+    valid_until: Optional[datetime.datetime] = None
+    assigned_card_uid: Optional[str] = None
+    event_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class AssignGuardDutyRequest(BaseModel):
+    guard_id: uuid.UUID
+    post_location: str
+    shift: str
+    duty_status: Optional[str] = "ON_DUTY"
+    instructions: Optional[str] = None
+
+
+class SecurityCommandRequest(BaseModel):
+    command: str = Field(description="Command type: LOCKDOWN, CURFEW, VISITOR_CUTOFF, TWO_FACTOR, EMERGENCY_ALARM")
+    action: Optional[str] = "TOGGLE"
+    enabled: Optional[bool] = None
+    reason: Optional[str] = None
+
+

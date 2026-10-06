@@ -75,13 +75,19 @@ const HostelDashboard = () => {
         }
       };
       socketRef.current.onclose = () => {
-        reconnectTimer = setTimeout(connect, 5000);
+        if (socketRef.current) {
+          reconnectTimer = setTimeout(connect, 5000);
+        }
       };
     };
     connect();
     return () => {
       clearTimeout(reconnectTimer);
-      socketRef.current?.close();
+      if (socketRef.current) {
+        socketRef.current.onclose = null;
+        socketRef.current.close();
+        socketRef.current = null;
+      }
     };
   }, []);
 
