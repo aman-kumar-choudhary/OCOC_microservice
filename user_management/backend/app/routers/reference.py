@@ -71,23 +71,19 @@ async def get_hostel_occupancy(
 ):
     try:
         await resolve_warden_hostel_scope(conn, claims, hostel_id)
-        total = await conn.fetchval("""
-            SELECT COUNT(*) FROM student_profiles 
-            WHERE hostel_id = $1
-        """, hostel_id)
-        
-        inside = await conn.fetchval("""
-            SELECT COUNT(u.id) 
-            FROM user_last_locations ul
-            JOIN users u ON ul.user_id = u.id
-            JOIN student_profiles sp ON u.id = sp.user_id
+        stats = await conn.fetchrow("""
+            SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN COALESCE(shs.current_status, 'INSIDE') = 'INSIDE' THEN 1 END) as inside,
+                COUNT(CASE WHEN shs.current_status IN ('OUTSIDE', 'ON_LEAVE', 'UNAUTHORIZED', 'LATE_RETURN') THEN 1 END) as outside
+            FROM student_profiles sp
+            LEFT JOIN student_hostel_status shs ON shs.student_id = sp.user_id
             WHERE sp.hostel_id = $1
-              AND ul.location_id = $1 AND ul.last_action = 'ENTRY'
         """, hostel_id)
         
-        inside = inside or 0
-        total = total or 0
-        outside = max(0, total - inside)
+        total = (stats["total"] if stats else 0) or 0
+        inside = (stats["inside"] if stats else 0) or 0
+        outside = (stats["outside"] if stats else 0) or 0
         
         return success_response(data={"inside": inside, "outside": outside, "total": total})
     except Exception as e:

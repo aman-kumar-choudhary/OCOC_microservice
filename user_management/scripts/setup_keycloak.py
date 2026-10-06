@@ -190,6 +190,8 @@ def main():
         "USER_MANAGER",
         "GUARD",
         "WARDEN",
+        "CHANCELLOR",
+        "MEDICAL_OFFICER",
         "SECURITY_ADMIN",
         "VIEWER",
         "STUDENT",

@@ -202,9 +202,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled server error: %s", exc)
+    msg = str(exc) if settings.ENVIRONMENT.lower() in {"development", "dev", "test"} else "An unexpected internal server error occurred"
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"success": False, "error": {"code": "INTERNAL_SERVER_ERROR", "message": str(exc)}},
+        content={"success": False, "error": {"code": "INTERNAL_SERVER_ERROR", "message": msg}},
     )
 
 

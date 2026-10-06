@@ -21,7 +21,7 @@ async def create_log(
     req: LogRequest,
     request: Request,
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_permission("user:read")),
+    claims: Claims = Depends(require_permission("face:log")),
 ):
     try:
         ip = request.client.host if request.client else None
@@ -49,7 +49,7 @@ async def list_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(require_permission("audit:read")),
+    claims: Claims = Depends(require_permission("face:read")),
 ):
     try:
         res = await faceauth_service.list_logs(conn, person_external_id=person_id, result=result, page=page, limit=limit)

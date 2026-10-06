@@ -75,8 +75,24 @@ class HostelRFIDService:
             active_perm = await conn.fetchrow("""
                 SELECT id, permission_type, end_time
                 FROM hostel_permissions
-                WHERE id = $1 AND status = 'ACTIVE' AND end_time > $2
+                WHERE id = $1 AND status IN ('ACTIVE', 'APPROVED') AND end_time > $2
             """, status_row['active_permission_id'], now)
+        if not active_perm:
+            active_perm = await conn.fetchrow("""
+                SELECT id, permission_type, end_time
+                FROM hostel_permissions
+                WHERE student_id = $1 AND status IN ('ACTIVE', 'APPROVED') AND start_time <= $2 AND end_time >= $2
+                ORDER BY end_time DESC LIMIT 1
+            """, user_id, now)
+        if not active_perm:
+            active_perm = await conn.fetchrow("""
+                SELECT p.id, 'CAMPUS_LEAVE' AS permission_type, p.ends_at AS end_time
+                FROM leave_rfid_permissions p
+                JOIN leave_requests r ON r.id = p.request_id
+                WHERE p.student_id = $1 AND p.status = 'ACTIVE' AND r.status = 'APPROVED'
+                  AND p.starts_at <= $2 AND p.ends_at >= $2
+                ORDER BY p.ends_at DESC LIMIT 1
+            """, user_id, now)
             
         # 4. Check Gate Rules (Curfew)
         # Assuming gate rule applies if it exists. Simplified rule check based on time.

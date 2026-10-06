@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 import asyncpg
 from app.core.database import get_db
-from app.core.security import Claims, get_current_claims
+from app.core.security import Claims, require_permission
 from app.schemas.common import error_response, success_response
 from app.schemas.registration import RegistrationRequest
 from app.services.registration_service import registration_service
@@ -38,7 +38,7 @@ async def list_registrations(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(get_current_claims),
+    claims: Claims = Depends(require_permission("user:read")),
 ):
     try:
         result = await registration_service.list_registrations(
@@ -57,7 +57,7 @@ async def list_registrations(
 @router.get("/api/v1/registrations/stats")
 async def registration_stats(
     conn: asyncpg.Connection = Depends(get_db),
-    claims: Claims = Depends(get_current_claims),
+    claims: Claims = Depends(require_permission("user:read")),
 ):
     try:
         stats = await registration_service.get_stats(conn)

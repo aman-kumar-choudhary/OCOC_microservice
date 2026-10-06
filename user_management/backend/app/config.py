@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # JWT
     JWT_ISSUER: str = ""
     JWT_AUDIENCE: str = "user-management"
+    ALLOW_UNVERIFIED_JWT_DEV: bool = False
 
     # SMTP (for OTP emails)
     SMTP_HOST: str = "smtp.gmail.com"

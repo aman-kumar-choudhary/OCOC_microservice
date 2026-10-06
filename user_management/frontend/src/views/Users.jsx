@@ -180,8 +180,18 @@ export const UsersView = () => {
     [page, limit, filters],
   );
 
-  // Debounce search
+  const isMountedRef = useRef(false);
+
+  // Initial load on mount
   useEffect(() => {
+    userService.getDepartments().then(setDbDepartments).catch(console.error);
+    userService.getHostels().then(setDbHostels).catch(console.error);
+    fetchUsers(1);
+  }, []);
+
+  // Debounce search (skip initial mount)
+  useEffect(() => {
+    if (!isMountedRef.current) return;
     const timer = setTimeout(() => {
       setPage(1);
       fetchUsers(1);
@@ -189,13 +199,9 @@ export const UsersView = () => {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
+  // Filter changes (skip initial mount)
   useEffect(() => {
-    userService.getDepartments().then(setDbDepartments).catch(console.error);
-    userService.getHostels().then(setDbHostels).catch(console.error);
-    fetchUsers(1);
-  }, []);
-
-  useEffect(() => {
+    if (!isMountedRef.current) return;
     fetchUsers(1);
   }, [
     filters.user_type,
@@ -207,6 +213,13 @@ export const UsersView = () => {
     filters.hostel_id,
     filters.hostel_status,
   ]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleFilterChange = (updates) => {
     setFilters((prev) => ({ ...prev, ...updates }));

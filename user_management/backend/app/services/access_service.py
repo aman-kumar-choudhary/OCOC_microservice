@@ -34,7 +34,7 @@ class AccessService:
     async def get_devices(self, conn: asyncpg.Connection) -> list[dict]:
         rows = await conn.fetch("""SELECT d.id,d.mac_address,d.type,d.status,d.location_id,l.name AS location_name
             FROM devices d LEFT JOIN locations l ON l.id=d.location_id
-            WHERE d.type IN ('RFID_READER','TURNSTILE','FACE_CAMERA') ORDER BY d.type,d.mac_address""")
+            WHERE d.type IN ('RFID_READER','TURNSTILE','FACE_CAMERA','CAMERA_BARRIER','TURNSTILE_GATE','BIOMETRIC_KIOSK') ORDER BY d.type,d.mac_address""")
         return [dict(row) for row in rows]
 
     async def get_groups(self, conn: asyncpg.Connection) -> List[AccessGroup]:
@@ -131,8 +131,20 @@ class AccessService:
         # An exit without an active approved leave is a guard warning, not an
         # automatic rejection: the configured access rules still decide entry.
         if action == "EXIT" and user["user_type"] == "student" and location and "gate" in location["name"].lower():
-            has_leave = await conn.fetchval("""SELECT EXISTS(SELECT 1 FROM student_leaves WHERE user_id=$1 AND status='APPROVED'
-                AND valid_from <= $2 AND valid_to >= $2)""", user_id, now)
+            has_leave = await conn.fetchval("""SELECT EXISTS(
+                SELECT 1 FROM leave_rfid_permissions p
+                JOIN leave_requests r ON r.id = p.request_id
+                WHERE p.student_id = $1 AND p.status = 'ACTIVE' AND r.status = 'APPROVED'
+                  AND p.starts_at <= $2 AND p.ends_at >= $2
+                UNION ALL
+                SELECT 1 FROM hostel_permissions
+                WHERE student_id = $1 AND status IN ('ACTIVE', 'APPROVED')
+                  AND start_time <= $2 AND end_time >= $2
+                UNION ALL
+                SELECT 1 FROM student_leaves
+                WHERE user_id = $1 AND status = 'APPROVED'
+                  AND valid_from <= $2 AND valid_to >= $2
+            )""", user_id, now)
             if not has_leave:
                 await self._notify_alert(conn, "LEAVE_EXPIRY_WARNING", f"{user['full_name']} has no active leave/pass at exit.", user_id, location_id)
         if action == "ENTRY" and user["user_type"] == "student" and location and location["type"].lower() == "hostel":

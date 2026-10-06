@@ -38,7 +38,9 @@ export const FaceRecognition = () => {
         reason: result.message || "",
         auth_type: authType,
       })
-      .catch(() => undefined);
+      .catch((err) => {
+        console.warn("Failed to record face recognition log:", err?.response?.data || err?.message);
+      });
   };
 
   const onSingleCapture = async (file) => {

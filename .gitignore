@@ -1,6 +1,4 @@
-
 keycloak-26.7.3
-
 
 # Environment files
 env/
@@ -8,6 +6,9 @@ env/
 .env.local
 .env.*.local
 **/.env
+!**/.env.example
 
-# Uploads
+# Uploads & logs
 uploads/
+**/uploads/
+*.log

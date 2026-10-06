@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -69,10 +70,17 @@ func statusFromError(err *AppError) int {
 }
 
 func requirePermission(r *http.Request, permission string) *AppError {
-	if r.Header.Get("X-User-Role") == "admin" {
+	apiKey := os.Getenv("NOTIFICATION_API_KEY")
+	serviceSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
+
+	if apiKey != "" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) == 1 {
 		return nil
 	}
-	return appError(ErrorAuthorization, "permission %s requires X-User-Role: admin", permission)
+	if serviceSecret != "" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Internal-Service-Key")), []byte(serviceSecret)) == 1 {
+		return nil
+	}
+
+	return appError(ErrorAuthorization, "unauthorized: valid X-API-Key or X-Internal-Service-Key required for %s", permission)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -369,7 +377,7 @@ func main() {
 	mux.HandleFunc("/api/v1/deliveries/", trackingHandler(svc))
 	mux.HandleFunc("/api/v1/users/", preferenceHandler(svc))
 
-	addr := envString("SERVER_ADDR", "localhost:8000")
+	addr := envString("SERVER_ADDR", "localhost:8082")
 	server := &http.Server{Addr: addr, Handler: mux}
 	go func() {
 		fmt.Printf("Notification server running at http://%s\n", addr)

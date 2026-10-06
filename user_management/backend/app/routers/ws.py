@@ -54,6 +54,11 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+AUTHORIZED_STREAM_ROLES = {
+    "SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD",
+    "WARDEN", "CHIEF_WARDEN", "VIEWER"
+}
+
 @router.websocket("/stream")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -61,44 +66,59 @@ async def websocket_endpoint(websocket: WebSocket):
     - Access Events (ENTRY/EXIT logs)
     - Alerts (Curfew violations, Leave violations)
     - Face Recognition Logs (if pushed by devices)
+    Requires authenticated bearer token with security or monitoring role.
     """
-    # Existing clients without a token keep receiving the legacy live stream.
-    # Reviewer-only denied alerts require a Keycloak access token in the query.
-    roles: List[str] = []
     token = websocket.query_params.get("token")
-    if token:
-        try:
-            from app.core.security import fetch_jwks
-            from app.config import settings
-            jwks = await fetch_jwks()
-            payload = None
-            if jwks and "keys" in jwks:
-                try:
-                    unverified_header = jwt.get_unverified_header(token)
-                    kid = unverified_header.get("kid")
-                    key_data = next((k for k in jwks["keys"] if k.get("kid") == kid), None)
-                    if key_data:
-                        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
-                        payload = jwt.decode(
-                            token,
-                            public_key,
-                            algorithms=["RS256"],
-                            options={"verify_aud": False},
-                        )
-                except Exception as e:
-                    logger.debug("JWKS validation failed for WS token: %s", e)
+    if not token:
+        logger.warning("Rejecting unauthenticated WebSocket connection without token")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
-            if payload is None and settings.ENVIRONMENT.lower() in {"development", "dev", "test"}:
-                try:
-                    payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False})
-                except Exception:
-                    pass
+    roles: List[str] = []
+    try:
+        from app.core.security import fetch_jwks
+        from app.config import settings
+        jwks = await fetch_jwks()
+        payload = None
+        if jwks and "keys" in jwks:
+            try:
+                unverified_header = jwt.get_unverified_header(token)
+                kid = unverified_header.get("kid")
+                key_data = next((k for k in jwks["keys"] if k.get("kid") == kid), None)
+                if key_data:
+                    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
+                    payload = jwt.decode(
+                        token,
+                        public_key,
+                        algorithms=["RS256"],
+                        options={"verify_aud": False},
+                    )
+            except Exception as e:
+                logger.debug("JWKS validation failed for WS token: %s", e)
 
-            if payload:
-                realm_access = payload.get("realm_access", {})
-                roles = realm_access.get("roles", []) if isinstance(realm_access, dict) else []
-        except Exception as e:
-            logger.warning("WebSocket connected with an invalid token: %s", e)
+        if (
+            payload is None
+            and getattr(settings, "ALLOW_UNVERIFIED_JWT_DEV", False)
+            and settings.ENVIRONMENT.lower() in {"development", "dev", "test"}
+        ):
+            try:
+                payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False})
+            except Exception:
+                pass
+
+        if payload:
+            realm_access = payload.get("realm_access", {})
+            roles = realm_access.get("roles", []) if isinstance(realm_access, dict) else []
+    except Exception as e:
+        logger.warning("WebSocket token decoding error: %s", e)
+
+    # Check that at least one authorized role is present
+    user_roles_upper = {r.upper() for r in roles}
+    if not user_roles_upper.intersection(AUTHORIZED_STREAM_ROLES):
+        logger.warning("Rejecting WebSocket connection: user roles %s not authorized for live stream", roles)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(websocket, roles)
     try:
         while True:

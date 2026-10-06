@@ -137,7 +137,7 @@ export const Dashboard = () => {
         });
     const values = trend.length
       ? trend.map((t) => t.count)
-      : [2, 5, 3, 8, 6, 12, 9, 15, 11, 18, 14, 20, 17, 22];
+      : Array(14).fill(0);
 
     return {
       labels,

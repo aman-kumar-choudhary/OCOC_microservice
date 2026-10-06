@@ -53,6 +53,8 @@ PERM_TO_ROLES: Dict[str, List[str]] = {
     "leave.workflow.manage": ["SUPER_ADMIN"],
     "leave.balance.manage": ["SUPER_ADMIN", "ADMIN"],
     "leave.audit.view": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN"],
+    "face:log": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD"],
+    "face:read": ["SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD", "VIEWER"],
 }
 
 ADMIN_ROLES = ("SUPER_ADMIN", "ADMIN")
@@ -141,15 +143,17 @@ async def get_current_claims(
         except Exception as e:
             logger.debug("JWKS validation failed: %s; falling back to unverified decode in dev", e)
 
-    # Local-only fallback keeps first-run development usable.  A deployed API
-    # must never authorize roles from an unverified token.
+    # Secure token verification. Bypassing token validation is strictly disallowed unless an explicit
+    # dev flag is configured for mock integration test suites.
     if payload is None:
-        if settings.ENVIRONMENT.lower() not in {"development", "dev", "test"}:
+        allow_unverified = getattr(settings, "ALLOW_UNVERIFIED_JWT_DEV", False)
+        if not allow_unverified or settings.ENVIRONMENT.lower() not in {"development", "dev", "test"}:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"code": "INVALID_TOKEN", "message": "token signature could not be validated"},
             )
         try:
+            logger.warning("SECURITY ALERT: Decoding unverified JWT token because ALLOW_UNVERIFIED_JWT_DEV is active")
             payload = jwt.decode(raw_token, options={"verify_signature": False})
             # Check expiry even in unverified mode
             exp = payload.get("exp")
@@ -160,7 +164,7 @@ async def get_current_claims(
                 )
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"code": "INVALID_TOKEN", "message": "invalid token"},

@@ -27,14 +27,17 @@ def success_response(data: Any = None, message: Optional[str] = None, status_cod
     return JSONResponse(status_code=status_code, content=jsonable_encoder(content))
 
 
-def error_response(code: str, message: str, status_code: int = 400) -> JSONResponse:
+def error_response(code: str, message: str, status_code: int = 400, details: Optional[Any] = None) -> JSONResponse:
+    content: Dict[str, Any] = {
+        "success": False,
+        "error": {
+            "code": code,
+            "message": message,
+        },
+    }
+    if details is not None:
+        content["error"]["details"] = details
     return JSONResponse(
         status_code=status_code,
-        content={
-            "success": False,
-            "error": {
-                "code": code,
-                "message": message,
-            },
-        },
+        content=jsonable_encoder(content),
     )

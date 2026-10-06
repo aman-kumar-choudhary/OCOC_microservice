@@ -132,8 +132,7 @@ async def grant_permission(
     except Exception as e:
         import logging
         import traceback
-        logging.getLogger(__name__).error(f"Failed to grant permission: {e}\n{traceback.format_exc()}")
-        return error_response("GRANT_FAILED", str(e) + "\n" + traceback.format_exc(), status_code=400)
+        return error_response("GRANT_FAILED", str(e), status_code=400)
 
 @router.delete("/permissions/{permission_id}", response_model=Dict[str, Any])
 async def revoke_permission(

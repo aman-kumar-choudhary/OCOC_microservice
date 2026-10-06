@@ -61,7 +61,7 @@ fi
 # 3. Create Realm Roles
 # Keep this in sync with backend/app/services/role_service.py.  Access
 # Management synchronizes these as *realm* roles, not client roles.
-ROLES=("SUPER_ADMIN" "ADMIN" "USER_MANAGER" "GUARD" "WARDEN" "SECURITY_ADMIN" "VIEWER" "STUDENT" "FACULTY" "SECURITY_GUARD" "STAFF" "WORKER" "VISITOR")
+ROLES=("SUPER_ADMIN" "ADMIN" "USER_MANAGER" "GUARD" "WARDEN" "CHANCELLOR" "MEDICAL_OFFICER" "SECURITY_ADMIN" "VIEWER" "STUDENT" "FACULTY" "SECURITY_GUARD" "STAFF" "WORKER" "VISITOR")
 for r in "${ROLES[@]}"; do
   ROLE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${TOKEN}" "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/roles/${r}")
   if [ "$ROLE_STATUS" -ne 200 ]; then

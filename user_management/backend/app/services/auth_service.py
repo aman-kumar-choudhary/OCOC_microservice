@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import logging
 import re
 import secrets
@@ -67,8 +68,31 @@ class AuthService:
         otp = str(secrets.randbelow(900000) + 100000)
         await redis_client.set_otp(email, otp, ttl_seconds=settings.OTP_TTL_SECONDS)
 
-        # Log OTP to console for dev / simulated email dispatch
-        logger.info("[AUTH] Password reset OTP for %s: %s (valid for %ds)", email, otp, settings.OTP_TTL_SECONDS)
+        # Dispatch OTP via SMTP if credentials are configured
+        if settings.SMTP_HOST and settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
+            try:
+                import smtplib
+                from email.message import EmailMessage
+                msg = EmailMessage()
+                msg["Subject"] = "Your OCOC Password Reset OTP"
+                msg["From"] = settings.SMTP_FROM or settings.SMTP_USERNAME
+                msg["To"] = email
+                msg.set_content(f"Your OTP code for password reset is: {otp}\nThis code is valid for {settings.OTP_TTL_SECONDS // 60} minutes.\nIf you did not request this, please contact campus security immediately.")
+
+                def send_email() -> None:
+                    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as server:
+                        server.starttls()
+                        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+                        server.send_message(msg)
+
+                await asyncio.to_thread(send_email)
+                logger.info("[AUTH] Password reset OTP email dispatched to %s", email)
+            except Exception as e:
+                logger.error("[AUTH] Failed to send OTP email via SMTP to %s: %s", email, e)
+        elif settings.ENVIRONMENT.lower() in {"development", "dev", "test"}:
+            logger.info("[AUTH] (Dev simulation) Password reset OTP for %s: %s (valid for %ds)", email, otp, settings.OTP_TTL_SECONDS)
+        else:
+            logger.warning("[AUTH] SMTP not configured; unable to dispatch OTP to %s", email)
 
         await audit_service.log(
             conn=conn,

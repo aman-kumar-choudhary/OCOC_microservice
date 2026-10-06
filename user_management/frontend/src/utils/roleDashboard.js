@@ -28,6 +28,9 @@ export const roleDashboardPath = (roles = []) => {
   ) {
     return "/guard";
   }
+  if (assigned.has("USER_MANAGER")) {
+    return "/users";
+  }
   if (assigned.has("VIEWER")) {
     return "/analytics";
   }
@@ -48,8 +51,8 @@ export const ROUTE_PERMISSIONS = {
     "USER",
     "STAFF",
   ],
-  "/users": ["SUPER_ADMIN"],
-  "/onboarding": ["SUPER_ADMIN"],
+  "/users": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER"],
+  "/onboarding": ["SUPER_ADMIN", "ADMIN", "USER_MANAGER"],
   "/analytics": ["SUPER_ADMIN", "VIEWER"],
   "/access": ["SUPER_ADMIN", "ADMIN"],
   "/devices": ["SUPER_ADMIN", "ADMIN"],
@@ -96,16 +99,18 @@ export const isAuthorizedForRoute = (path, roles = []) => {
   // Route-specific checks
   const normalizedPath = path.split("?")[0].split("#")[0];
 
-  // Pure Admin: restricted exclusively to Access Management and related device registry
+  // Admin may use the explicitly assigned user-management and operations routes.
   if (assigned.has("ADMIN") && !assigned.has("SUPER_ADMIN")) {
     if (
       normalizedPath === "/access" ||
       normalizedPath === "/devices" ||
+      normalizedPath === "/users" ||
+      normalizedPath === "/onboarding" ||
       normalizedPath === "/leave"
     ) {
       return true;
     }
-    // Admin is NOT allowed on /dashboard, /users, /hostel, /guard, etc.
+    // Admin is not allowed on unrelated dashboards or modules.
     return false;
   }
 

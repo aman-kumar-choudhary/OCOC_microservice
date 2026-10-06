@@ -178,7 +178,7 @@ export const App = () => {
       <Route
         path="/users"
         element={
-          <ProtectedRoute path="/users" roles={["SUPER_ADMIN"]}>
+          <ProtectedRoute path="/users" roles={["SUPER_ADMIN", "ADMIN", "USER_MANAGER"]}>
             <UsersView />
           </ProtectedRoute>
         }
@@ -186,7 +186,7 @@ export const App = () => {
       <Route
         path="/onboarding"
         element={
-          <ProtectedRoute path="/onboarding" roles={["SUPER_ADMIN"]}>
+          <ProtectedRoute path="/onboarding" roles={["SUPER_ADMIN", "ADMIN", "USER_MANAGER"]}>
             <Onboarding />
           </ProtectedRoute>
         }

@@ -107,19 +107,51 @@ async def get_current_user_profile(
         )
         active_perm = await conn.fetchrow(
             """
-            SELECT permission_type, reason, start_time, end_time, status
-            FROM hostel_permissions
-            WHERE student_id = $1 AND status = 'APPROVED'
-              AND end_time >= now()
-            ORDER BY start_time DESC LIMIT 1
+            SELECT 
+                lr.id as request_id,
+                COALESCE(lt.name, lr.category, 'CAMPUS_EXIT') as permission_type,
+                COALESCE(lr.destination, 'Authorized Leave') as destination,
+                lr.reason,
+                lrp.starts_at as start_time,
+                lrp.ends_at as end_time,
+                lr.status
+            FROM leave_rfid_permissions lrp
+            JOIN leave_requests lr ON lr.id = lrp.request_id
+            LEFT JOIN leave_types lt ON lt.id = lr.leave_type_id
+            WHERE lrp.student_id = $1 
+              AND lrp.status = 'ACTIVE'
+              AND lr.status = 'APPROVED'
+              AND lrp.ends_at >= now()
+            ORDER BY lrp.starts_at DESC LIMIT 1
             """,
             user_id,
         )
+        if not active_perm:
+            active_perm = await conn.fetchrow(
+                """
+                SELECT 
+                    id as request_id,
+                    permission_type,
+                    reason,
+                    reason as destination,
+                    start_time,
+                    end_time,
+                    status
+                FROM hostel_permissions
+                WHERE student_id = $1 
+                  AND status IN ('APPROVED', 'ACTIVE')
+                  AND end_time >= now()
+                ORDER BY start_time DESC LIMIT 1
+                """,
+                user_id,
+            )
         active_perm_dict = None
         if active_perm:
             active_perm_dict = {
+                "id": str(active_perm["request_id"]) if active_perm["request_id"] else None,
                 "permission_type": active_perm["permission_type"],
                 "reason": active_perm["reason"],
+                "destination": active_perm["destination"] or "Authorized Leave",
                 "start_time": active_perm["start_time"].isoformat() if active_perm["start_time"] else None,
                 "end_time": active_perm["end_time"].isoformat() if active_perm["end_time"] else None,
                 "status": active_perm["status"],
