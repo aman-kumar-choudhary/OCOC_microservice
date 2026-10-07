@@ -8,6 +8,7 @@ import uuid
 import asyncpg
 
 from app.core.keycloak_client import keycloak_client
+from app.core.redis_client import redis_client
 from app.schemas.user import (
     CreateUserRequest,
     Department,
@@ -172,6 +173,14 @@ class UserService:
         return UserListResult(users=users, total=total, page=page, limit=limit, total_pages=total_pages)
 
     async def get_by_id(self, conn: asyncpg.Connection, user_id: uuid.UUID) -> Optional[User]:
+        cache_key = f"user:{user_id}"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, dict):
+            try:
+                return User.model_validate(cached)
+            except Exception as ex:
+                logger.warning("Cache deserialization error for %s: %s", cache_key, ex)
+
         query = """
             SELECT u.id, u.keycloak_user_id, u.user_type, u.status, u.email, u.phone, u.created_at, u.updated_at,
                 COALESCE(sp.full_name, fp.full_name, wp.full_name, vp.full_name) as full_name,
@@ -226,6 +235,9 @@ class UserService:
         )
         user = self._row_to_user(row)
         user.roles = [r["name"] for r in role_rows]
+
+        # Cache in Redis with 300s TTL
+        await redis_client.set(cache_key, user.model_dump(), ex=300)
         return user
 
     async def create_user(
@@ -589,6 +601,7 @@ class UserService:
             after_state=created_user.model_dump(),
         )
 
+        await redis_client.invalidate_user_cache(user_id, email=req.email, keycloak_sub=keycloak_id)
         return created_user
 
     async def update_user(
@@ -768,6 +781,12 @@ class UserService:
             before_state=current_user.model_dump(),
             after_state=updated_user.model_dump() if updated_user else None,
         )
+
+        await redis_client.invalidate_user_cache(
+            user_id,
+            email=current_user.email,
+            keycloak_sub=current_user.keycloak_user_id,
+        )
         return updated_user or current_user
 
     async def update_status(
@@ -841,6 +860,12 @@ class UserService:
             before_state={"status": current_user.status},
             after_state={"status": new_status, "reason": reason},
         )
+        await redis_client.invalidate_user_cache(
+            user_id,
+            email=current_user.email,
+            keycloak_sub=current_user.keycloak_user_id,
+        )
+        await redis_client.delete(f"freco:person:{user_id}")
 
     async def bulk_transfer_hostel(
         self,
@@ -870,6 +895,7 @@ class UserService:
                     before_state={"bulk_transfer": True},
                     after_state={"hostel_id": str(new_hostel_id)}
                 )
+                await redis_client.invalidate_user_cache(uid)
 
 
     async def delete_user(self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID) -> None:
@@ -895,6 +921,12 @@ class UserService:
             entity_id=str(user_id),
             before_state=current_user.model_dump(),
         )
+        await redis_client.invalidate_user_cache(
+            user_id,
+            email=current_user.email,
+            keycloak_sub=current_user.keycloak_user_id,
+        )
+        await redis_client.delete(f"freco:person:{user_id}")
 
     async def advance_semesters(self, conn: asyncpg.Connection, actor_id: Optional[str]) -> int:
         result = await self.list_users(conn, user_type="student", status="active", limit=10000)
@@ -922,8 +954,16 @@ class UserService:
         return updated_count
 
     async def list_departments(self, conn: asyncpg.Connection) -> List[Department]:
+        cache_key = "reference:departments"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, list):
+            try:
+                return [Department.model_validate(d) for d in cached]
+            except Exception as e:
+                logger.warning("Cache deserialization error for departments: %s", e)
+
         rows = await conn.fetch("SELECT id, name, code, school FROM departments ORDER BY name")
-        return [
+        result = [
             Department(
                 id=str(r["id"]),
                 name=r["name"],
@@ -932,10 +972,20 @@ class UserService:
             )
             for r in rows
         ]
+        await redis_client.set(cache_key, [d.model_dump() for d in result], ex=3600)
+        return result
 
     async def list_hostels(self, conn: asyncpg.Connection) -> List[Hostel]:
+        cache_key = "reference:hostels"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, list):
+            try:
+                return [Hostel.model_validate(h) for h in cached]
+            except Exception as e:
+                logger.warning("Cache deserialization error for hostels: %s", e)
+
         rows = await conn.fetch("SELECT id, name, code, capacity FROM hostels ORDER BY name")
-        return [
+        result = [
             Hostel(
                 id=str(r["id"]),
                 name=r["name"],
@@ -944,10 +994,17 @@ class UserService:
             )
             for r in rows
         ]
+        await redis_client.set(cache_key, [h.model_dump() for h in result], ex=3600)
+        return result
 
     async def list_locations(self, conn: asyncpg.Connection) -> List[Dict[str, Any]]:
+        cache_key = "reference:locations"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, list):
+            return cached
+
         rows = await conn.fetch("SELECT id, name, type, description FROM locations ORDER BY name")
-        return [
+        result = [
             {
                 "id": str(r["id"]),
                 "name": r["name"],
@@ -956,8 +1013,18 @@ class UserService:
             }
             for r in rows
         ]
+        await redis_client.set(cache_key, result, ex=3600)
+        return result
 
     async def get_stats(self, conn: asyncpg.Connection) -> Stats:
+        cache_key = "dashboard:user_stats"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, dict):
+            try:
+                return Stats.model_validate(cached)
+            except Exception as e:
+                logger.warning("Cache deserialization error for user stats: %s", e)
+
         row = await conn.fetchrow(
             """
             SELECT
@@ -972,7 +1039,7 @@ class UserService:
             FROM users
             """
         )
-        return Stats(
+        stats = Stats(
             total_users=row["total_users"],
             active_users=row["active_users"],
             suspended_users=row["suspended_users"],
@@ -982,6 +1049,8 @@ class UserService:
             workers=row["workers"],
             visitors=row["visitors"],
         )
+        await redis_client.set(cache_key, stats.model_dump(), ex=60)
+        return stats
 
     def _row_to_user(self, r: Any) -> User:
         p = Profile(

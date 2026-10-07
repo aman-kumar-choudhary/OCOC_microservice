@@ -5,8 +5,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-
-from insightface.app import FaceAnalysis
+from typing import Any
 
 from app.config import settings
 from app.ml.runtime import InferenceRuntime, assert_cuda_session, get_inference_runtime
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class FaceModelRegistry:
     """Prepared detection and recognition models from one Antelope pack."""
 
-    analysis: FaceAnalysis
+    analysis: Any
     detector: object
     recognizer: object
     runtime: InferenceRuntime
@@ -24,6 +23,8 @@ class FaceModelRegistry:
 
     @classmethod
     def load(cls) -> "FaceModelRegistry":
+        from insightface.app import FaceAnalysis
+
         runtime = get_inference_runtime()
         pack_name = settings.FACE_MODEL_PACK or settings.RECOGNITION_MODEL_PACK
         started = time.perf_counter()

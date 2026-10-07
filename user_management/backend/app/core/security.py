@@ -9,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import httpx
 import jwt
 from app.config import settings
+from app.core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +225,14 @@ async def resolve_warden_hostel_scope(
     if not claims.has_any_role("WARDEN"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "FORBIDDEN", "message": "warden role required"})
 
+    cache_key = f"user:warden_scope:{claims.sub}"
+    cached_scope = await redis_client.get(cache_key)
+    if cached_scope is not None and isinstance(cached_scope, list):
+        hostel_ids = [uuid.UUID(h) for h in cached_scope]
+        if requested_hostel_id is not None and requested_hostel_id not in hostel_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "HOSTEL_SCOPE_FORBIDDEN", "message": "hostel is not assigned to this warden"})
+        return hostel_ids
+
     user_id = await conn.fetchval(
         "SELECT id FROM users WHERE keycloak_user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)) ORDER BY CASE WHEN keycloak_user_id = $1 THEN 0 ELSE 1 END LIMIT 1",
         str(claims.sub),
@@ -238,6 +247,10 @@ async def resolve_warden_hostel_scope(
             SELECT hostel_id AS h_id FROM warden_profiles WHERE user_id = $1 AND hostel_id IS NOT NULL
         ) sub
     """, user_id))
+
+    # Cache the resolved warden scope in Redis (TTL: 300s)
+    await redis_client.set(cache_key, [str(h) for h in hostel_ids], ex=300)
+
     if requested_hostel_id is not None and requested_hostel_id not in hostel_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "HOSTEL_SCOPE_FORBIDDEN", "message": "hostel is not assigned to this warden"})
     return hostel_ids
@@ -252,6 +265,20 @@ async def resolve_user_location_scope(
     """Return allowed location IDs for the current user, or None for admins."""
     if claims.has_any_role(*ADMIN_ROLES):
         return None  # admins see everything
+
+    cache_key = f"user:locations:{claims.sub}:{required_level}"
+    cached_scope = await redis_client.get(cache_key)
+    if cached_scope is not None and isinstance(cached_scope, list):
+        allowed = [uuid.UUID(l) for l in cached_scope]
+        if requested_location_id and requested_location_id not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "LOCATION_SCOPE_FORBIDDEN",
+                    "message": "location not in authorized scope",
+                },
+            )
+        return allowed
 
     user_id = await conn.fetchval(
         """SELECT id FROM users
@@ -305,6 +332,9 @@ async def resolve_user_location_scope(
             allowed,
         )
         allowed = list(set(r["id"] for r in children))
+
+    # Cache expanded locations in Redis (TTL: 300s)
+    await redis_client.set(cache_key, [str(l) for l in allowed], ex=300)
 
     if requested_location_id and requested_location_id not in allowed:
         raise HTTPException(

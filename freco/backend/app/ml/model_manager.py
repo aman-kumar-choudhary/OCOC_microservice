@@ -27,25 +27,41 @@ class ModelUnavailableError(RuntimeError):
 
 
 class ModelManager:
-    """Caches model objects and provides ActiveModels snapshots."""
+    """Caches model objects and provides ActiveModels snapshots with lazy loading."""
 
-    def __init__(self):
+    def __init__(self, lazy: bool = True):
         self._lock = threading.RLock()
         self.metrics = ModelMetrics()
-        
-        with self.metrics.measure_load("SCRFD + ArcFace (InsightFace pack)", stage="shared", shared=True):
-            registry = get_face_model_registry()
-        self.metrics.set_device(registry.runtime.device)
-        
-        self._cache = {
-            ("detection", "SCRFD"): FaceDetector(registry),
-            ("recognition", "ArcFace"): FaceRecognizer(registry),
-        }
-        with self.metrics.measure_load("MiniFASNet", stage="liveness"):
-            self._cache[("liveness", "MiniFASNet")] = LivenessDetector()
+        self._initialized = False
+        self._cache = {}
         self._active = {"detection": "SCRFD", "liveness": "MiniFASNet", "recognition": "ArcFace"}
+        if not lazy:
+            self._ensure_loaded()
+
+    def is_loaded(self) -> bool:
+        with self._lock:
+            return self._initialized
+
+    def _ensure_loaded(self) -> None:
+        if self._initialized:
+            return
+        with self._lock:
+            if self._initialized:
+                return
+            with self.metrics.measure_load("SCRFD + ArcFace (InsightFace pack)", stage="shared", shared=True):
+                registry = get_face_model_registry()
+            self.metrics.set_device(registry.runtime.device)
+            
+            self._cache = {
+                ("detection", "SCRFD"): FaceDetector(registry),
+                ("recognition", "ArcFace"): FaceRecognizer(registry),
+            }
+            with self.metrics.measure_load("MiniFASNet", stage="liveness"):
+                self._cache[("liveness", "MiniFASNet")] = LivenessDetector()
+            self._initialized = True
 
     def status(self) -> dict[str, object]:
+        self._ensure_loaded()
         with self._lock:
             return {
                 "active": dict(self._active),
@@ -56,7 +72,16 @@ class ModelManager:
                 },
             }
 
+    def quick_status(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "initialized": self._initialized,
+                "device": self.metrics.device if self._initialized else None,
+                "active": dict(self._active) if self._initialized else None,
+            }
+
     def performance_status(self) -> list[dict[str, object]]:
+        self._ensure_loaded()
         with self._lock:
             return self.metrics.status(dict(self._active), self._telemetry_information())
 
@@ -64,6 +89,7 @@ class ModelManager:
         return self.metrics.summary()
 
     def resource_status(self) -> list[dict[str, object]]:
+        self._ensure_loaded()
         with self._lock:
             return self.metrics.resource_status(dict(self._active))
 
@@ -102,6 +128,7 @@ class ModelManager:
         return details
 
     def snapshot(self) -> ActiveModels:
+        self._ensure_loaded()
         with self._lock:
             return ActiveModels(
                 detection=self._active["detection"], liveness=self._active["liveness"], recognition=self._active["recognition"],

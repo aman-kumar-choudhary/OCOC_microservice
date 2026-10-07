@@ -1,5 +1,6 @@
-from __future__ import annotations
+import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional
 import httpx
 from app.config import settings
@@ -28,6 +29,11 @@ class KeycloakClient:
         self.admin_user = settings.KEYCLOAK_ADMIN_USER
         self.admin_pass = settings.KEYCLOAK_ADMIN_PASSWORD
         self._client: Optional[httpx.AsyncClient] = None
+        # In-process token caching & locks
+        self._admin_token: Optional[str] = None
+        self._admin_token_expiry: float = 0.0
+        self._admin_token_lock = asyncio.Lock()
+        self._realm_roles_cache: Dict[str, Tuple[Dict[str, Any], float]] = {}
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -117,18 +123,34 @@ class KeycloakClient:
             logger.error("Keycloak logout error: %s", e)
 
     async def get_admin_token(self) -> str:
-        """Obtain admin bearer token using master realm credentials."""
-        url = f"{self.base_url}/realms/master/protocol/openid-connect/token"
-        data = {
-            "grant_type": "password",
-            "client_id": "admin-cli",
-            "username": self.admin_user,
-            "password": self.admin_pass,
-        }
-        resp = await self.client.post(url, data=data)
-        if resp.status_code != 200:
-            raise KeycloakError(f"Failed to obtain admin token: {resp.text}")
-        return resp.json()["access_token"]
+        """Obtain admin bearer token with in-process caching and double-checked locking."""
+        now = time.time()
+        # Fast path: check valid cached token with 30-second buffer
+        if self._admin_token and now < (self._admin_token_expiry - 30):
+            return self._admin_token
+
+        async with self._admin_token_lock:
+            # Re-check inside lock
+            if self._admin_token and now < (self._admin_token_expiry - 30):
+                return self._admin_token
+
+            url = f"{self.base_url}/realms/master/protocol/openid-connect/token"
+            data = {
+                "grant_type": "password",
+                "client_id": "admin-cli",
+                "username": self.admin_user,
+                "password": self.admin_pass,
+            }
+            resp = await self.client.post(url, data=data)
+            if resp.status_code != 200:
+                raise KeycloakError(f"Failed to obtain admin token: {resp.text}")
+
+            token_data = resp.json()
+            self._admin_token = token_data["access_token"]
+            expires_in = token_data.get("expires_in", 300)
+            self._admin_token_expiry = now + expires_in
+            logger.debug("Refreshed Keycloak admin token (valid for %ds)", expires_in)
+            return self._admin_token
 
     async def create_user(
         self,
@@ -264,12 +286,19 @@ class KeycloakClient:
         return resp.json()
 
     async def get_realm_role(self, role_name: str) -> Dict[str, Any]:
+        now = time.time()
+        cached = self._realm_roles_cache.get(role_name)
+        if cached and now < cached[1]:
+            return cached[0]
+
         token = await self.get_admin_token()
         url = f"{self.base_url}/admin/realms/{self.realm}/roles/{role_name}"
         resp = await self.client.get(url, headers={"Authorization": f"Bearer {token}"})
         if resp.status_code != 200:
             raise KeycloakError(f"Keycloak realm role {role_name!r} was not found: {resp.text}")
-        return resp.json()
+        role_data = resp.json()
+        self._realm_roles_cache[role_name] = (role_data, now + 3600.0)  # cache 1 hour
+        return role_data
 
     async def assign_role(self, keycloak_id: str, role_name: str) -> None:
         role = await self.get_realm_role(role_name)

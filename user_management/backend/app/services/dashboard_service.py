@@ -5,12 +5,17 @@ from typing import List, Optional
 import asyncpg
 
 from app.schemas.dashboard import Analytics, Overview, TrendPoint
+from app.core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
 
 class DashboardService:
     async def get_overview(self, conn: asyncpg.Connection) -> Overview:
+        cached = await redis_client.get("dashboard:overview")
+        if cached is not None and isinstance(cached, dict):
+            return Overview(**cached)
+
         user_row = await conn.fetchrow(
             """
             SELECT
@@ -35,7 +40,7 @@ class DashboardService:
             """
         )
 
-        return Overview(
+        overview = Overview(
             total_users=user_row["total_users"],
             active_users=user_row["active_users"],
             suspended_users=user_row["suspended_users"],
@@ -48,6 +53,8 @@ class DashboardService:
             rfid_active=rfid_row["rfid_active"],
             rfid_revoked=rfid_row["rfid_revoked"],
         )
+        await redis_client.set("dashboard:overview", overview.model_dump(), ex=60)
+        return overview
 
     async def get_analytics(
         self,

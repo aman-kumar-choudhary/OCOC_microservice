@@ -10,7 +10,7 @@ import {
   Phone,
   UserCircle,
   Users,
-  Wrench
+  Wrench,
 } from "@phosphor-icons/react";
 import userService from "@/services/userService";
 import PassportPhotoCapture from "@/components/PassportPhotoCapture";
@@ -34,73 +34,134 @@ const schoolDepartments = {
     "Department of Journalism & Mass Communication",
     "Department of Animation and Visual Effects",
   ],
+
   "School of Biological Sciences and Sustainability": [
-    "Department of Rural Management",
-    "Department of Environmental Science",
+    "Department of Rural Studies and Sustainability",
   ],
-  "School of Education, Humanities and Social Sciences": [
+
+  "School of Humanities, Social Sciences and Human Values": [
+    "Department of English",
     "Department of Education",
     "Department of Psychology",
-    "Department of English",
+    //"Department of Life Management",
+    "Department of Scientific Spirituality",
+    "Dept. of Oriental Studies, Religious Studies & Philosophy",
   ],
+
   "School of Indology": [
     "Department of Sanskrit and Vedic Studies",
     "Department of Hindi",
-    "Department of History and Indian Culture",
     "Department of Indian Classical Music",
-    "Department of Oriental Studies, Religious Studies & Philosophy",
+    "Department of History and Indian Culture",
     "Department of Yogic Sciences and Human Consciousness",
+    "Department of Complementary and Alternative Medicine",
   ],
 };
 
 const departmentCourses = {
-  "Department of Computer Sciences": ["B.Sc. IT", "BCA", "MCA"],
-  "Department of Tourism Management": ["BBA Tourism", "MBA Tourism"],
+  // ─────────────────────────────────────────
+  // School of Technology, Communication and Management
+  // ─────────────────────────────────────────
+
+  "Department of Computer Sciences": [
+    "B.Sc. Information Technology (Honors)",
+    "Bachelor of Computer Application (Honors)",
+    "Master of Computer Application (Data Science)",
+    "Ph. D. Computer Science",
+  ],
+
+  "Department of Tourism Management": [
+    "B.B.A Tourism & Travel Management (Honors)",
+    "M.B.A. Tourism & Travel Management",
+    "Ph. D. Tourism Management",
+  ],
+
   "Department of Journalism & Mass Communication": [
-    "B.A. Mass Comm",
-    "M.A. Mass Comm",
+    "B.A. Journalism and Mass Communication (Honors)",
+    "M. A. Journalism and Mass Communication",
+    "Ph. D. Journalism and Mass Communication",
   ],
+
   "Department of Animation and Visual Effects": [
-    "B.Sc. Animation",
-    "M.Sc. Animation",
+    "B.Voc. (Bachelor of Vocation) in 3D Animation and VFX (Honors)",
   ],
-  "Department of Rural Management": [
-    "BBA Rural Management",
-    "MBA Rural Management",
+
+  // ─────────────────────────────────────────
+  // School of Biological Sciences and Sustainability
+  // ─────────────────────────────────────────
+
+  "Department of Rural Studies and Sustainability": [
+    "Bachelor of Rural Studies (Honors)",
   ],
-  "Department of Environmental Science": [
-    "B.Sc. Environmental Science",
-    "M.Sc. Environmental Science",
+
+  // ─────────────────────────────────────────
+  // School of Humanities, Social Sciences and Human Values
+  // ─────────────────────────────────────────
+
+  "Department of English": ["B.A. English (Honors)"],
+
+  "Department of Education": [
+    "B.Ed. (Bachelor of Education)",
+    "Ph. D. Education",
   ],
-  "Department of Education": ["B.Ed.", "M.Ed."],
-  "Department of Psychology": ["B.A. Psychology", "M.A. Clinical Psychology"],
-  "Department of English": ["B.A. English (Honors)", "M.A. English"],
+
+  "Department of Psychology": [
+    "B.A. Psychology (Honors)",
+    "M.A. Counselling Psychology",
+    "M.Sc. Counselling Psychology",
+    "Ph. D. Psychology",
+  ],
+
+  //"Department of Life Management": [
+  //  "Life Management - Compulsory Program for PG and UG",
+  //  ],
+
+  "Department of Scientific Spirituality": [],
+
+  "Dept. of Oriental Studies, Religious Studies & Philosophy": [
+    "M.A. Hindu Studies",
+    "M.A. Philosophy",
+  ],
+
+  // ─────────────────────────────────────────
+  // School of Indology
+  // ─────────────────────────────────────────
+
   "Department of Sanskrit and Vedic Studies": [
     "B.A. Sanskrit (Honors)",
     "M.A. Sanskrit",
+    "Ph.D. Sanskrit",
   ],
-  "Department of Hindi": ["B.A. Hindi (Honors)", "M.A. Hindi"],
-  "Department of History and Indian Culture": [
-    "B.A. History (Honors)",
-    "M. A. History and Indian Culture",
-  ],
+
+  "Department of Hindi": ["B.A. Hindi (Honors)", "M.A. Hindi", "Ph.D. Hindi"],
+
   "Department of Indian Classical Music": [
     "B.A. Music (Vocal) (Honors)",
     "M.A. Music (Vocal)",
     "B.A. Music Instrumental Mridang/Tabla (Honors)",
     "M.A. Music (Tabla, Pakhaawaj)",
+    "Ph. D. Indian Classical Music",
   ],
-  "Department of Oriental Studies, Religious Studies & Philosophy": [
-    "M.A. Hindu Studies",
-    "M.A. Philosophy",
+
+  "Department of History and Indian Culture": [
+    "B.A. History (Honors)",
+    "M. A. History and Indian Culture",
+    "Ph. D. History",
   ],
+
   "Department of Yogic Sciences and Human Consciousness": [
     "B.Sc. Yogic Science (Honors)",
     "M.Sc. Yoga Therapy",
     "M.A. Human Consciousness & Yogic Science",
     "M.Sc. Human Consciousness & Yogic Science",
+    "Ph. D. Human Consciousness & Yogic Science",
+    "Ph. D. Oriental Studies",
     "P. G. Diploma Human Consciousness, Yoga & Alternative Therapy",
-    "Certificate In Yoga And Alternative Therapy",
+  ],
+
+  "Department of Complementary and Alternative Medicine": [
+    "M.A. in Indigenous and Traditional Therapies",
+    "M.Sc. in Indigenous and Traditional Therapies",
   ],
 };
 

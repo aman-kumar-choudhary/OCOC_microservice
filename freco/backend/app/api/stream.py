@@ -8,6 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 from app.ml.pose_estimator import estimate_pose
 from app.ml.face_detector import NoFaceDetectedError
+from app.ml.resource_manager import resource_manager
 from app.utils.image_utils import decode_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ router = APIRouter()
 @router.websocket("/stream")
 async def face_stream(websocket: WebSocket):
     await websocket.accept()
-    pipeline = websocket.app.state.pipeline
+    pipeline = await resource_manager.get_pipeline_async()
     if not pipeline:
         await websocket.close(code=1011, reason="Pipeline not initialized")
         return

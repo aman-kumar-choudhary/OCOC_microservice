@@ -18,6 +18,7 @@ from app.schemas.access import (
     UpdateLocationGrantRequest, EffectivePermission,
     AccessAuditLogEntry, AccessAuditLogResult,
 )
+from app.core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,13 @@ class AccessService:
     """The single access-decision path for RFID and manual evaluations."""
 
     async def get_locations(self, conn: asyncpg.Connection) -> List[Location]:
+        cached = await redis_client.get("access:locations")
+        if cached is not None and isinstance(cached, list):
+            return [Location(**r) for r in cached]
         rows = await conn.fetch("SELECT * FROM locations ORDER BY type, name")
-        return [Location(**dict(row)) for row in rows]
+        res = [Location(**dict(row)) for row in rows]
+        await redis_client.set("access:locations", [r.model_dump() for r in res], ex=3600)
+        return res
 
     async def get_devices(self, conn: asyncpg.Connection) -> list[dict]:
         rows = await conn.fetch("""SELECT d.id,d.mac_address,d.type,d.status,d.location_id,l.name AS location_name
@@ -47,17 +53,24 @@ class AccessService:
 
     async def add_group_member(self, conn: asyncpg.Connection, group_id: uuid.UUID, user_id: uuid.UUID) -> None:
         await conn.execute("INSERT INTO access_group_members(group_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING", group_id, user_id)
+        await redis_client.invalidate_user_cache(user_id)
 
     async def create_rule(self, conn: asyncpg.Connection, req: CreateAccessRuleRequest) -> AccessRule:
         row = await conn.fetchrow("""INSERT INTO access_rules (name,description,subject_type,subject_id,location_id,device_id,schedule_days,schedule_start_time,schedule_end_time,valid_from,valid_to,effect,priority)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *""",
             req.name, req.description, req.subject_type.lower(), req.subject_id, req.location_id, req.device_id,
             req.schedule_days, req.schedule_start_time, req.schedule_end_time, req.valid_from, req.valid_to, req.effect.upper(), req.priority)
+        await redis_client.invalidate_access_rules()
         return AccessRule(**dict(row))
 
     async def get_rules(self, conn: asyncpg.Connection) -> List[AccessRule]:
+        cached = await redis_client.get("access:rules")
+        if cached is not None and isinstance(cached, list):
+            return [AccessRule(**r) for r in cached]
         rows = await conn.fetch("SELECT * FROM access_rules ORDER BY priority DESC,created_at DESC")
-        return [AccessRule(**dict(row)) for row in rows]
+        res = [AccessRule(**dict(row)) for row in rows]
+        await redis_client.set("access:rules", [r.model_dump() for r in res], ex=300)
+        return res
 
     async def get_rule_stats(self, conn: asyncpg.Connection) -> dict:
         row = await conn.fetchrow("""SELECT COUNT(*) AS total,COUNT(*) FILTER(WHERE is_active) AS enabled,
@@ -67,6 +80,7 @@ class AccessService:
 
     async def update_rule(self, conn: asyncpg.Connection, rule_id: uuid.UUID, req: UpdateAccessRuleRequest) -> Optional[AccessRule]:
         row = await conn.fetchrow("UPDATE access_rules SET is_active=$1,updated_at=NOW() WHERE id=$2 RETURNING *", req.is_active, rule_id)
+        await redis_client.invalidate_access_rules()
         return AccessRule(**dict(row)) if row else None
 
     async def create_temporary_grant(self, conn: asyncpg.Connection, req: CreateTemporaryAccessRequest, admin_id: uuid.UUID) -> TemporaryAccessGrant:
@@ -74,7 +88,9 @@ class AccessService:
             raise ValueError("valid_to must be after valid_from")
         row = await conn.fetchrow("""INSERT INTO temporary_access_grants(user_id,location_id,valid_from,valid_to,granted_by,reason)
             VALUES($1,$2,$3,$4,$5,$6) RETURNING *""", req.user_id,req.location_id,req.valid_from,req.valid_to,admin_id,req.reason)
-        return TemporaryAccessGrant(**dict(row))
+        grant = TemporaryAccessGrant(**dict(row))
+        await redis_client.invalidate_user_cache(req.user_id)
+        return grant
 
     async def get_temporary_grants(self, conn: asyncpg.Connection) -> List[dict]:
         rows = await conn.fetch("""SELECT t.*,u.email,l.name AS location_name,COALESCE(sp.full_name,fp.full_name,wp.full_name,vp.full_name,'Unknown') AS user_name
@@ -738,7 +754,7 @@ class AccessService:
             },
         )
 
-        return UserLocationAccessGrant(
+        grant = UserLocationAccessGrant(
             id=row["id"], location_id=row["location_id"],
             location_name=loc["name"], location_type=loc["type"],
             access_level=row["access_level"],
@@ -747,6 +763,8 @@ class AccessService:
             reason=row["reason"],
             created_at=row["created_at"], updated_at=row["updated_at"],
         )
+        await redis_client.invalidate_user_cache(req.user_id)
+        return grant
 
     async def update_location_grant(
         self, conn: asyncpg.Connection, grant_id: uuid.UUID,
@@ -783,7 +801,7 @@ class AccessService:
             after_state={"access_level": new_level, "status": new_status, "reason": req.reason},
         )
 
-        return UserLocationAccessGrant(
+        grant = UserLocationAccessGrant(
             id=row["id"], location_id=row["location_id"],
             location_name=current["location_name"], location_type=current["location_type"],
             access_level=row["access_level"],
@@ -792,6 +810,8 @@ class AccessService:
             reason=row["reason"],
             created_at=row["created_at"], updated_at=row["updated_at"],
         )
+        await redis_client.invalidate_user_cache(current["user_id"])
+        return grant
 
     async def revoke_location_grant(
         self, conn: asyncpg.Connection, grant_id: uuid.UUID, admin_id: uuid.UUID,
@@ -818,6 +838,7 @@ class AccessService:
                 "access_level": current["access_level"],
             },
         )
+        await redis_client.invalidate_user_cache(current["user_id"])
         return True
 
     async def expire_stale_grants(self, conn: asyncpg.Connection) -> int:
@@ -1013,6 +1034,7 @@ class AccessService:
                     after_state={"location_id": str(loc_id), "location_name": loc_name, "access_level": level, "reason": reason},
                 )
 
+        await redis_client.invalidate_user_cache(user_id)
         return await self.get_user_location_grants(conn, user_id)
 
 

@@ -13,6 +13,7 @@ from app.core.security import Claims, require_permission, get_current_claims, re
 from app.schemas.common import error_response, success_response
 from app.schemas.role import AssignRoleRequest
 from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest, BulkTransferRequest, UpdateStatusRequest
+from app.core.redis_client import redis_client
 from app.services.role_service import role_service
 from app.services.user_service import user_service
 
@@ -27,6 +28,10 @@ async def get_current_user_profile(
     conn: asyncpg.Connection = Depends(get_db),
 ):
     """Return profile, roles, assigned locations, and dashboard details for current authenticated user."""
+    cache_key = f"user:me:{claims.sub}"
+    cached = await redis_client.get(cache_key)
+    if cached is not None and isinstance(cached, dict):
+        return success_response(data=cached)
     user = await conn.fetchrow(
         """
         SELECT u.id, u.email, u.phone, u.user_type, u.status, u.keycloak_user_id,
@@ -291,6 +296,9 @@ async def get_current_user_profile(
         "dashboard_name": dash["name"],
         "dashboard_category": dash["category"],
     }
+    await redis_client.set(cache_key, data, ex=300)
+    if claims.sub != str(user["id"]):
+        await redis_client.set(f"user:me:{user['id']}", data, ex=300)
     return success_response(data=data)
 
 

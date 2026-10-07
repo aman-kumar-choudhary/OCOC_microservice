@@ -8,6 +8,7 @@ import asyncpg
 from app.schemas.role import CreateRoleRequest, Role
 from app.services.audit_service import audit_service
 from app.core.keycloak_client import keycloak_client
+from app.core.redis_client import redis_client
 from app.config import settings
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,11 @@ OPERATIONAL_ROLES = {
 
 class RoleService:
     async def list_roles(self, conn: asyncpg.Connection) -> List[Role]:
+        cached = await redis_client.get("roles:all")
+        if cached is not None and isinstance(cached, list):
+            return [Role(**r) for r in cached]
         rows = await conn.fetch("SELECT id, name, description, user_type, created_at, updated_at FROM roles ORDER BY name")
-        return [
+        roles = [
             Role(
                 id=str(r["id"]),
                 name=r["name"],
@@ -35,6 +39,8 @@ class RoleService:
             )
             for r in rows
         ]
+        await redis_client.set("roles:all", [r.model_dump() for r in roles], ex=3600)
+        return roles
 
     async def create_role(self, conn: asyncpg.Connection, actor_id: Optional[str], req: CreateRoleRequest) -> Role:
         role_id = uuid.uuid4()
@@ -66,6 +72,7 @@ class RoleService:
             entity_id=str(role_id),
             after_state=role.model_dump(),
         )
+        await redis_client.invalidate_role_caches()
         return role
 
     async def assign_to_user(
@@ -101,6 +108,7 @@ class RoleService:
             entity_id=str(user_id),
             after_state={"role_id": str(role_id)},
         )
+        await redis_client.invalidate_user_cache(user_id)
 
     async def remove_from_user(
         self,
@@ -123,8 +131,14 @@ class RoleService:
             entity_id=str(user_id),
             after_state={"role_id": str(role_id)},
         )
+        await redis_client.invalidate_user_cache(user_id)
 
     async def get_user_access(self, conn: asyncpg.Connection, user_id: uuid.UUID) -> dict[str, Any]:
+        cache_key = f"user:roles:{user_id}"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, dict):
+            return cached
+
         user = await conn.fetchrow("SELECT id, keycloak_user_id, email FROM users WHERE id=$1", user_id)
         if not user:
             raise ValueError("User not found")
@@ -136,12 +150,14 @@ class RoleService:
             "SELECT h.id, h.name, h.code FROM warden_hostels wh JOIN hostels h ON h.id=wh.hostel_id WHERE wh.user_id=$1 ORDER BY h.name",
             user_id,
         )
-        return {
+        data = {
             "user_id": str(user_id), "email": user["email"],
             "keycloak_user_id": user["keycloak_user_id"],
             "roles": [row["name"] for row in roles],
             "hostels": [dict(row) for row in hostels],
         }
+        await redis_client.set(cache_key, data, ex=300)
+        return data
 
     @staticmethod
     def _temporary_password() -> str:
@@ -427,6 +443,7 @@ class RoleService:
             "dashboard_name": dash["name"],
             "roles": sorted(list(requested_roles)),
         }
+        await redis_client.invalidate_user_cache(user_id)
         return after
 
     async def issue_or_reset_credentials(
@@ -511,8 +528,7 @@ class RoleService:
             entity_id=str(user_id),
             after_state={"email": target["email"], "roles": current_roles},
         )
-
-        return {
+        creds = {
             "user_id": str(user_id),
             "email": target["email"].lower(),
             "username": target["email"].lower(),
@@ -535,6 +551,8 @@ class RoleService:
             "dashboard_name": dash["name"],
             "category": dash["category"],
         }
+        await redis_client.invalidate_user_cache(user_id)
+        return creds
 
 
 role_service = RoleService()

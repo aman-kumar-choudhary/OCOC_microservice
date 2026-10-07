@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
 
+    # --- Redis Configuration ---
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_PASSWORD: str = ""
+
     # --- Hardware ---
     INFERENCE_DEVICE: str = "cuda" # "cpu" or "cuda"
     DETECTION_CTX_ID: int = 0

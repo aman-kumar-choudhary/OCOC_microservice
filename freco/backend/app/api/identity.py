@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.concurrency import run_in_threadpool
 from app.config import settings
+from app.core.redis_client import freco_redis
 from app.db import get_db_session
 from app.ml.face_detector import MultipleFacesDetectedError, NoFaceDetectedError
+from app.ml.resource_manager import resource_manager
 from app.models import AttendanceRecord, AttendanceSession, FaceEmbedding, Person
 from app.schemas import (
     AttendanceMarkResponse, AttendanceSessionCreate, AttendanceSessionResponse,
@@ -65,8 +67,9 @@ async def register_person(
     if set(pose_names) != required_poses or len(set(pose_names)) != 5:
         raise HTTPException(422, "poses must contain center, left, right, chin_up, and chin_down exactly once")
     try:
+        pipeline = await resource_manager.get_pipeline_async()
         face_images = [await _read_upload(image) for image in images]
-        processed = [await run_in_threadpool(request.app.state.pipeline.extract_embeddings, image) for image in face_images]
+        processed = [await run_in_threadpool(pipeline.extract_embeddings, image) for image in face_images]
     except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
         raise HTTPException(422, str(exc)) from exc
     try:
@@ -98,6 +101,7 @@ async def register_person(
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "external_id or RFID UID already exists") from exc
+    await freco_redis.invalidate_person_cache(external_id, rfid_uid)
     return PersonCreateResponse(id=person.id, external_id=person.external_id, face_embeddings_created=created_embeddings)
 
 
@@ -129,15 +133,22 @@ async def list_attendance_sessions(db: AsyncSession = Depends(get_db_session)):
 
 
 async def _record_once(db: AsyncSession, session_id: UUID, person: Person, source: str, score: float | None) -> AttendanceMarkResponse:
+    # Fast path: check Redis session record to avoid redundant DB queries
+    if await freco_redis.is_attendance_recorded(session_id, person.id):
+        return AttendanceMarkResponse(session_id=session_id, person_id=person.id, external_id=person.external_id, status="already_recorded", similarity_score=score)
+
     existing = (await db.execute(select(AttendanceRecord.id).where(AttendanceRecord.session_id == session_id, AttendanceRecord.person_id == person.id))).scalar_one_or_none()
     if existing is not None:
+        await freco_redis.set_attendance_recorded(session_id, person.id)
         return AttendanceMarkResponse(session_id=session_id, person_id=person.id, external_id=person.external_id, status="already_recorded", similarity_score=score)
     db.add(AttendanceRecord(session_id=session_id, person_id=person.id, source=source, similarity_score=score))
     try:
         await db.commit()
+        await freco_redis.set_attendance_recorded(session_id, person.id)
         return AttendanceMarkResponse(session_id=session_id, person_id=person.id, external_id=person.external_id, status="recorded", similarity_score=score)
     except IntegrityError:  # concurrent camera workers: unique constraint is authoritative
         await db.rollback()
+        await freco_redis.set_attendance_recorded(session_id, person.id)
         return AttendanceMarkResponse(session_id=session_id, person_id=person.id, external_id=person.external_id, status="already_recorded", similarity_score=score)
 
 
@@ -146,7 +157,16 @@ async def mark_rfid_attendance(session_id: UUID, rfid_uid: str = Form(...), db: 
     session = await db.get(AttendanceSession, session_id)
     if session is None: raise HTTPException(404, "Attendance session not found")
     if session.mode != "rfid": raise HTTPException(409, "This is not an RFID session")
-    person = (await db.execute(select(Person).where(Person.rfid_uid == rfid_uid, Person.active.is_(True)))).scalar_one_or_none()
+    clean_rfid = rfid_uid.strip().replace(":", "").replace("-", "").upper()
+    cache_key = f"freco:rfid:{clean_rfid}"
+    cached_person_id = await freco_redis.get(cache_key)
+    person = None
+    if cached_person_id:
+        person = await db.get(Person, UUID(cached_person_id))
+    if person is None:
+        person = (await db.execute(select(Person).where(Person.rfid_uid == rfid_uid, Person.active.is_(True)))).scalar_one_or_none()
+        if person is not None:
+            await freco_redis.set(cache_key, str(person.id), ex=300)
     if person is None: return AttendanceMarkResponse(session_id=session_id, status="unknown")
     return await _record_once(db, session_id, person, "rfid", None)
 
@@ -186,7 +206,8 @@ async def mark_mass_attendance(session_id: UUID, request: Request, image: Upload
     if session.mode != "mass": raise HTTPException(409, "This is not a mass-attendance session")
     started = time.perf_counter()
     image_bgr = await _read_upload(image)
-    detections, timings, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings_for_all_faces, image_bgr)
+    pipeline = await resource_manager.get_pipeline_async()
+    detections, timings, _ = await run_in_threadpool(pipeline.extract_embeddings_for_all_faces, image_bgr)
 
     # A person may appear more than once in a photo or in consecutive camera
     # frames.  Check the people already marked in this session first, then do
@@ -225,15 +246,16 @@ async def recognize_face(
 ):
     """Stateless single-face recognition against the database."""
     image_bgr = await _read_upload(image)
+    pipeline = await resource_manager.get_pipeline_async()
     try:
         # Database recognition must apply the same liveness gate as the
         # verification pipeline; otherwise a spoof can bypass Face Lab.
-        models = request.app.state.pipeline._models.snapshot()
+        models = pipeline._models.snapshot()
         detected = await run_in_threadpool(models.detector.detect_single, image_bgr)
         is_live, liveness_score = await run_in_threadpool(models.liveness_detector.predict, image_bgr, detected.bbox)
         if not is_live:
             return RecognitionResult(recognized=False, message="Liveness check failed")
-        embeddings, _, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings, image_bgr)
+        embeddings, _, _ = await run_in_threadpool(pipeline.extract_embeddings, image_bgr)
     except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
@@ -256,15 +278,16 @@ async def recognize_faces_mass(
 ):
     """Stateless multi-face recognition against the database."""
     image_bgr = await _read_upload(image)
+    pipeline = await resource_manager.get_pipeline_async()
     try:
-        detections, _, _ = await run_in_threadpool(request.app.state.pipeline.extract_embeddings_for_all_faces, image_bgr)
+        detections, _, _ = await run_in_threadpool(pipeline.extract_embeddings_for_all_faces, image_bgr)
     except NoFaceDetectedError as exc:
         raise HTTPException(422, str(exc)) from exc
 
     results: list[MultiRecognitionFaceResult] = []
     matched_person_ids: set[UUID] = set()
 
-    models = request.app.state.pipeline._models.snapshot()
+    models = pipeline._models.snapshot()
     # `extract_embeddings_for_all_faces` returns FaceEmbedding dataclasses,
     # not tuples. Reuse those exact detector boxes for liveness too, avoiding a
     # second detection pass whose order/coordinates can differ from ArcFace.

@@ -8,6 +8,7 @@ import asyncpg
 
 from app.schemas.rfid import Card, RFIDListResult
 from app.services.audit_service import audit_service
+from app.core.redis_client import redis_client
 logger = logging.getLogger(__name__)
 
 UID_REGEX = re.compile(r"^[0-9A-Fa-f]{8,14}$")
@@ -116,7 +117,12 @@ class RFIDService:
         return RFIDListResult(cards=cards, total=total, page=page, limit=limit, total_pages=total_pages)
 
     async def get_by_uid(self, conn: asyncpg.Connection, uid: str) -> Optional[Card]:
-        clean_uid = uid.strip().upper()
+        clean_uid = uid.strip().replace(":", "").replace("-", "").upper()
+        cache_key = f"rfid:card:{clean_uid}"
+        cached = await redis_client.get(cache_key)
+        if cached is not None and isinstance(cached, dict):
+            return Card(**cached)
+
         query = """
             SELECT rc.id, rc.uid, rc.status, rc.issued_at, rc.revoked_at, rc.revoked_reason,
                    rc.created_at, rc.updated_at,
@@ -138,7 +144,9 @@ class RFIDService:
         row = await conn.fetchrow(query, clean_uid)
         if not row:
             return None
-        return self._row_to_card(row)
+        card = self._row_to_card(row)
+        await redis_client.set(cache_key, card.model_dump(), ex=300)
+        return card
 
     async def assign(self, conn: asyncpg.Connection, actor_id: Optional[str], user_id: uuid.UUID, uid: str) -> Card:
         # Normalize UID the same way validate_uid_format does
@@ -217,6 +225,8 @@ class RFIDService:
             entity_id=str(card.id),
             after_state=card.model_dump(),
         )
+        await redis_client.invalidate_rfid_caches(clean_uid)
+        await redis_client.invalidate_user_cache(user_id)
         return card
 
     async def replace(
@@ -312,6 +322,9 @@ class RFIDService:
             before_state={"old_card_id": str(current_card_id) if current_card_id else None},
             after_state=card.model_dump(),
         )
+        await redis_client.invalidate_rfid_caches(clean_new_uid)
+        await redis_client.invalidate_rfid_caches()
+        await redis_client.invalidate_user_cache(user_id)
         return card
 
     async def update_status(
@@ -355,6 +368,7 @@ class RFIDService:
             entity_id=str(card_id),
             after_state={"status": new_status, "reason": reason},
         )
+        await redis_client.invalidate_rfid_caches()
 
     def scan_simulated(self) -> str:
         """Simulate scanning an RFID tag by returning a random 8-character hex string."""

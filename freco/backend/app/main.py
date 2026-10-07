@@ -9,10 +9,12 @@ from starlette.concurrency import run_in_threadpool
 from app.api.identity import router as identity_router
 from app.api.stream import router as stream_router
 from app.config import settings
+from app.core.redis_client import freco_redis
 from app.db import Base, engine
 from app.ml.model_manager import ModelManager
 from app.ml.face_detector import MultipleFacesDetectedError, NoFaceDetectedError
 from app.ml.pipeline import FacePipeline, LivenessRejected
+from app.ml.resource_manager import resource_manager
 from app.ml.runtime import get_inference_runtime
 from app.schemas import (
     EmbeddingExtractionResponse, FaceEmbeddingResult, MatchResponse,
@@ -28,27 +30,38 @@ logging.basicConfig(
 )
 
 
+class _LazyPipelineProxy:
+    """Delegates attribute access to the lazily loaded FacePipeline."""
+    def __getattr__(self, name: str):
+        pipeline = resource_manager.get_pipeline()
+        return getattr(pipeline, name)
+
+
 async def lifespan(app: FastAPI):
     # Ensure FRECO tables exist (migration 004 is authoritative; this is a fallback).
     if engine is not None:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("freco_db_tables_ensured")
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("freco_db_tables_ensured")
+        except Exception as e:
+            logger.warning("freco_db_tables_ensured_skipped: %s", e)
 
-    started = time.perf_counter()
-    runtime = get_inference_runtime()
-    model_manager = ModelManager()
-    app.state.model_manager = model_manager
-    app.state.pipeline = FacePipeline(model_manager)
-    logger.info(
-        "freco_ready - device: %s - active models: %s - startup: %sms",
-        runtime.device,
-        model_manager.status()["active"],
-        round((time.perf_counter() - started) * 1000, 2),
-    )
+    # Initialize shared Redis caching connection
+    await freco_redis.connect()
+
+    # Expensive ML models (InsightFace, SCRFD, ArcFace, MiniFASNet) are NOT loaded
+    # on startup. They are loaded lazily on the first recognition/embedding request.
+    app.state.resource_manager = resource_manager
+    app.state.pipeline = _LazyPipelineProxy()
+    logger.info("freco_ready (ML models deferred for lazy initialization)")
+
     yield
+
+    resource_manager.cleanup()
+    await freco_redis.close()
     app.state.pipeline = None
-    app.state.model_manager = None
+    app.state.resource_manager = None
 
 
 app = FastAPI(title="freco", lifespan=lifespan)
@@ -140,7 +153,11 @@ def candidate_count(candidates: dict[str, list[np.ndarray]]) -> int:
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "redis_connected": freco_redis._connected,
+        "models_initialized": resource_manager.is_loaded(),
+    }
 
 @app.post("/api/v1/auth/get_image", response_model=EmbeddingExtractionResponse)
 @app.post("/get_image", response_model=EmbeddingExtractionResponse)
@@ -148,9 +165,10 @@ async def get_image_embeddings(request: Request, image: UploadFile = File(...)):
     """Detect, align, and return normalized color/grayscale ArcFace vectors."""
     started = time.perf_counter()
     image_bgr = await read_image(image)
+    pipeline = await resource_manager.get_pipeline_async()
     try:
         embeddings, timings, models = await run_in_threadpool(
-            request.app.state.pipeline.extract_embeddings, image_bgr
+            pipeline.extract_embeddings, image_bgr
         )
     except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
         raise face_error(exc) from exc
@@ -169,9 +187,10 @@ async def get_all_image_embeddings(request: Request, image: UploadFile = File(..
     """Detect and embed every face in a group photo; no data is stored."""
     started = time.perf_counter()
     image_bgr = await read_image(image)
+    pipeline = await resource_manager.get_pipeline_async()
     try:
         faces, timings, models = await run_in_threadpool(
-            request.app.state.pipeline.extract_embeddings_for_all_faces, image_bgr
+            pipeline.extract_embeddings_for_all_faces, image_bgr
         )
     except NoFaceDetectedError as exc:
         raise face_error(exc) from exc
@@ -199,10 +218,11 @@ async def match(
     started = time.perf_counter()
     image_bgr = await read_image(image)
     candidates = parse_candidate_embeddings(candidate_embeddings)
+    pipeline = await resource_manager.get_pipeline_async()
 
     try:
         similarity_score, best_match_variant, best_match_index, liveness_score, timings, models = await run_in_threadpool(
-            request.app.state.pipeline.match_against_embeddings, image_bgr, candidates
+            pipeline.match_against_embeddings, image_bgr, candidates
         )
     except (NoFaceDetectedError, MultipleFacesDetectedError) as exc:
         raise face_error(exc) from exc
@@ -248,9 +268,10 @@ async def match_all(
     started = time.perf_counter()
     image_bgr = await read_image(image)
     candidates = parse_candidate_embeddings(candidate_embeddings)
+    pipeline = await resource_manager.get_pipeline_async()
     try:
         faces, timings, models = await run_in_threadpool(
-            request.app.state.pipeline.match_all_against_embeddings, image_bgr, candidates
+            pipeline.match_all_against_embeddings, image_bgr, candidates
         )
     except NoFaceDetectedError as exc:
         raise face_error(exc) from exc
