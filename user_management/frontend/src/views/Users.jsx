@@ -78,7 +78,7 @@ const Sel = ({ value, onChange, children, id, className = "" }) => (
     id={id}
     value={value}
     onChange={onChange}
-    className={`h-9 rounded-lg border border-[var(--border-light)] bg-white px-3 text-sm text-[var(--text-main)] focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 transition appearance-auto ${className}`}
+    className={`h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-slate-800 transition appearance-auto ${className}`}
   >
     {children}
   </select>
@@ -86,7 +86,7 @@ const Sel = ({ value, onChange, children, id, className = "" }) => (
 
 const Input = ({ className = "", ...props }) => (
   <input
-    className={`h-9 rounded-lg border border-[var(--border-light)] bg-white px-3 text-sm text-[var(--text-main)] placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 transition ${className}`}
+    className={`h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-800 transition ${className}`}
     {...props}
   />
 );
@@ -255,18 +255,18 @@ export const UsersView = () => {
   /* ── Helpers ── */
   const getStatusBadge = (s) => {
     if (s === "active")
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+      return "bg-emerald-50 text-emerald-800 border border-emerald-200";
     if (s === "suspended")
-      return "bg-amber-50 text-amber-700 border border-amber-200";
-    return "bg-red-50 text-red-600 border border-red-200";
+      return "bg-amber-50 text-amber-800 border border-amber-200";
+    return "bg-rose-50 text-rose-700 border border-rose-200";
   };
 
   const getRoleColor = (type) =>
     ({
-      student: "bg-blue-50 text-blue-700 border-blue-200",
-      faculty: "bg-purple-50 text-purple-700 border-purple-200",
-      worker: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      visitor: "bg-orange-50 text-orange-700 border-orange-200",
+      student: "bg-slate-100 text-slate-800 border-slate-200",
+      faculty: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      worker: "bg-slate-100 text-slate-700 border-slate-200",
+      visitor: "bg-amber-50 text-amber-800 border-amber-200",
     })[type] || "bg-slate-50 text-slate-700 border-slate-200";
 
   const getIdentifier = (u) =>
@@ -369,12 +369,12 @@ export const UsersView = () => {
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-main)]">
-            User Directory
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            User &amp; Identity Directory
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
+          <p className="text-xs text-slate-500 mt-0.5">
             {!isLoading
-              ? `${total.toLocaleString()} campus identities`
+              ? `${total.toLocaleString()} registered campus identities`
               : "Loading directory…"}
           </p>
         </div>
@@ -390,12 +390,12 @@ export const UsersView = () => {
             onClick={() => importInputRef.current?.click()}
             disabled={importLoading}
             id="import-csv-btn"
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-[var(--border-light)] bg-white text-sm font-semibold text-[var(--text-main)] hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
           >
             {importLoading ? (
-              <SpinnerGap className="animate-spin" size={15} />
+              <SpinnerGap className="animate-spin" size={14} />
             ) : (
-              <UploadSimple size={15} />
+              <UploadSimple size={14} />
             )}
             Import CSV
           </button>
@@ -403,12 +403,12 @@ export const UsersView = () => {
             onClick={exportToCSV}
             disabled={exportLoading}
             id="export-csv-btn"
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-[#0a2342] text-sm font-semibold text-[#f5bd19] hover:bg-[#12365f] transition disabled:opacity-50 shadow-sm"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-900 text-xs font-medium text-white hover:bg-slate-800 transition disabled:opacity-50 shadow-2xs"
           >
             {exportLoading ? (
-              <SpinnerGap className="animate-spin" size={15} />
+              <SpinnerGap className="animate-spin" size={14} />
             ) : (
-              <DownloadSimple size={15} />
+              <DownloadSimple size={14} />
             )}
             Export CSV
           </button>
@@ -416,24 +416,24 @@ export const UsersView = () => {
       </div>
 
       {importMessage && (
-        <p className="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2.5">
+        <p className="text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-2">
           {importMessage}
         </p>
       )}
       {importError && (
-        <p className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+        <p className="text-xs font-medium text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2">
           {importError}
         </p>
       )}
 
       {/* ── Filter Panel ── */}
-      <div className="app-panel border-slate-200/80 p-5 shadow-xs">
+      <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-xs">
         {/* Row 1 — Always visible */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
             <MagnifyingGlass
-              size={15}
+              size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
             />
             <Input
@@ -443,15 +443,15 @@ export const UsersView = () => {
               }
               type="text"
               placeholder="Search by name, email, roll number…"
-              className="w-full pl-9 pr-8"
+              className="w-full pl-8 pr-8"
               id="user-search-input"
             />
             {filters.search && (
               <button
                 onClick={() => setFilters({ ...filters, search: "" })}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
           </div>
@@ -471,7 +471,7 @@ export const UsersView = () => {
                 hostel_status: "",
               })
             }
-            className="w-36"
+            className="w-32"
           >
             <option value="">All Types</option>
             <option value="student">Student</option>
@@ -485,7 +485,7 @@ export const UsersView = () => {
             id="status-filter"
             value={filters.status}
             onChange={(e) => handleFilterChange({ status: e.target.value })}
-            className="w-36"
+            className="w-32"
           >
             <option value="">All Statuses</option>
             <option value="active">Active</option>
@@ -500,14 +500,14 @@ export const UsersView = () => {
           {filters.user_type === "student" && (
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border text-sm font-semibold transition ${showAdvanced ? "bg-[#0a2342] text-[#f5bd19] border-[#0a2342]" : "border-[var(--border-light)] text-[var(--text-muted)] hover:border-slate-300 hover:text-[var(--text-main)]"}`}
+              className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-medium transition ${showAdvanced ? "bg-slate-900 text-white border-slate-900" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
             >
-              <Funnel size={14} />
+              <Funnel size={13} />
               Filters
               {showAdvanced ? (
-                <CaretUp size={13} />
+                <CaretUp size={12} />
               ) : (
-                <CaretDown size={13} />
+                <CaretDown size={12} />
               )}
             </button>
           )}
@@ -516,9 +516,9 @@ export const UsersView = () => {
             <button
               onClick={clearFilters}
               id="clear-filters-btn"
-              className="inline-flex items-center gap-1 h-9 px-3 rounded-lg border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 transition"
+              className="inline-flex items-center gap-1 h-9 px-2.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
             >
-              <X size={13} /> Clear
+              <X size={12} /> Clear
             </button>
           )}
         </div>
@@ -625,17 +625,17 @@ export const UsersView = () => {
       </div>
 
       {/* ── Table ── */}
-      <div className="app-panel border-slate-200/80 overflow-hidden relative animate-fade-in shadow-xs">
+      <div className="bg-white rounded-xl border border-slate-200/90 overflow-hidden relative animate-fade-in shadow-xs">
         {isLoading && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-xs z-10 flex items-center justify-center rounded-xl">
-            <SpinnerGap className="animate-spin text-[#f5bd19]" size={32} />
+            <SpinnerGap className="animate-spin text-slate-800" size={30} />
           </div>
         )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
-              <tr className="border-b border-slate-200/80 bg-slate-50/80">
+              <tr className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 {[
                   "User",
                   "Role & ID",
@@ -650,15 +650,15 @@ export const UsersView = () => {
                 ].map((h, i) => (
                   <th
                     key={i}
-                    className="px-4 py-3.5 text-[11px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap"
+                    className="px-4 py-3 whitespace-nowrap"
                   >
                     {h === "RFID" ? (
                       <span className="flex items-center gap-1">
-                        <CreditCard size={13} className="text-[#d99e00]" /> RFID
+                        <CreditCard size={13} className="text-slate-400" /> RFID
                       </span>
                     ) : h === "Photo" ? (
                       <span className="flex items-center gap-1">
-                        <Camera size={13} className="text-[#d99e00]" /> Photo
+                        <Camera size={13} className="text-slate-400" /> Photo
                       </span>
                     ) : (
                       h
@@ -667,21 +667,21 @@ export const UsersView = () => {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-light)]">
+            <tbody className="divide-y divide-slate-100 text-xs">
               {apiError && !isLoading ? (
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-col items-center gap-2">
                       <ShieldSlash
-                        size={30}
-                        className="text-red-400 opacity-60"
+                        size={28}
+                        className="text-rose-400 opacity-80"
                       />
-                      <p className="text-sm font-semibold text-red-500">
+                      <p className="text-xs font-semibold text-rose-600">
                         {apiError}
                       </p>
                       <button
                         onClick={() => fetchUsers()}
-                        className="text-xs font-bold text-[#0a2342] hover:underline"
+                        className="text-xs font-medium text-slate-900 hover:underline"
                       >
                         Retry
                       </button>
@@ -691,14 +691,14 @@ export const UsersView = () => {
               ) : users.length === 0 && !isLoading ? (
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <MagnifyingGlass size={30} className="text-slate-300" />
-                      <p className="text-sm font-semibold text-[var(--text-muted)]">
+                    <div className="flex flex-col items-center gap-2">
+                      <MagnifyingGlass size={28} className="text-slate-300" />
+                      <p className="text-xs font-medium text-slate-500">
                         No users match your filters.
                       </p>
                       <button
                         onClick={clearFilters}
-                        className="text-xs font-bold text-[#0a2342] hover:underline"
+                        className="text-xs font-medium text-slate-900 hover:underline"
                       >
                         Clear filters
                       </button>
@@ -711,13 +711,13 @@ export const UsersView = () => {
                   return (
                     <tr
                       key={user.id}
-                      className="group hover:bg-amber-50/50 transition-colors cursor-pointer"
+                      className="group hover:bg-slate-50/70 transition-colors cursor-pointer"
                       onClick={() => setViewTarget(user)}
                     >
                       {/* User */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#0a2342]/10 flex items-center justify-center text-sm font-bold text-[#0a2342] shrink-0 select-none overflow-hidden">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-semibold text-slate-700 shrink-0 select-none overflow-hidden">
                             {user.profile?.photo_reference ? (
                               <img
                                 src={user.profile.photo_reference}
@@ -729,10 +729,10 @@ export const UsersView = () => {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate max-w-[140px] text-[var(--text-main)]">
+                            <p className="text-xs font-semibold truncate max-w-[150px] text-slate-900">
                               {getUserName(user)}
                             </p>
-                            <p className="text-xs text-[var(--text-muted)] truncate max-w-[140px]">
+                            <p className="text-[11px] text-slate-400 truncate max-w-[150px]">
                               {user.email}
                             </p>
                           </div>
@@ -740,14 +740,14 @@ export const UsersView = () => {
                       </td>
 
                       {/* Role & ID */}
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1 items-start">
+                      <td className="px-4 py-2.5">
+                        <div className="flex flex-col gap-0.5 items-start">
                           <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${getRoleColor(user.user_type)}`}
+                            className={`inline-flex items-center rounded border px-1.5 py-0.2 text-[10px] font-semibold uppercase tracking-wide ${getRoleColor(user.user_type)}`}
                           >
                             {user.user_type}
                           </span>
-                          <span className="text-xs font-mono text-[var(--text-muted)]">
+                          <span className="text-[11px] font-mono text-slate-500">
                             {getIdentifier(user)}
                           </span>
                         </div>
@@ -755,12 +755,12 @@ export const UsersView = () => {
 
                       {/* Course & Sem */}
                       {filters.user_type === "student" && (
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-[var(--text-main)] truncate max-w-[130px]">
+                        <td className="px-4 py-2.5">
+                          <p className="text-xs text-slate-800 truncate max-w-[130px]">
                             {user.profile?.course || "—"}
                           </p>
                           {user.profile?.semester && (
-                            <p className="text-xs text-[var(--text-muted)]">
+                            <p className="text-[11px] text-slate-400 font-mono">
                               Sem {user.profile.semester}
                             </p>
                           )}
@@ -768,27 +768,27 @@ export const UsersView = () => {
                       )}
 
                       {/* Dept */}
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-[var(--text-muted)]">
+                      <td className="px-4 py-2.5">
+                        <span className="text-xs text-slate-600 truncate max-w-[140px] block">
                           {user.profile?.department ||
                             user.profile?.school ||
                             "—"}
                         </span>
                       </td>
 
-                      {/* Hostel — shows actual hostel name */}
+                      {/* Hostel */}
                       {filters.user_type === "student" && (
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2.5">
                           {hostelName ? (
                             <span
-                              className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-xs font-semibold text-purple-700 max-w-[110px] truncate"
+                              className="inline-flex items-center gap-1 rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700 max-w-[110px] truncate"
                               title={hostelName}
                             >
-                              <House size={12} weight="fill" className="text-purple-600 shrink-0" />
+                              <House size={11} className="text-slate-500 shrink-0" />
                               <span>{hostelName}</span>
                             </span>
                           ) : (
-                            <span className="text-xs text-[var(--text-muted)]">
+                            <span className="text-xs text-slate-400">
                               Day Scholar
                             </span>
                           )}
@@ -796,26 +796,26 @@ export const UsersView = () => {
                       )}
 
                       {/* Status */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold capitalize ${getStatusBadge(user.status)}`}
+                          className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold capitalize ${getStatusBadge(user.status)}`}
                         >
                           {user.status}
                         </span>
                       </td>
 
                       {/* RFID */}
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-2.5 text-center">
                         {user.active_rfid ? (
                           <span
-                            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-xs font-bold text-emerald-700 font-mono"
+                            className="inline-flex items-center gap-1 rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-mono text-slate-700"
                             title={user.active_rfid}
                           >
                             <CreditCard size={11} />{" "}
                             {user.active_rfid.slice(0, 8)}…
                           </span>
                         ) : (
-                          <span className="text-xs text-[var(--text-muted)]">
+                          <span className="text-xs text-slate-300">
                             —
                           </span>
                         )}
@@ -932,14 +932,14 @@ export const UsersView = () => {
       {viewTarget && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs"
             onClick={() => setViewTarget(null)}
           />
-          <div className="relative z-10 w-full max-w-lg h-full bg-[var(--bg-main)] shadow-2xl flex flex-col overflow-hidden animate-slide-in-right">
+          <div className="relative z-10 w-full max-w-lg h-full bg-white shadow-xl flex flex-col overflow-hidden animate-slide-in-right border-l border-slate-200">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[var(--border-light)] shrink-0 shadow-sm">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-50/70 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-[#0a2342]/10 flex items-center justify-center text-base font-bold text-[#0a2342] shrink-0 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-semibold text-slate-700 shrink-0 overflow-hidden">
                   {viewTarget.profile?.photo_reference ? (
                     <img
                       src={viewTarget.profile.photo_reference}
@@ -951,92 +951,92 @@ export const UsersView = () => {
                   )}
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-[var(--text-main)] leading-tight">
+                  <h2 className="text-sm font-bold text-slate-900 leading-tight">
                     {getUserName(viewTarget)}
                   </h2>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${getRoleColor(viewTarget.user_type)}`}
+                      className={`inline-flex items-center rounded border px-1.5 py-0.2 text-[10px] font-semibold uppercase ${getRoleColor(viewTarget.user_type)}`}
                     >
                       {viewTarget.user_type}
                     </span>
-                    <span className="text-xs text-[var(--text-muted)]">
+                    <span className="text-xs text-slate-500 font-mono">
                       {viewTarget.email}
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
                     setEditTarget(viewTarget);
                     setViewTarget(null);
                   }}
-                  className="p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition"
+                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition"
                   title="Edit User"
                 >
                   <PencilSimple size={15} />
                 </button>
                 <button
                   onClick={() => setViewTarget(null)}
-                  className="p-2 rounded-lg hover:bg-slate-100 text-[var(--text-muted)] transition"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
                   title="Close"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
 
             {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs">
               {/* Status & Identity */}
-              <div className="rounded-xl border border-[var(--border-light)] p-4 bg-white">
-                <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-[#0a2342] mb-3 pb-2 border-b border-[var(--border-light)]">
-                  Status & Identity
+              <div className="rounded-xl border border-slate-200/90 p-4 bg-white">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-3 pb-2 border-b border-slate-100">
+                  Status &amp; Identity Credentials
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3.5">
                   <div>
-                    <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
+                    <p className="text-[11px] font-medium text-slate-400 mb-1">
                       Account Status
                     </p>
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold capitalize ${getStatusBadge(viewTarget.status)}`}
+                      className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold capitalize ${getStatusBadge(viewTarget.status)}`}
                     >
                       {viewTarget.status}
                     </span>
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
-                      Primary ID
+                    <p className="text-[11px] font-medium text-slate-400 mb-1">
+                      Primary Identifier
                     </p>
-                    <p className="text-sm font-mono font-medium">
+                    <p className="text-xs font-mono font-medium text-slate-800">
                       {getIdentifier(viewTarget)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
-                      RFID Tag
+                    <p className="text-[11px] font-medium text-slate-400 mb-1">
+                      Assigned RFID Tag
                     </p>
                     {viewTarget.active_rfid ? (
-                      <span className="text-sm font-mono text-emerald-700">
-                        {viewTarget.active_rfid.slice(0, 8)}…
+                      <span className="text-xs font-mono font-medium text-emerald-700">
+                        {viewTarget.active_rfid.slice(0, 10)}…
                       </span>
                     ) : (
-                      <span className="text-sm text-[var(--text-muted)]">
-                        None
+                      <span className="text-xs text-slate-400">
+                        None assigned
                       </span>
                     )}
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
-                      Face Enrollment
+                    <p className="text-[11px] font-medium text-slate-400 mb-1">
+                      Face Biometrics
                     </p>
                     {viewTarget.has_face_auth ? (
-                      <span className="text-sm font-semibold text-blue-700">
+                      <span className="text-xs font-medium text-blue-700">
                         Enrolled
                       </span>
                     ) : (
-                      <span className="text-sm text-[var(--text-muted)]">
+                      <span className="text-xs text-slate-400">
                         Not enrolled
                       </span>
                     )}
@@ -1045,9 +1045,9 @@ export const UsersView = () => {
               </div>
 
               {/* Profile Details */}
-              <div className="rounded-xl border border-[var(--border-light)] p-4 bg-white">
-                <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-[#0a2342] mb-3 pb-2 border-b border-[var(--border-light)]">
-                  Profile Details
+              <div className="rounded-xl border border-slate-200/90 p-4 bg-white">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-3 pb-2 border-b border-slate-100">
+                  Institutional Profile
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
@@ -1118,8 +1118,8 @@ export const UsersView = () => {
                           Hostel
                         </p>
                         {viewTarget.profile?.hostel_flag ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-sm font-semibold text-purple-700">
-                            <House size={14} className="text-purple-600" />
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            <House size={13} className="text-slate-500" />
                             {viewTarget.profile?.hostel_id &&
                             hostelMap[viewTarget.profile.hostel_id]
                               ? hostelMap[viewTarget.profile.hostel_id]

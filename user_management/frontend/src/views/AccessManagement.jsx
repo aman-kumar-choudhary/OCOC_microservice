@@ -275,31 +275,31 @@ export const AccessManagement = () => {
   }, [alerts, alertPage, alertPageSize]);
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-5 page-enter">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-800 text-[11px] font-black uppercase tracking-wider">
-              <ShieldCheck size={12} className="text-[#d99e00]" /> Policy Engine
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <ShieldCheck size={13} className="text-amber-600" /> Policy Engine
             </span>
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Access Management
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Access Management &amp; Policies
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Manage physical zone restrictions, scheduled turnstile policies, and temporary visitor passes
+          <p className="text-xs text-slate-500 mt-0.5">
+            Configure turnstile access policies, physical zones, and temporary credential grants
           </p>
         </div>
         <button
           onClick={() => navigate("/onboarding")}
-          className="btn btn-primary text-xs px-4 py-2"
+          className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
         >
-          <Plus size={16} /> Onboard Identity
+          <Plus size={15} /> Onboard Identity
         </button>
       </div>
 
-      {/* Modern Pill Tabs */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/60 overflow-x-auto shadow-2xs">
+      {/* Modern Segmented Tabs */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 overflow-x-auto text-xs">
         {["dashboard", "user_access", "rule_builder", "grants", "alerts"].map(
           (tab) => {
             const isActive = activeTab === tab;
@@ -307,10 +307,10 @@ export const AccessManagement = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition-all duration-150 ${
+                className={`px-3.5 py-1.5 rounded-lg font-medium capitalize whitespace-nowrap transition-all ${
                   isActive
-                    ? "bg-white text-[#0a2342] shadow-xs font-black"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 {tab.replace("_", " ")}
@@ -322,41 +322,44 @@ export const AccessManagement = () => {
 
       {loading && (
         <div className="py-16 flex flex-col items-center justify-center gap-3">
-          <SpinnerGap className="animate-spin text-[#f5bd19]" size={36} />
-          <span className="text-xs font-bold text-slate-600">Loading access engine rules…</span>
+          <SpinnerGap className="animate-spin text-slate-800" size={32} />
+          <span className="text-xs font-medium text-slate-500">Loading access rules...</span>
         </div>
       )}
 
       {!loading && activeTab === "dashboard" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="font-display text-lg font-black text-slate-900">Access Rules Overview</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Access Rules Overview</h2>
             <button
               onClick={() => setActiveTab("rule_builder")}
-              className="btn btn-primary text-xs px-3.5 py-1.5 h-auto"
+              className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition flex items-center gap-1 shadow-2xs"
             >
-              <Plus size={15} /> New Rule
+              <Plus size={14} /> New Rule
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              ["Total Rules", stats.total, "text-slate-900", "bg-slate-50"],
-              ["Active Rules", stats.enabled, "text-blue-700", "bg-blue-50/50"],
-              ["Allow Decisions", stats.allow_count, "text-emerald-700", "bg-emerald-50/50"],
-              ["Deny Decisions", stats.deny_count, "text-red-700", "bg-red-50/50"],
-            ].map(([label, value, color, bg]) => (
-              <div
-                key={label}
-                className="app-panel border-slate-200/80 p-5 shadow-xs"
-              >
-                <p className="text-xs text-slate-500 font-extrabold uppercase tracking-wider">
-                  {label}
-                </p>
-                <p className={`font-display text-3xl font-black mt-2 tabular-nums ${color}`}>{value}</p>
-              </div>
-            ))}
+
+          {/* Unified Connected Telemetry Bar */}
+          <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y sm:divide-y-0 sm:divide-x divide-slate-100 grid grid-cols-2 md:grid-cols-4">
+            <div className="p-4">
+              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Total Rules</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{stats.total}</div>
+            </div>
+            <div className="p-4">
+              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Active Rules</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{stats.enabled}</div>
+            </div>
+            <div className="p-4">
+              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Allow Verdicts</span>
+              <div className="text-2xl font-bold text-emerald-700 mt-1 tabular-nums">{stats.allow_count}</div>
+            </div>
+            <div className="p-4">
+              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Deny Verdicts</span>
+              <div className="text-2xl font-bold text-rose-700 mt-1 tabular-nums">{stats.deny_count}</div>
+            </div>
           </div>
-          <div className="app-panel border-slate-200/80 overflow-hidden shadow-xs">
+
+          <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-[var(--border-light)] text-[11px] font-extrabold uppercase text-[var(--text-muted)]">
                 <tr>

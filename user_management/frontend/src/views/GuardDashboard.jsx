@@ -4,29 +4,21 @@ import {
   Camera,
   CheckCircle,
   Clock,
-  CreditCard,
   Door,
-  FileText,
   IdentificationBadge,
   MagnifyingGlass,
-  Plus,
   Printer,
-  QrCode,
-  Shield,
   ShieldCheck,
   SignIn,
   SignOut,
   SpinnerGap,
-  User,
-  UserCheck,
-  UserCircle,
   UserFocus,
   UserPlus,
   Users,
   Warning,
-  WarningCircle,
   X,
   XCircle,
+  ArrowClockwise,
 } from "@phosphor-icons/react";
 import api from "../services/api";
 import accessService from "../services/accessService";
@@ -34,7 +26,6 @@ import { useLiveFaceInference } from "../hooks/useLiveFaceInference";
 import { useAuth } from "../context/AuthContext";
 import {
   formatDateTimeIST,
-  formatDateIST,
   formatTimeIST,
   calculateStudentTimeliness,
 } from "../utils/date";
@@ -213,7 +204,7 @@ export const GuardDashboard = () => {
       setActionMessage({ type: "loading", text: `Recording ${action} for ${student.student_name}...` });
       const res = await accessService.recordGuardMovement({
         student_id: student.student_id,
-        action: action, // 'EXIT' or 'ENTRY'
+        action: action,
         gate_name: "Main Campus Gate",
         reason: action === "EXIT" ? "Student Exit at Main Gate" : "Student Return at Main Gate",
       });
@@ -316,7 +307,6 @@ export const GuardDashboard = () => {
 
       const searchMatch = !q || searchable.includes(q);
 
-      // Status filter
       let statusMatch = true;
       if (studentStatusFilter === "OUTSIDE") {
         statusMatch = ["OUTSIDE", "ON_LEAVE", "LATE_RETURN"].includes(student.current_status);
@@ -335,7 +325,6 @@ export const GuardDashboard = () => {
         statusMatch = student.current_status === studentStatusFilter;
       }
 
-      // Movement filter
       let movementMatch = true;
       if (movementFilter !== "all") {
         const mov = (student.last_movement_type || "").toUpperCase();
@@ -351,7 +340,7 @@ export const GuardDashboard = () => {
     ["OUTSIDE", "ON_LEAVE", "LATE_RETURN"].includes(s.current_status)
   ).length;
 
-  const overdueCount = hostelLeaves.filter((s) => {
+  const overdueCount = hostelLeaves.filter((student) => {
     const timeInfo = calculateStudentTimeliness({
       startAt: student.permission_start_time,
       endAt: student.permission_end_time,
@@ -366,42 +355,42 @@ export const GuardDashboard = () => {
   const activeVisitorsInside = visitors.filter((v) => v.is_inside).length;
 
   return (
-    <div className="space-y-4 page-enter pb-8 max-w-7xl mx-auto">
-      {/* ── Compact Header & Security Alert Strip ── */}
-      <div className="rounded-2xl bg-gradient-to-r from-[#06182e] via-[#0a2342] to-[#12365f] text-white p-4 shadow-xl border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div className="space-y-4 page-enter pb-12 max-w-7xl mx-auto">
+      {/* ── Security Operations Command Bar ── */}
+      <div className="rounded-xl bg-[#0b1528] text-white p-4 shadow-sm border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-[#f5bd19] text-[#0a2342] flex items-center justify-center font-black text-xl shadow-md shrink-0">
-            <ShieldCheck size={28} weight="fill" />
+          <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700/80 text-amber-400 flex items-center justify-center font-bold text-lg shrink-0">
+            <ShieldCheck size={24} weight="duotone" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#f5bd19] bg-white/10 px-2 py-0.5 rounded">
-                Guard Console · Gate Operations
+              <span className="text-[10px] font-mono tracking-widest uppercase font-semibold text-slate-400">
+                GATE-01 · MAIN ACCESS DESK
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-xs text-emerald-300 font-bold">Main Gate Turnstile Armed</span>
+              <span className="text-[11px] text-emerald-400 font-medium">Armed &amp; Syncing</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-display font-black text-white tracking-tight">
-              DSVV Campus Security Desk
+            <h1 className="text-base sm:text-lg font-semibold text-slate-100 tracking-tight">
+              Campus Gate Security Operations
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Live IST Clock */}
-          <div className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 flex items-center gap-2 text-xs font-mono font-bold text-amber-300">
-            <Clock size={16} className="text-[#f5bd19]" />
-            <span>{currentISTTime || "IST Clock Active"}</span>
+          <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/60 flex items-center gap-2 text-xs font-mono font-medium text-slate-300">
+            <Clock size={15} className="text-amber-400" />
+            <span>{currentISTTime || "IST Clock Sync"}</span>
           </div>
 
           {/* Quick New Visitor Button */}
           <button
             type="button"
             onClick={() => setVisitorModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-[#f5bd19] hover:bg-[#e6b014] text-[#0a2342] font-black text-xs shadow-md transition flex items-center gap-1.5 shrink-0"
+            className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition flex items-center gap-1.5 shrink-0 shadow-xs"
           >
-            <UserPlus size={16} weight="bold" />
-            <span>Onboard Visitor</span>
+            <UserPlus size={15} weight="bold" />
+            <span>Issue Visitor Pass</span>
           </button>
         </div>
       </div>
@@ -409,91 +398,101 @@ export const GuardDashboard = () => {
       {/* Notification Toast */}
       {actionMessage && (
         <div
-          className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between shadow-sm animate-fade-in ${
+          className={`px-4 py-2.5 rounded-lg border text-xs font-medium flex items-center justify-between transition-all ${
             actionMessage.type === "error"
-              ? "bg-red-50 text-red-800 border-red-200"
+              ? "bg-rose-50 text-rose-800 border-rose-200"
               : actionMessage.type === "loading"
-                ? "bg-blue-50 text-blue-800 border-blue-200"
+                ? "bg-slate-50 text-slate-800 border-slate-200"
                 : "bg-emerald-50 text-emerald-800 border-emerald-200"
           }`}
         >
           <span>{actionMessage.text}</span>
           <button
             onClick={() => setActionMessage(null)}
-            className="text-slate-400 hover:text-slate-700"
+            className="text-slate-400 hover:text-slate-700 ml-3"
           >
             <X size={14} />
           </button>
         </div>
       )}
 
-      {/* ── Compact Top Metric Counter Bar ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+      {/* ── Operational Telemetry Bar (Clean Enterprise Connected Strip) ── */}
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y sm:divide-y-0 sm:divide-x divide-slate-100 grid grid-cols-2 sm:grid-cols-4">
+        <div className="p-4 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
               Approved Passes
             </span>
-            <p className="text-xl font-black text-[#0a2342]">{activeLeaveCount}</p>
+            <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+              {activeLeaveCount}
+            </div>
           </div>
-          <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
-            <CalendarCheck size={20} weight="bold" />
+          <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 text-slate-600 flex items-center justify-center">
+            <CalendarCheck size={18} />
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div className="p-4 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
               Currently Outside
             </span>
-            <p className="text-xl font-black text-amber-700">{outsideCount}</p>
+            <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+              {outsideCount}
+            </div>
           </div>
-          <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
-            <SignOut size={20} weight="bold" />
+          <div className="w-9 h-9 rounded-lg bg-amber-50/80 border border-amber-100 text-amber-700 flex items-center justify-center">
+            <SignOut size={18} />
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div className="p-4 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-              Late / Overdue
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Overdue / Delayed
             </span>
-            <p className={`text-xl font-black ${overdueCount > 0 ? "text-red-600 animate-pulse" : "text-slate-700"}`}>
+            <div className={`text-2xl font-bold mt-1 tabular-nums ${overdueCount > 0 ? "text-rose-600" : "text-slate-900"}`}>
               {overdueCount}
-            </p>
+            </div>
           </div>
-          <div className={`p-2 rounded-lg ${overdueCount > 0 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500"}`}>
-            <Warning size={20} weight="bold" />
+          <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${
+            overdueCount > 0
+              ? "bg-rose-50 border-rose-200 text-rose-600"
+              : "bg-slate-50 border-slate-100 text-slate-400"
+          }`}>
+            <Warning size={18} />
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div className="p-4 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-              Visitors on Campus
+            <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
+              Visitors On Campus
             </span>
-            <p className="text-xl font-black text-indigo-700">{activeVisitorsInside}</p>
+            <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+              {activeVisitorsInside}
+            </div>
           </div>
-          <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
-            <Users size={20} weight="bold" />
+          <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 text-slate-600 flex items-center justify-center">
+            <Users size={18} />
           </div>
         </div>
       </div>
 
-      {/* ── Modern Tabs Navigation (No vertical scrolling needed!) ── */}
-      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 shadow-2xs overflow-x-auto">
+      {/* ── Refined Segmented Tabs ── */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 overflow-x-auto text-xs">
         <button
           type="button"
           onClick={() => setActiveTab("students")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
             activeTab === "students"
-              ? "bg-white text-[#0a2342] shadow-xs font-black border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Door size={16} weight={activeTab === "students" ? "fill" : "bold"} className="text-amber-500" />
-          <span>Student Gate Passes &amp; Movements</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-[10px] text-slate-700 font-extrabold">
+          <Door size={15} />
+          <span>Student Gate Passes</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 font-semibold">
             {hostelLeaves.length}
           </span>
         </button>
@@ -501,15 +500,15 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("visitors")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
             activeTab === "visitors"
-              ? "bg-white text-[#0a2342] shadow-xs font-black border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <IdentificationBadge size={16} weight={activeTab === "visitors" ? "fill" : "bold"} className="text-indigo-600" />
+          <IdentificationBadge size={15} />
           <span>Visitor Onboarding &amp; Day Passes</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-[10px] text-slate-700 font-extrabold">
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 font-semibold">
             {visitors.length}
           </span>
         </button>
@@ -517,16 +516,16 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("freco")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
             activeTab === "freco"
-              ? "bg-white text-[#0a2342] shadow-xs font-black border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Camera size={16} weight={activeTab === "freco" ? "fill" : "bold"} className="text-rose-600" />
-          <span>FRECO Biometrics &amp; Scanners</span>
+          <Camera size={15} />
+          <span>Turnstile Camera &amp; Live Events</span>
           {pendingVerifications.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-600 text-white font-semibold">
               {pendingVerifications.length}
             </span>
           )}
@@ -535,16 +534,16 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("alerts")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
             activeTab === "alerts"
-              ? "bg-white text-[#0a2342] shadow-xs font-black border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Warning size={16} weight={activeTab === "alerts" ? "fill" : "bold"} className="text-amber-600" />
-          <span>Gate Alarms</span>
+          <Warning size={15} />
+          <span>Security Alarms</span>
           {alerts.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-red-100 text-red-700 text-[10px] font-black">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-100 text-rose-700 font-semibold">
               {alerts.length}
             </span>
           )}
@@ -555,74 +554,74 @@ export const GuardDashboard = () => {
       {/* TAB 1: STUDENT GATE PASSES & MOVEMENTS                          */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "students" && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
           {/* Controls Bar */}
-          <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="p-3 bg-slate-50/70 border-b border-slate-200/80 flex flex-col md:flex-row items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <div className="relative flex-1 md:w-72">
-                <MagnifyingGlass size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search student name, roll no, hostel..."
+                  placeholder="Filter name, roll, hostel..."
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342]"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white placeholder:text-slate-400 focus:outline-hidden focus:border-slate-800"
                 />
               </div>
 
               <select
                 value={studentStatusFilter}
                 onChange={(e) => setStudentStatusFilter(e.target.value)}
-                className="py-1.5 px-2.5 text-xs rounded-xl border border-slate-300 bg-white font-bold text-slate-700 focus:outline-hidden"
+                className="py-1.5 px-2.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 font-medium focus:outline-hidden"
               >
                 <option value="all">All Statuses</option>
                 <option value="OUTSIDE">Outside / On Leave</option>
                 <option value="INSIDE">Inside Campus</option>
-                <option value="LATE">Late / Overdue</option>
+                <option value="LATE">Overdue / Late</option>
               </select>
 
               <select
                 value={movementFilter}
                 onChange={(e) => setMovementFilter(e.target.value)}
-                className="py-1.5 px-2.5 text-xs rounded-xl border border-slate-300 bg-white font-bold text-slate-700 focus:outline-hidden"
+                className="py-1.5 px-2.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 font-medium focus:outline-hidden"
               >
                 <option value="all">All Movements</option>
-                <option value="EXIT">Exited</option>
-                <option value="ENTRY">Entered</option>
+                <option value="EXIT">Exited (Out)</option>
+                <option value="ENTRY">Entered (In)</option>
               </select>
             </div>
 
-            <div className="flex items-center gap-2 self-end md:self-auto text-xs text-slate-500 font-semibold">
-              <span>Showing {filteredStudents.length} of {hostelLeaves.length} students</span>
+            <div className="flex items-center gap-2 self-end md:self-auto text-xs text-slate-500 font-medium">
+              <span>{filteredStudents.length} of {hostelLeaves.length} students</span>
               <button
                 type="button"
                 onClick={fetchLeaves}
-                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700"
-                title="Refresh leave list"
+                className="p-1.5 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
+                title="Refresh student gate records"
               >
-                <SpinnerGap size={14} className={loadingLeaves ? "animate-spin text-amber-500" : ""} />
+                <ArrowClockwise size={13} className={loadingLeaves ? "animate-spin text-slate-800" : ""} />
               </button>
             </div>
           </div>
 
-          {/* Compact Responsive Table with Direct Gate In/Out Actions */}
+          {/* High-Legibility Data Table */}
           <div className="overflow-x-auto max-h-[580px] overflow-y-auto">
             <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-slate-100 sticky top-0 z-10 border-b border-slate-200 text-[11px] font-black uppercase text-slate-600 tracking-wider">
+              <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200/80 text-[11px] font-semibold uppercase text-slate-500 tracking-wider">
                 <tr>
-                  <th className="px-4 py-3">Student &amp; Hostel</th>
-                  <th className="px-4 py-3">Current Location</th>
-                  <th className="px-4 py-3">Approved Leave Window (IST)</th>
-                  <th className="px-4 py-3">Timeliness Status</th>
-                  <th className="px-4 py-3">Last Gate In / Out</th>
-                  <th className="px-4 py-3 text-right">Gate Action</th>
+                  <th className="px-4 py-2.5">Student</th>
+                  <th className="px-4 py-2.5">Campus Status</th>
+                  <th className="px-4 py-2.5">Approved Leave Window</th>
+                  <th className="px-4 py-2.5">Timeliness</th>
+                  <th className="px-4 py-2.5">Last Gate Event</th>
+                  <th className="px-4 py-2.5 text-right">Gate Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredStudents.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="py-12 text-center text-slate-400">
-                      No students found matching current filters.
+                      No matching student movement records.
                     </td>
                   </tr>
                 ) : (
@@ -637,104 +636,102 @@ export const GuardDashboard = () => {
                     });
 
                     return (
-                      <tr key={s.student_id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Student details */}
-                        <td className="px-4 py-3">
-                          <div className="font-extrabold text-slate-900 text-sm">{s.student_name}</div>
-                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                            Roll: {s.student_roll || s.student_id.slice(0, 8)} · {s.hostel_name || "Campus Hostel"}
+                      <tr key={s.student_id} className="hover:bg-slate-50/60 transition-colors">
+                        {/* Student Details */}
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold text-xs shrink-0">
+                              {(s.student_name || "S").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">{s.student_name}</div>
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                {s.student_roll || s.student_id?.slice(0, 8)} · {s.hostel_name || "Campus Hostel"}
+                              </div>
+                            </div>
                           </div>
-                          {s.student_phone && (
-                            <div className="text-[10px] text-slate-400">{s.student_phone}</div>
-                          )}
                         </td>
 
-                        {/* Current Location Badge */}
-                        <td className="px-4 py-3">
+                        {/* Current Location */}
+                        <td className="px-4 py-2.5">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black border ${
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${
                               isOutside
-                                ? "bg-orange-50 text-orange-800 border-orange-200"
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
                                 : "bg-emerald-50 text-emerald-800 border-emerald-200"
                             }`}
                           >
-                            {isOutside ? <SignOut size={13} weight="bold" /> : <SignIn size={13} weight="bold" />}
+                            {isOutside ? <SignOut size={12} /> : <SignIn size={12} />}
                             {s.current_status?.replace("_", " ") || "INSIDE"}
                           </span>
                         </td>
 
-                        {/* Approved Leave Window (IST formatted) */}
-                        <td className="px-4 py-3">
+                        {/* Leave Window */}
+                        <td className="px-4 py-2.5">
                           {s.permission_type ? (
                             <div className="space-y-0.5">
-                              <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[11px] border border-indigo-100">
+                              <span className="font-medium text-slate-700 text-[11px]">
                                 {s.permission_type?.replace("_", " ")}
                               </span>
-                              <div className="text-[11px] font-mono text-slate-700 mt-1">
-                                {formatDateTimeIST(s.permission_start_time)}
-                              </div>
-                              <div className="text-[11px] font-mono text-slate-500">
-                                to {formatDateTimeIST(s.permission_end_time)}
+                              <div className="text-[11px] font-mono text-slate-600">
+                                {formatDateTimeIST(s.permission_start_time)} → {formatDateTimeIST(s.permission_end_time)}
                               </div>
                               {s.destination && (
-                                <div className="text-[10px] text-slate-500 italic truncate max-w-xs">
-                                  Dest: {s.destination}
+                                <div className="text-[10px] text-slate-400 italic truncate max-w-xs">
+                                  {s.destination}
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <span className="text-slate-400 text-xs italic">No active leave pass</span>
+                            <span className="text-slate-400 italic text-[11px]">No active leave pass</span>
                           )}
                         </td>
 
-                        {/* Timeliness calculation (Early / Late / Overdue) */}
-                        <td className="px-4 py-3">
+                        {/* Timeliness */}
+                        <td className="px-4 py-2.5">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-black border ${timeInfo.colorClass}`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${timeInfo.colorClass}`}
                           >
-                            {timeInfo.isLate && <Warning size={13} weight="bold" />}
+                            {timeInfo.isLate && <Warning size={12} />}
                             {timeInfo.badge}
                           </span>
                         </td>
 
-                        {/* Last Gate in/out */}
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-slate-800">
+                        {/* Last Gate Event */}
+                        <td className="px-4 py-2.5">
+                          <div className="text-slate-700 font-medium">
                             {s.last_movement_type === "EXIT"
                               ? "Gate Exit (OUT)"
                               : s.last_movement_type === "ENTRY"
                                 ? "Gate Entry (IN)"
-                                : "No movement recorded"}
+                                : "—"}
                           </div>
-                          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-                            {s.last_event_time ? formatDateTimeIST(s.last_event_time) : "—"}
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {s.last_event_time ? formatDateTimeIST(s.last_event_time) : "No log"}
                           </div>
-                          <div className="text-[10px] text-slate-400">{s.last_gate_name || "Main Gate"}</div>
                         </td>
 
-                        {/* Quick Action Button for Guard: 1-click Gate Out / Gate In */}
-                        <td className="px-4 py-3 text-right">
-                          <div className="inline-flex items-center gap-1.5">
-                            {isOutside ? (
-                              <button
-                                type="button"
-                                onClick={() => handleRecordMovement(s, "ENTRY")}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-2xs transition flex items-center gap-1"
-                              >
-                                <SignIn size={14} weight="bold" />
-                                <span>Gate In (Entry)</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleRecordMovement(s, "EXIT")}
-                                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-2xs transition flex items-center gap-1"
-                              >
-                                <SignOut size={14} weight="bold" />
-                                <span>Gate Out (Exit)</span>
-                              </button>
-                            )}
-                          </div>
+                        {/* Gate Action */}
+                        <td className="px-4 py-2.5 text-right">
+                          {isOutside ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRecordMovement(s, "ENTRY")}
+                              className="px-3 py-1 rounded-md bg-emerald-700 hover:bg-emerald-600 text-white font-medium text-xs transition inline-flex items-center gap-1 shadow-2xs"
+                            >
+                              <SignIn size={13} />
+                              <span>Gate In</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRecordMovement(s, "EXIT")}
+                              className="px-3 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition inline-flex items-center gap-1 shadow-2xs"
+                            >
+                              <SignOut size={13} />
+                              <span>Gate Out</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -747,58 +744,56 @@ export const GuardDashboard = () => {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* TAB 2: VISITOR DESK (CAMPUS DAY PASS & EVENT CARDS)             */}
+      {/* TAB 2: VISITOR DESK                                              */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "visitors" && (
-        <div className="space-y-4">
-          {/* Action Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200/90">
             <div>
-              <h2 className="text-sm sm:text-base font-extrabold text-[#0a2342] flex items-center gap-2">
-                <IdentificationBadge size={20} className="text-indigo-600" />
+              <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                <IdentificationBadge size={18} className="text-slate-700" />
                 <span>Visitor Registration &amp; Pass Desk</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Onboard day visitors (5:00 AM – 5:00 PM IST) or issue long-term / special function event ID cards with printable receipts.
+                Issue daily visitor passes (05:00 AM – 05:00 PM IST) or event passes with official entry receipts.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setVisitorModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+              className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition flex items-center gap-1.5 shrink-0"
             >
-              <UserPlus size={16} weight="bold" className="text-[#f5bd19]" />
-              <span>Register New Visitor</span>
+              <UserPlus size={14} className="text-amber-400" />
+              <span>Register Visitor</span>
             </button>
           </div>
 
-          {/* Visitors Register Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
-                Active &amp; Recent Campus Visitors ({visitors.length})
+          <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="px-4 py-2.5 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between">
+              <h3 className="font-semibold text-xs text-slate-700 uppercase tracking-wider">
+                Campus Visitors ({visitors.length})
               </h3>
               <button
                 type="button"
                 onClick={fetchVisitors}
                 className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1"
               >
-                <SpinnerGap size={14} className={loadingVisitors ? "animate-spin text-amber-500" : ""} />
+                <ArrowClockwise size={13} className={loadingVisitors ? "animate-spin text-slate-800" : ""} />
                 <span>Refresh</span>
               </button>
             </div>
 
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
               <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 text-[11px] font-black uppercase text-slate-600">
+                <thead className="bg-slate-50 sticky top-0 border-b border-slate-200/80 text-[11px] font-semibold uppercase text-slate-500">
                   <tr>
-                    <th className="px-4 py-2.5">Visitor Name &amp; Contact</th>
+                    <th className="px-4 py-2.5">Visitor</th>
                     <th className="px-4 py-2.5">Purpose &amp; Host</th>
-                    <th className="px-4 py-2.5">ID Proof</th>
-                    <th className="px-4 py-2.5">Card / Pass UID</th>
+                    <th className="px-4 py-2.5">Government ID</th>
+                    <th className="px-4 py-2.5">Pass UID</th>
                     <th className="px-4 py-2.5">Validity (IST)</th>
-                    <th className="px-4 py-2.5">Campus Status</th>
+                    <th className="px-4 py-2.5">Status</th>
                     <th className="px-4 py-2.5 text-right">Action</th>
                   </tr>
                 </thead>
@@ -806,53 +801,53 @@ export const GuardDashboard = () => {
                   {visitors.length === 0 ? (
                     <tr>
                       <td colSpan="7" className="py-10 text-center text-slate-400">
-                        No visitors registered on campus today. Click "Register New Visitor" above.
+                        No visitors registered on campus today.
                       </td>
                     </tr>
                   ) : (
                     visitors.map((v) => (
-                      <tr key={v.visitor_id} className="hover:bg-slate-50/80">
-                        <td className="px-4 py-3">
-                          <p className="font-extrabold text-slate-900">{v.full_name}</p>
+                      <tr key={v.visitor_id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-2.5">
+                          <p className="font-semibold text-slate-900">{v.full_name}</p>
                           <p className="text-[11px] text-slate-500 font-mono">{v.phone}</p>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="font-bold text-slate-800">{v.visit_purpose}</span>
+                        <td className="px-4 py-2.5">
+                          <span className="font-medium text-slate-800">{v.visit_purpose}</span>
                           <p className="text-[11px] text-slate-500">Host: {v.host_person}</p>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-[11px] font-semibold text-slate-700">{v.gov_id_type}</span>
+                        <td className="px-4 py-2.5">
+                          <span className="text-[11px] text-slate-700">{v.gov_id_type}</span>
                           <p className="text-[10px] text-slate-400 font-mono">{v.gov_id_number || "Verified"}</p>
                         </td>
-                        <td className="px-4 py-3 font-mono">
+                        <td className="px-4 py-2.5 font-mono">
                           {v.card_uid ? (
-                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium border border-slate-200">
                               {v.card_uid}
                             </span>
                           ) : (
                             <span className="text-slate-400 text-[11px]">Day Pass</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-[11px] font-mono text-slate-600">
+                        <td className="px-4 py-2.5 text-[11px] font-mono text-slate-600">
                           {v.valid_until_ist || "5:00 PM IST Today"}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2.5">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${
                               v.is_inside
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-slate-100 text-slate-600 border border-slate-200"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-slate-50 text-slate-600 border-slate-200"
                             }`}
                           >
                             {v.is_inside ? "INSIDE CAMPUS" : "CHECKED OUT"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-2.5 text-right">
                           {v.is_inside && (
                             <button
                               type="button"
                               onClick={() => handleVisitorCheckout(v)}
-                              className="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs"
+                              className="px-2.5 py-1 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium text-xs transition"
                             >
                               Check Out
                             </button>
@@ -873,89 +868,92 @@ export const GuardDashboard = () => {
       {/* ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "freco" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Camera Feed */}
-          <div className="app-panel overflow-hidden border-slate-200">
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          {/* Camera Feed styled as CCTV viewport */}
+          <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Camera size={18} className="text-[#0a2342]" />
-                <h3 className="font-extrabold text-sm text-slate-900">FRECO Face Recognition Feed</h3>
+                <Camera size={16} className="text-amber-400" />
+                <h3 className="font-semibold text-xs text-slate-200">Main Gate Camera Stream</h3>
               </div>
               <button
                 type="button"
                 onClick={isStreaming ? stopStream : startStream}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${
+                className={`text-xs font-semibold px-2.5 py-1 rounded transition ${
                   isStreaming
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-[#0a2342] hover:bg-[#12365f] text-white"
+                    ? "bg-rose-600 hover:bg-rose-500 text-white"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
                 }`}
               >
-                {isStreaming ? "Stop Stream" : "Start Camera"}
+                {isStreaming ? "Stop Feed" : "Start Camera"}
               </button>
             </div>
             <div className="relative bg-slate-950 aspect-video flex items-center justify-center">
               <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
               {!isStreaming && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
-                  <UserFocus size={36} className="text-slate-600 animate-pulse" />
+                  <UserFocus size={32} className="text-slate-600" />
                   <span>Camera Standby · Click Start Camera</span>
                 </div>
               )}
             </div>
-            <div className="p-3 bg-slate-50 text-xs font-semibold text-slate-600 flex items-center justify-between border-t border-slate-200">
-              <span>{faces.length} face(s) in view</span>
+            <div className="p-2.5 bg-slate-50 text-xs text-slate-600 flex items-center justify-between border-t border-slate-200/80">
+              <span className="font-mono text-[11px]">{faces.length} face(s) in frame</span>
               {isStreaming && (
-                <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> LIVE RECOGNITION
+                <span className="text-emerald-700 font-semibold flex items-center gap-1.5 text-[11px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  LIVE INFERENCE ACTIVE
                 </span>
               )}
             </div>
           </div>
 
           {/* Turnstile Live Events Table */}
-          <div className="lg:col-span-2 app-panel border-slate-200 overflow-hidden flex flex-col max-h-[500px]">
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
-                Live Turnstile Scan Register ({events.length})
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col max-h-[500px]">
+            <div className="bg-slate-50/70 px-4 py-2.5 border-b border-slate-200/80 flex items-center justify-between">
+              <h3 className="font-semibold text-xs text-slate-700 uppercase tracking-wider">
+                Turnstile Event Log ({events.length})
               </h3>
-              <span className="text-[10px] font-bold text-slate-400">Auto-streaming via WebSocket</span>
+              <span className="text-[10px] text-slate-400 font-mono">WebSocket Sync</span>
             </div>
             <div className="overflow-auto flex-1">
               <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 text-[11px] font-black uppercase text-slate-600">
+                <thead className="bg-slate-50 sticky top-0 border-b border-slate-200/80 text-[11px] font-semibold uppercase text-slate-500">
                   <tr>
                     <th className="px-3.5 py-2">Time (IST)</th>
                     <th className="px-3.5 py-2">Identity</th>
-                    <th className="px-3.5 py-2">Action</th>
-                    <th className="px-3.5 py-2">Gate Location</th>
-                    <th className="px-3.5 py-2">Status</th>
+                    <th className="px-3.5 py-2">Direction</th>
+                    <th className="px-3.5 py-2">Gate</th>
+                    <th className="px-3.5 py-2">Verdict</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {events.slice(0, 30).map((ev, idx) => (
-                    <tr key={ev.id || idx} className="hover:bg-slate-50/80">
+                    <tr key={ev.id || idx} className="hover:bg-slate-50/60">
                       <td className="px-3.5 py-2 font-mono text-slate-500 text-[11px]">
                         {formatTimeIST(ev.event_time)}
                       </td>
-                      <td className="px-3.5 py-2 font-bold text-slate-900">
+                      <td className="px-3.5 py-2 font-medium text-slate-900">
                         {ev.user_name || ev.user_identifier}
                       </td>
                       <td className="px-3.5 py-2">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                            ev.action === "ENTRY" ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border ${
+                            ev.action === "ENTRY"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}
                         >
                           {ev.action}
                         </span>
                       </td>
                       <td className="px-3.5 py-2 text-slate-600">{ev.location_name || "Main Gate"}</td>
-                      <td className="px-3.5 py-2 font-bold">
+                      <td className="px-3.5 py-2 font-semibold">
                         <span
                           className={`inline-flex items-center gap-1 ${
-                            ev.status === "GRANTED" ? "text-emerald-700" : "text-red-700"
+                            ev.status === "GRANTED" ? "text-emerald-700" : "text-rose-700"
                           }`}
                         >
-                          {ev.status === "GRANTED" ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                          {ev.status === "GRANTED" ? <CheckCircle size={13} /> : <XCircle size={13} />}
                           {ev.status}
                         </span>
                       </td>
@@ -969,14 +967,14 @@ export const GuardDashboard = () => {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* TAB 4: GATE ALARMS & SECURITY NOTIFICATIONS                     */}
+      {/* TAB 4: SECURITY ALARMS                                           */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "alerts" && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
-              <Warning size={18} className="text-amber-500" />
-              <span>Campus Gate Security Exceptions</span>
+            <h3 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
+              <Warning size={17} className="text-amber-500" />
+              <span>Campus Security Exceptions &amp; Alarms</span>
             </h3>
             <span className="text-xs text-slate-500">{alerts.length} active alerts</span>
           </div>
@@ -984,21 +982,21 @@ export const GuardDashboard = () => {
           <div className="space-y-2.5 max-h-[480px] overflow-y-auto">
             {alerts.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">
-                <CheckCircle size={32} className="mx-auto text-emerald-500 mb-2" />
-                <p className="font-bold text-slate-700">No active security alerts.</p>
-                <p className="text-slate-400 mt-0.5">All gate turnstiles and hostel movements are operating normally.</p>
+                <CheckCircle size={28} className="mx-auto text-emerald-500 mb-2" />
+                <p className="font-semibold text-slate-700">No active security alerts.</p>
+                <p className="text-slate-400 mt-0.5">Turnstiles and gate checkpoints are operating normally.</p>
               </div>
             ) : (
               alerts.map((al, idx) => (
-                <div key={idx} className="p-3.5 rounded-xl border border-red-200 bg-red-50/60 flex items-start justify-between gap-3 text-xs">
+                <div key={idx} className="p-3 rounded-lg border border-rose-200 bg-rose-50/50 flex items-start justify-between gap-3 text-xs">
                   <div>
-                    <div className="font-extrabold text-red-900">{al.alert_type || "Security Exception"}</div>
-                    <p className="text-red-700 mt-0.5">{al.message}</p>
-                    <span className="text-[10px] text-red-500 font-mono mt-1 block">
+                    <div className="font-semibold text-rose-900">{al.alert_type || "Security Exception"}</div>
+                    <p className="text-rose-700 mt-0.5">{al.message}</p>
+                    <span className="text-[10px] text-rose-400 font-mono mt-1 block">
                       {al.created_at ? formatDateTimeIST(al.created_at) : "Just now"}
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full bg-red-200 text-red-900 text-[10px] font-black uppercase shrink-0">
+                  <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-semibold uppercase shrink-0">
                     Warning
                   </span>
                 </div>
@@ -1009,70 +1007,64 @@ export const GuardDashboard = () => {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* VISITOR ONBOARDING MODAL (DAY PASS 5 AM-5 PM OR LONG-TERM CARD)  */}
+      {/* VISITOR ONBOARDING MODAL                                         */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {visitorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-[#0a2342] text-white flex items-center justify-between shrink-0">
+            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-[#f5bd19] text-[#0a2342]">
-                  <UserPlus size={18} weight="bold" />
+                <div className="p-1.5 rounded bg-slate-800 text-amber-400 border border-slate-700">
+                  <UserPlus size={16} />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm">Visitor Onboarding &amp; Pass Issuance</h3>
-                  <p className="text-[11px] text-slate-300">Issue official DSVV campus entry authorization</p>
+                  <h3 className="font-semibold text-sm">Visitor Pass Issuance</h3>
+                  <p className="text-[11px] text-slate-400">Campus Entry Authorization</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setVisitorModalOpen(false)}
-                className="text-slate-300 hover:text-white"
+                className="text-slate-400 hover:text-white"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
             {/* Pass Type Selector Toggle */}
-            <div className="p-4 bg-slate-50 border-b border-slate-200">
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-200/70 rounded-xl">
+            <div className="p-3.5 bg-slate-50 border-b border-slate-200/80">
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-lg text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => setVisitorPassType("TEMPORARY_DAY")}
-                  className={`py-2 px-3 rounded-lg text-xs font-black transition ${
+                  className={`py-1.5 px-3 rounded-md transition ${
                     visitorPassType === "TEMPORARY_DAY"
-                      ? "bg-white text-[#0a2342] shadow-xs"
+                      ? "bg-white text-slate-900 shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  Day Pass (5:00 AM – 5:00 PM)
+                  Day Pass (05:00 AM – 05:00 PM)
                 </button>
                 <button
                   type="button"
                   onClick={() => setVisitorPassType("SPECIAL_FUNCTION")}
-                  className={`py-2 px-3 rounded-lg text-xs font-black transition ${
+                  className={`py-1.5 px-3 rounded-md transition ${
                     visitorPassType === "SPECIAL_FUNCTION"
-                      ? "bg-white text-[#0a2342] shadow-xs"
+                      ? "bg-white text-slate-900 shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  Special Function / ID Card Pass
+                  Special Event / ID Card
                 </button>
               </div>
-
-              <p className="text-[11px] text-slate-500 mt-2 px-1">
-                {visitorPassType === "TEMPORARY_DAY"
-                  ? "Standard day visit pass. Automatically authorized today between 05:00 AM and 05:00 PM IST with quick short details."
-                  : "For multi-day events, conferences, contractors, or VIPs requiring proper identity verification and an assigned physical/RFID ID card."}
-              </p>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleRegisterVisitor} className="p-6 space-y-4 overflow-y-auto flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <form onSubmit={handleRegisterVisitor} className="p-5 space-y-3.5 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-black uppercase text-slate-600 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
                     Visitor Full Name *
                   </label>
                   <input
@@ -1081,12 +1073,12 @@ export const GuardDashboard = () => {
                     placeholder="e.g. Ramesh Kumar"
                     value={visitorForm.full_name}
                     onChange={(e) => setVisitorForm({ ...visitorForm, full_name: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-black uppercase text-slate-600 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
                     Mobile Phone *
                   </label>
                   <input
@@ -1095,46 +1087,46 @@ export const GuardDashboard = () => {
                     placeholder="+91 98765 43210"
                     value={visitorForm.phone}
                     onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-black uppercase text-slate-600 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
                     Purpose of Visit *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Official Meeting / Admissions / Guest"
+                    placeholder="Admissions / Official / Guest"
                     value={visitorForm.visit_purpose}
                     onChange={(e) => setVisitorForm({ ...visitorForm, visit_purpose: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-black uppercase text-slate-600 block mb-1">
-                    Host Person / Department *
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                    Host Person / Dept *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Dean Office / Registrar / Dr. Sharma"
+                    placeholder="Registrar / Dean Office"
                     value={visitorForm.host_person}
                     onChange={(e) => setVisitorForm({ ...visitorForm, host_person: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-black uppercase text-slate-600 block mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
                     Govt ID Type
                   </label>
                   <select
                     value={visitorForm.gov_id_type}
                     onChange={(e) => setVisitorForm({ ...visitorForm, gov_id_type: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:border-[#0a2342]"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-hidden"
                   >
                     <option value="Aadhaar Card">Aadhaar Card</option>
                     <option value="Driving License">Driving License</option>
@@ -1145,77 +1137,51 @@ export const GuardDashboard = () => {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-black uppercase text-slate-600 block mb-1">
-                    ID Number (Last 4 digits or Full)
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                    ID Number (Last 4 or Full)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 5432 or DL14201100"
+                    placeholder="e.g. 5432"
                     value={visitorForm.gov_id_number}
                     onChange={(e) => setVisitorForm({ ...visitorForm, gov_id_number: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:border-[#0a2342]"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden"
                   />
                 </div>
               </div>
 
-              {/* Special Function / Long Term Specific Fields */}
               {visitorPassType === "SPECIAL_FUNCTION" && (
-                <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-3">
-                  <div className="flex items-center gap-1.5 text-indigo-900 font-extrabold text-xs">
-                    <IdentificationBadge size={16} />
-                    <span>Special Function Card Assignment Details</span>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5">
+                  <div className="flex items-center gap-1 text-slate-800 font-semibold text-xs">
+                    <IdentificationBadge size={15} />
+                    <span>Special Function Card Assignment</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="text-[11px] font-black uppercase text-indigo-800 block mb-1">
+                      <label className="text-[10px] font-semibold uppercase text-slate-600 block mb-0.5">
                         Assign Physical ID Card UID *
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="Scan RFID or enter Card UID"
+                        placeholder="Scan RFID or enter UID"
                         value={visitorForm.assigned_card_uid}
                         onChange={(e) => setVisitorForm({ ...visitorForm, assigned_card_uid: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-hidden focus:border-indigo-600 font-mono font-bold"
+                        className="w-full px-2 py-1 text-xs rounded border border-slate-300 bg-white font-mono"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-black uppercase text-indigo-800 block mb-1">
+                      <label className="text-[10px] font-semibold uppercase text-slate-600 block mb-0.5">
                         Event / Function Name
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Annual Convocation / Seminar"
+                        placeholder="Annual Convocation"
                         value={visitorForm.event_name}
                         onChange={(e) => setVisitorForm({ ...visitorForm, event_name: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-hidden focus:border-indigo-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-black uppercase text-indigo-800 block mb-1">
-                        Valid Until Date
-                      </label>
-                      <input
-                        type="date"
-                        value={visitorForm.valid_until}
-                        onChange={(e) => setVisitorForm({ ...visitorForm, valid_until: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-hidden focus:border-indigo-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-black uppercase text-indigo-800 block mb-1">
-                        Email Address (Optional)
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="visitor@example.com"
-                        value={visitorForm.email}
-                        onChange={(e) => setVisitorForm({ ...visitorForm, email: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-hidden focus:border-indigo-600"
+                        className="w-full px-2 py-1 text-xs rounded border border-slate-300 bg-white"
                       />
                     </div>
                   </div>
@@ -1227,25 +1193,21 @@ export const GuardDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setVisitorModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingVisitor}
-                  className="px-5 py-2 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1.5"
                 >
                   {submittingVisitor ? (
-                    <SpinnerGap size={14} className="animate-spin text-amber-400" />
+                    <SpinnerGap size={13} className="animate-spin text-amber-400" />
                   ) : (
-                    <Printer size={14} className="text-[#f5bd19]" />
+                    <Printer size={13} className="text-amber-400" />
                   )}
-                  <span>
-                    {visitorPassType === "TEMPORARY_DAY"
-                      ? "Issue 5 AM–5 PM Day Pass"
-                      : "Assign Card & Generate Receipt"}
-                  </span>
+                  <span>Issue Pass &amp; Print Receipt</span>
                 </button>
               </div>
             </form>
@@ -1257,88 +1219,81 @@ export const GuardDashboard = () => {
       {/* ISSUED VISITOR PASS RECEIPT MODAL                                */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {issuedPassReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-scale-in">
-            {/* Header */}
-            <div className="px-5 py-3.5 bg-[#0a2342] text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm overflow-hidden">
+            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldCheck size={18} className="text-[#f5bd19]" />
-                <h3 className="font-black text-sm">Official Visitor Pass Receipt</h3>
+                <ShieldCheck size={16} className="text-amber-400" />
+                <h3 className="font-semibold text-xs">Official Visitor Pass Receipt</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIssuedPassReceipt(null)}
-                className="text-slate-300 hover:text-white"
+                className="text-slate-400 hover:text-white"
               >
-                <X size={18} />
+                <X size={15} />
               </button>
             </div>
 
-            {/* Pass Printable Body */}
-            <div className="p-6 space-y-4" id="visitor-receipt-card">
-              <div className="text-center border-b border-slate-200 pb-3">
-                <p className="font-black text-sm text-[#0a2342]">DEV SANSKRITI VISHWAVIDYALAYA</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+            <div className="p-5 space-y-3.5">
+              <div className="text-center border-b border-slate-100 pb-3">
+                <p className="font-bold text-xs text-slate-900">DEV SANSKRITI VISHWAVIDYALAYA</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">
                   Campus Security Desk · Gate Pass
                 </p>
-                <div className="mt-2 inline-block px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-mono font-black text-xs">
+                <div className="mt-2 inline-block px-2.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-mono font-semibold text-xs">
                   {issuedPassReceipt.pass_number}
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between border-b border-slate-100 py-1">
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between py-0.5">
                   <span className="text-slate-400">Visitor:</span>
-                  <span className="font-extrabold text-slate-900">{issuedPassReceipt.full_name}</span>
+                  <span className="font-semibold text-slate-900">{issuedPassReceipt.full_name}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-100 py-1">
+                <div className="flex justify-between py-0.5">
                   <span className="text-slate-400">Contact:</span>
-                  <span className="font-mono text-slate-800">{issuedPassReceipt.phone}</span>
+                  <span className="font-mono text-slate-700">{issuedPassReceipt.phone}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-100 py-1">
+                <div className="flex justify-between py-0.5">
                   <span className="text-slate-400">Purpose:</span>
-                  <span className="font-semibold text-slate-800">{issuedPassReceipt.visit_purpose}</span>
+                  <span className="text-slate-800">{issuedPassReceipt.visit_purpose}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-100 py-1">
-                  <span className="text-slate-400">Host to Visit:</span>
-                  <span className="font-semibold text-slate-800">{issuedPassReceipt.host_person}</span>
+                <div className="flex justify-between py-0.5">
+                  <span className="text-slate-400">Host:</span>
+                  <span className="text-slate-800">{issuedPassReceipt.host_person}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-100 py-1">
-                  <span className="text-slate-400">Validity Window:</span>
-                  <span className="font-bold text-emerald-700 font-mono text-[11px]">
-                    {issuedPassReceipt.valid_from_ist} to {issuedPassReceipt.valid_until_ist}
+                <div className="flex justify-between py-0.5">
+                  <span className="text-slate-400">Validity:</span>
+                  <span className="font-medium text-emerald-700 font-mono text-[11px]">
+                    {issuedPassReceipt.valid_from_ist} → {issuedPassReceipt.valid_until_ist}
                   </span>
                 </div>
                 {issuedPassReceipt.assigned_card_uid && (
-                  <div className="flex justify-between border-b border-slate-100 py-1">
-                    <span className="text-slate-400">Assigned ID Card UID:</span>
-                    <span className="font-mono font-black text-blue-700">{issuedPassReceipt.assigned_card_uid}</span>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400">Assigned Card:</span>
+                    <span className="font-mono font-semibold text-slate-900">{issuedPassReceipt.assigned_card_uid}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-b border-slate-100 py-1">
-                  <span className="text-slate-400">Issued At:</span>
-                  <span className="text-slate-600 font-mono text-[11px]">{issuedPassReceipt.issued_at_ist}</span>
-                </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-center text-[10px] text-slate-500">
-                Please return this card at the gate turnstile upon campus exit. Pass expires at 5:00 PM IST unless granted special extension.
+              <div className="p-2 rounded bg-slate-50 border border-slate-100 text-center text-[10px] text-slate-500">
+                Please return this pass at the gate turnstile upon campus exit. Pass expires at 5:00 PM IST today.
               </div>
 
-              {/* Action Buttons */}
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="flex-1 py-2 px-3 rounded-xl bg-[#0a2342] hover:bg-[#12365f] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                  className="flex-1 py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center justify-center gap-1.5"
                 >
-                  <Printer size={15} />
+                  <Printer size={14} />
                   <span>Print Receipt</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIssuedPassReceipt(null)}
-                  className="py-2 px-4 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50"
+                  className="py-1.5 px-3 rounded-lg border border-slate-300 text-slate-700 text-xs hover:bg-slate-50"
                 >
                   Done
                 </button>
