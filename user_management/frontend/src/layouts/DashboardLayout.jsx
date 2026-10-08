@@ -183,17 +183,17 @@ export const DashboardLayout = ({ children }) => {
           <div className="flex h-24 items-center justify-between border-b border-white/10 px-5 bg-black/10">
             <Link
               to={roleDashboardPath(roles)}
-              className="flex items-center gap-3 text-white no-underline group"
+              className="flex items-center gap-3 text-white no-underline group min-w-0"
               aria-label="DSVV dashboard"
               onClick={closeNavigationAfterSelection}
             >
               <img
                 src={dsvvLogo}
                 alt="Dev Sanskriti Vishwavidyalaya"
-                className="h-[68px] w-[68px] object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-transform duration-200 group-hover:scale-105"
+                className="h-[60px] w-[60px] object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-transform duration-200 group-hover:scale-105 shrink-0"
               />
-              <div className="flex flex-col">
-                <span className="font-display font-extrabold text-sm tracking-wide text-white leading-tight">
+              <div className="flex flex-col min-w-0">
+                <span className="font-display font-extrabold text-sm tracking-wide text-white leading-tight truncate">
                   DSVV · OCOC
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#f5bd19] mt-0.5">
@@ -201,6 +201,17 @@ export const DashboardLayout = ({ children }) => {
                 </span>
               </div>
             </Link>
+
+            {/* Menu bar toggle button inside sidebar section */}
+            <button
+              type="button"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-white shadow-xs hover:bg-white/20 transition icon-touch cursor-pointer"
+              aria-label="Collapse navigation"
+              title="Collapse sidebar"
+              onClick={() => setIsNavigationOpen(false)}
+            >
+              <List size={22} weight="bold" />
+            </button>
           </div>
 
           <div className="px-5 pt-5 pb-1 flex items-center justify-between text-[11px] font-black uppercase tracking-[0.16em] text-slate-400/80">
@@ -244,6 +255,9 @@ export const DashboardLayout = ({ children }) => {
             })}
           </nav>
 
+          {/* User profile / session pill in sidebar */}
+
+
           {/* Quick Legal & Security links inside sidebar */}
           <div className="border-t border-white/10 p-3 space-y-1 text-xs bg-black/10">
             <button
@@ -274,15 +288,18 @@ export const DashboardLayout = ({ children }) => {
             {/* Sticky Header */}
             <header className="sticky top-0 z-30 flex h-24 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-md lg:px-8 shadow-[0_1px_3px_rgba(10,35,66,0.03)]">
               <div className="flex items-center gap-3.5">
-                <button
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-white text-[#0a2342] shadow-xs hover:bg-slate-50 transition icon-touch"
-                  aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"}
-                  aria-expanded={isNavigationOpen}
-                  aria-controls="primary-navigation"
-                  onClick={() => setIsNavigationOpen((isOpen) => !isOpen)}
-                >
-                  <List size={22} weight="bold" />
-                </button>
+                {!isNavigationOpen && (
+                  <button
+                    className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-white text-[#0a2342] shadow-xs hover:bg-slate-50 transition icon-touch cursor-pointer"
+                    aria-label="Open navigation"
+                    aria-expanded={isNavigationOpen}
+                    aria-controls="primary-navigation"
+                    title="Open sidebar"
+                    onClick={() => setIsNavigationOpen(true)}
+                  >
+                    <List size={22} weight="bold" />
+                  </button>
+                )}
                 <div>
 
                   <h2 className="font-display text-base font-extrabold text-[var(--text-main)] sm:text-lg tracking-tight">

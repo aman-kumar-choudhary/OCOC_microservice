@@ -98,8 +98,8 @@ const DeviceRegistry = () => {
     } catch (err) {
       toast.error(
         err.response?.data?.detail ||
-          err.response?.data?.error?.message ||
-          "Failed to register hardware device."
+        err.response?.data?.error?.message ||
+        "Failed to register hardware device."
       );
     } finally {
       setSubmitting(false);
@@ -151,15 +151,7 @@ const DeviceRegistry = () => {
             {devices.filter((d) => d.status === "OFFLINE").length}
           </h3>
         </div>
-        <div className="bg-[#0a2342] p-4 rounded-xl shadow-sm">
-          <p className="text-xs font-bold text-blue-200 uppercase">
-            Gateway Ping Latency
-          </p>
-          <h3 className="text-2xl font-black text-white flex items-end gap-1">
-            {pingLatency !== null ? pingLatency : "--"}
-            <span className="text-sm font-normal text-blue-300 pb-1">ms</span>
-          </h3>
-        </div>
+
       </div>
 
       <div className="bg-white border border-[var(--border-light)] rounded-xl shadow-sm overflow-hidden">
