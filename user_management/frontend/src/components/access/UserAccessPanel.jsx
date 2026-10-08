@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowCounterClockwise,
@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Eye,
   Funnel,
+  GraduationCap,
   House,
   MagnifyingGlass,
   MapPin,
@@ -26,6 +27,12 @@ import {
 } from "@phosphor-icons/react";
 import accessService from "@/services/accessService";
 import userService from "@/services/userService";
+import {
+  SCHOOL_DEPARTMENTS,
+  getCoursesForDepartment,
+  getCoursesForSchool,
+  getAllCourses,
+} from "@/utils/academicCatalog";
 import UserAccessDetail from "./UserAccessDetail";
 
 const roleFilterClass = "w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white";
@@ -41,6 +48,17 @@ const roleOptionsByUserType = {
     { value: "WORKER", label: "Worker" },
   ],
   visitor: [{ value: "VISITOR", label: "Visitor" }],
+};
+
+const roleToUserType = {
+  STUDENT: "student",
+  FACULTY: "faculty",
+  SECURITY_GUARD: "worker",
+  GUARD: "worker",
+  WARDEN: "Staff",
+  STAFF: "worker",
+  WORKER: "worker",
+  VISITOR: "visitor",
 };
 
 const allRoleOptions = [
@@ -66,14 +84,31 @@ const FilterInput = ({ label, value, onChange, placeholder }) => (
   </div>
 );
 
-const FilterSelect = ({ label, value, onChange, options, optionLabel = (option) => option }) => (
+const FilterSelect = ({
+  label,
+  value,
+  onChange,
+  options = [],
+  optionLabel = (option) => (typeof option === "object" ? option.label : option),
+  placeholder,
+}) => (
   <div>
     <label className="text-[11px] font-bold text-slate-600 block mb-1">{label}</label>
-    <select value={value} onChange={(event) => onChange(event.target.value)} className={roleFilterClass}>
-      <option value="">All {label}s</option>
-      {options.map((option) => (
-        <option key={option} value={option}>{optionLabel(option)}</option>
-      ))}
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={roleFilterClass}
+    >
+      <option value="">{placeholder || `All ${label}s`}</option>
+      {options.map((option) => {
+        const val = typeof option === "object" ? option.value : option;
+        const lbl = optionLabel(option);
+        return (
+          <option key={val} value={val}>
+            {lbl}
+          </option>
+        );
+      })}
     </select>
   </div>
 );
@@ -84,6 +119,7 @@ export const UserAccessPanel = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [userType, setUserType] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [campusFilter, setCampusFilter] = useState("");
@@ -116,6 +152,7 @@ export const UserAccessPanel = () => {
   const [departments, setDepartments] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [campuses, setCampuses] = useState([]);
+  const [dbCourses, setDbCourses] = useState([]);
 
   // ── Selected User for Detail View ──
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -136,20 +173,47 @@ export const UserAccessPanel = () => {
 
   const loadLookups = async () => {
     try {
-      const [deptRes, hostelRes, locRes] = await Promise.all([
+      const [deptRes, hostelRes, locRes, courseRes] = await Promise.all([
         userService.getDepartments().catch(() => []),
         userService.getHostels().catch(() => []),
         accessService.getLocations().catch(() => []),
+        userService.getCourses().catch(() => []),
       ]);
       setDepartments(deptRes || []);
       setHostels(hostelRes || []);
       setCampuses(
         (locRes || []).filter((l) => l.type === "campus" || !l.parent_id),
       );
+      setDbCourses(courseRes || []);
     } catch (e) {
       console.warn("Could not load all lookup filters:", e);
     }
   };
+
+  // Derived schools and cascading lists
+  const schools = useMemo(() => {
+    const fromDb = departments.map((d) => d.school).filter(Boolean);
+    const fromCatalog = Object.keys(SCHOOL_DEPARTMENTS);
+    return [...new Set([...fromDb, ...fromCatalog])].sort();
+  }, [departments]);
+
+  const filteredDepartments = useMemo(() => {
+    if (!schoolFilter) return departments;
+    const dbMatched = departments.filter((d) => d.school === schoolFilter);
+    if (dbMatched.length > 0) return dbMatched;
+    const catalogDeptNames = SCHOOL_DEPARTMENTS[schoolFilter] || [];
+    return departments.filter((d) => catalogDeptNames.includes(d.name));
+  }, [departments, schoolFilter]);
+
+  const availableCourses = useMemo(() => {
+    if (departmentFilter) {
+      return getCoursesForDepartment(departmentFilter, dbCourses);
+    }
+    if (schoolFilter) {
+      return getCoursesForSchool(schoolFilter, departments, dbCourses);
+    }
+    return getAllCourses(dbCourses);
+  }, [schoolFilter, departmentFilter, departments, dbCourses]);
 
   // Fetch users when filters or page changes
   const fetchUsers = useCallback(async () => {
@@ -163,6 +227,7 @@ export const UserAccessPanel = () => {
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (userType) params.user_type = userType;
       if (roleFilter) params.role = roleFilter;
+      if (schoolFilter) params.school = schoolFilter;
       if (departmentFilter) params.department = departmentFilter;
       if (statusFilter) params.status = statusFilter;
       if (campusFilter) params.campus = campusFilter;
@@ -197,6 +262,7 @@ export const UserAccessPanel = () => {
     debouncedSearch,
     userType,
     roleFilter,
+    schoolFilter,
     departmentFilter,
     statusFilter,
     campusFilter,
@@ -222,6 +288,7 @@ export const UserAccessPanel = () => {
     setDebouncedSearch("");
     setUserType("");
     setRoleFilter("");
+    setSchoolFilter("");
     setDepartmentFilter("");
     setStatusFilter("");
     setCampusFilter("");
@@ -238,13 +305,12 @@ export const UserAccessPanel = () => {
     setPage(1);
   };
 
-  // Profile fields belong to a single person type.  Clear them when the type
-  // changes so a hidden filter can never affect the next role's results.
+  // Profile fields belong to a single person type. Clear them when the type changes.
   const handleUserTypeChange = (nextType) => {
     setUserType(nextType);
-    // A role valid for the previous user type must never remain selected.
     setRoleFilter("");
     setShowAdvancedFilters(Boolean(nextType));
+    setSchoolFilter("");
     setDepartmentFilter("");
     setCourseFilter("");
     setSemesterFilter("");
@@ -258,14 +324,79 @@ export const UserAccessPanel = () => {
     setPage(1);
   };
 
+  // Role filter selection - auto-syncs user type if mapped
+  const handleRoleFilterChange = (nextRole) => {
+    setRoleFilter(nextRole);
+    if (nextRole && roleToUserType[nextRole]) {
+      const mapped = roleToUserType[nextRole];
+      if (userType !== mapped) {
+        setUserType(mapped);
+      }
+    }
+    setShowAdvancedFilters(true);
+    setPage(1);
+  };
+
+  // School filter selection with cascading cleanups
+  const handleSchoolChange = (nextSchool) => {
+    setSchoolFilter(nextSchool);
+    if (departmentFilter && nextSchool) {
+      const validDeptNames = departments
+        .filter((d) => d.school === nextSchool)
+        .map((d) => d.name);
+      const catalogDeptNames = SCHOOL_DEPARTMENTS[nextSchool] || [];
+      const allValid = [...new Set([...validDeptNames, ...catalogDeptNames])];
+      if (!allValid.includes(departmentFilter)) {
+        setDepartmentFilter("");
+        setCourseFilter("");
+      }
+    }
+    if (courseFilter && nextSchool) {
+      const validCourses = getCoursesForSchool(nextSchool, departments, dbCourses);
+      if (!validCourses.includes(courseFilter)) {
+        setCourseFilter("");
+      }
+    }
+    setPage(1);
+  };
+
+  // Department filter selection with cascading cleanups
+  const handleDepartmentChange = (nextDept) => {
+    setDepartmentFilter(nextDept);
+    if (courseFilter && nextDept) {
+      const validCourses = getCoursesForDepartment(nextDept, dbCourses);
+      if (!validCourses.includes(courseFilter)) {
+        setCourseFilter("");
+      }
+    }
+    if (!schoolFilter && nextDept) {
+      const deptObj = departments.find((d) => d.name === nextDept);
+      if (deptObj?.school) {
+        setSchoolFilter(deptObj.school);
+      } else {
+        for (const [sch, dList] of Object.entries(SCHOOL_DEPARTMENTS)) {
+          if (dList.includes(nextDept)) {
+            setSchoolFilter(sch);
+            break;
+          }
+        }
+      }
+    }
+    setPage(1);
+  };
+
   const updateRoleFilter = (setter) => (value) => {
     setter(value);
     setPage(1);
   };
 
+  // Determine active persona / role type
+  const activeRoleType = userType || roleToUserType[roleFilter] || "";
+
   const activeFilterCount = [
     userType,
     roleFilter,
+    schoolFilter,
     departmentFilter,
     statusFilter,
     campusFilter,
@@ -456,10 +587,7 @@ export const UserAccessPanel = () => {
             </label>
             <select
               value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => handleRoleFilterChange(e.target.value)}
               className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-amber-500"
             >
               <option value="">{rolePlaceholder}</option>
@@ -489,46 +617,400 @@ export const UserAccessPanel = () => {
               <option value="pending">Pending</option>
             </select>
           </div>
-
-
         </div>
 
-        {/* Each profile type has its own fields. Selecting a type opens this section. */}
-        {showAdvancedFilters && userType && (
-          <div className="pt-3 border-t border-slate-100 animate-fade-in bg-slate-50/60 p-3.5 rounded-xl">
-            <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-3">
-              {userType} filters
-            </p>
+        {/* Active Filter Chips */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+            <span className="text-[11px] font-bold text-slate-500 mr-1">Active Filters:</span>
+            {userType && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                User Type: {userType}
+                <button
+                  type="button"
+                  onClick={() => handleUserTypeChange("")}
+                  className="hover:text-rose-600 transition"
+                  title="Remove User Type filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {roleFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                Role: {roleFilter}
+                <button
+                  type="button"
+                  onClick={() => { setRoleFilter(""); setPage(1); }}
+                  className="hover:text-rose-600 transition"
+                  title="Remove Role filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {schoolFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                <Buildings size={11} /> School: {schoolFilter.replace("School of ", "")}
+                <button
+                  type="button"
+                  onClick={() => handleSchoolChange("")}
+                  className="hover:text-rose-600 transition"
+                  title="Remove School filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {departmentFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Dept: {departmentFilter.replace("Department of ", "")}
+                <button
+                  type="button"
+                  onClick={() => handleDepartmentChange("")}
+                  className="hover:text-rose-600 transition"
+                  title="Remove Department filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {courseFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                Program: {courseFilter}
+                <button
+                  type="button"
+                  onClick={() => { setCourseFilter(""); setPage(1); }}
+                  className="hover:text-rose-600 transition"
+                  title="Remove Program filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {semesterFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Semester: {semesterFilter}
+                <button
+                  type="button"
+                  onClick={() => { setSemesterFilter(""); setPage(1); }}
+                  className="hover:text-rose-600 transition"
+                  title="Remove Semester filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {hostelFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                Hostel: {hostelFilter}
+                <button
+                  type="button"
+                  onClick={() => { setHostelFilter(""); setPage(1); }}
+                  className="hover:text-rose-600 transition"
+                  title="Remove Hostel filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {statusFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                Status: {statusFilter}
+                <button
+                  type="button"
+                  onClick={() => { setStatusFilter(""); setPage(1); }}
+                  className="hover:text-rose-600 transition"
+                  title="Remove Status filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-[11px] text-rose-600 hover:text-rose-800 font-bold ml-1 hover:underline"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
 
-            {userType === "student" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <FilterSelect label="Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
-                <FilterInput label="Program" value={courseFilter} onChange={updateRoleFilter(setCourseFilter)} placeholder="e.g. Program Name" />
-                <FilterSelect label="Semester / Year" value={semesterFilter} onChange={updateRoleFilter(setSemesterFilter)} options={[1, 2, 3, 4, 5, 6, 7, 8].map(String)} optionLabel={(s) => `Semester ${s} (Year ${Math.ceil(Number(s) / 2)})`} />
-                <FilterSelect label="Residential Hostel" value={hostelFilter} onChange={updateRoleFilter(setHostelFilter)} options={hostels.map((h) => h.name)} />
+        {/* Each profile type has its own fields. Opening filters shows the corresponding role-based section. */}
+        {showAdvancedFilters && (
+          <div className="pt-3 border-t border-slate-100 animate-fade-in bg-slate-50/70 p-4 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Funnel size={13} className="text-amber-600" />
+                <span>
+                  {activeRoleType
+                    ? `${activeRoleType.toUpperCase()} FILTERS`
+                    : "ALL USERS FILTERS"}
+                </span>
+              </p>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-[11px] font-bold text-rose-600 hover:text-rose-700 inline-flex items-center gap-1"
+                >
+                  <ArrowCounterClockwise size={12} /> Clear all filters
+                </button>
+              )}
+            </div>
+
+            {/* 1. STUDENT FILTERS */}
+            {activeRoleType === "student" && (
+              <div className="space-y-3.5">
+                {/* School Selector Card */}
+                <div className="bg-white rounded-xl border border-blue-100 p-3.5 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200">
+                        <GraduationCap size={14} weight="bold" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800">
+                        Select School of the Student:
+                      </span>
+                    </div>
+                    {schoolFilter && (
+                      <button
+                        type="button"
+                        onClick={() => handleSchoolChange("")}
+                        className="text-[11px] text-rose-600 hover:text-rose-700 font-bold inline-flex items-center gap-1"
+                      >
+                        <X size={12} /> Reset to All Schools
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Quick School Selection Buttons */}
+
+
+                  {/* School Dropdown */}
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center gap-2">
+                    <label className="text-[11px] font-bold text-slate-600 shrink-0">
+                      Or select School:
+                    </label>
+                    <select
+                      value={schoolFilter}
+                      onChange={(e) => handleSchoolChange(e.target.value)}
+                      className={roleFilterClass}
+                    >
+                      <option value="">All Schools</option>
+                      {schools.map((sch) => (
+                        <option key={sch} value={sch}>
+                          {sch}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Under-school Cascading Section: Department, Program, Semester, Residential Hostel */}
+                {schoolFilter ? (
+                  <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/50 rounded-xl border border-blue-200 p-3.5 space-y-2.5 animate-fade-in shadow-2xs">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/60">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                        <span className="text-[11px] font-extrabold uppercase text-blue-900 tracking-wide">
+                          Under School: <span className="text-slate-900 font-black">{schoolFilter}</span>
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-extrabold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200">
+                        {filteredDepartments.length} Departments • {availableCourses.length} Programs
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <FilterSelect
+                        label="Department"
+                        value={departmentFilter}
+                        onChange={handleDepartmentChange}
+                        options={filteredDepartments.map((d) => d.name)}
+                        placeholder="All Departments"
+                      />
+                      <FilterSelect
+                        label="Program"
+                        value={courseFilter}
+                        onChange={updateRoleFilter(setCourseFilter)}
+                        options={availableCourses}
+                        placeholder={departmentFilter ? "All Department" : "All Programs"}
+                      />
+                      <FilterSelect
+                        label="Semester / Year"
+                        value={semesterFilter}
+                        onChange={updateRoleFilter(setSemesterFilter)}
+                        options={[1, 2, 3, 4, 5, 6, 7, 8].map(String)}
+                        optionLabel={(s) => `Semester ${s} (Year ${Math.ceil(Number(s) / 2)})`}
+                        placeholder="All Semesters / Years"
+                      />
+                      <FilterSelect
+                        label="Residential Hostel"
+                        value={hostelFilter}
+                        onChange={updateRoleFilter(setHostelFilter)}
+                        options={hostels.map((h) => h.name)}
+                        placeholder="All Residential Hostels"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        💡 Select a specific school above to narrow departments and academic programs to that school, or filter across all schools below:
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <FilterSelect
+                        label="Department"
+                        value={departmentFilter}
+                        onChange={handleDepartmentChange}
+                        options={departments.map((d) => d.name)}
+                        placeholder="All Departments"
+                      />
+                      <FilterSelect
+                        label="Program"
+                        value={courseFilter}
+                        onChange={updateRoleFilter(setCourseFilter)}
+                        options={availableCourses}
+                        placeholder="All Programs"
+                      />
+                      <FilterSelect
+                        label="Semester / Year"
+                        value={semesterFilter}
+                        onChange={updateRoleFilter(setSemesterFilter)}
+                        options={[1, 2, 3, 4, 5, 6, 7, 8].map(String)}
+                        optionLabel={(s) => `Semester ${s} (Year ${Math.ceil(Number(s) / 2)})`}
+                        placeholder="All Semesters / Years"
+                      />
+                      <FilterSelect
+                        label="Residential Hostel"
+                        value={hostelFilter}
+                        onChange={updateRoleFilter(setHostelFilter)}
+                        options={hostels.map((h) => h.name)}
+                        placeholder="All Residential Hostels"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {userType === "faculty" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FilterSelect label="Faculty Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
-                <FilterInput label="Designation" value={designationFilter} onChange={updateRoleFilter(setDesignationFilter)} placeholder="e.g. Professor" />
+            {/* 2. FACULTY FILTERS */}
+            {activeRoleType === "faculty" && (
+              <div className="bg-white rounded-xl border border-amber-100 p-3.5 space-y-3 shadow-2xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <FilterSelect
+                    label="School"
+                    value={schoolFilter}
+                    onChange={handleSchoolChange}
+                    options={schools}
+                    placeholder="All Schools"
+                  />
+                  <FilterSelect
+                    label="Faculty Department"
+                    value={departmentFilter}
+                    onChange={handleDepartmentChange}
+                    options={filteredDepartments.map((d) => d.name)}
+                    placeholder={schoolFilter ? "All Departments in School" : "All Departments"}
+                  />
+                  <FilterInput
+                    label="Designation"
+                    value={designationFilter}
+                    onChange={updateRoleFilter(setDesignationFilter)}
+                    placeholder="e.g. Professor, Assistant Professor, Dean"
+                  />
+                </div>
               </div>
             )}
 
-            {userType === "worker" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <FilterSelect label="Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
-                <FilterInput label="Job Type" value={jobTypeFilter} onChange={updateRoleFilter(setJobTypeFilter)} placeholder="e.g. Maintenance" />
-                <FilterInput label="Work Area" value={workAreaFilter} onChange={updateRoleFilter(setWorkAreaFilter)} placeholder="e.g. Library" />
-                <FilterInput label="Shift" value={shiftFilter} onChange={updateRoleFilter(setShiftFilter)} placeholder="e.g. Morning" />
+            {/* 3. WORKER FILTERS */}
+            {activeRoleType === "worker" && (
+              <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <FilterSelect
+                    label="Department"
+                    value={departmentFilter}
+                    onChange={updateRoleFilter(setDepartmentFilter)}
+                    options={departments.map((d) => d.name)}
+                  />
+                  <FilterInput
+                    label="Job Type"
+                    value={jobTypeFilter}
+                    onChange={updateRoleFilter(setJobTypeFilter)}
+                    placeholder="e.g. Maintenance, Security, Warden"
+                  />
+                  <FilterInput
+                    label="Work Area"
+                    value={workAreaFilter}
+                    onChange={updateRoleFilter(setWorkAreaFilter)}
+                    placeholder="e.g. Main Gate, Library, Hostels"
+                  />
+                  <FilterInput
+                    label="Shift"
+                    value={shiftFilter}
+                    onChange={updateRoleFilter(setShiftFilter)}
+                    placeholder="e.g. Morning, Evening, Night"
+                  />
+                </div>
               </div>
             )}
 
-            {userType === "visitor" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FilterInput label="Visit Purpose" value={visitPurposeFilter} onChange={updateRoleFilter(setVisitPurposeFilter)} placeholder="e.g. Admission enquiry" />
-                <FilterInput label="Host Person" value={hostPersonFilter} onChange={updateRoleFilter(setHostPersonFilter)} placeholder="Search by host name" />
+            {/* 4. VISITOR FILTERS */}
+            {activeRoleType === "visitor" && (
+              <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FilterInput
+                    label="Visit Purpose"
+                    value={visitPurposeFilter}
+                    onChange={updateRoleFilter(setVisitPurposeFilter)}
+                    placeholder="e.g. Admission enquiry, Official visit"
+                  />
+                  <FilterInput
+                    label="Host Person"
+                    value={hostPersonFilter}
+                    onChange={updateRoleFilter(setHostPersonFilter)}
+                    placeholder="Search by host name"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 5. ALL USERS GENERAL FILTERS */}
+            {!activeRoleType && (
+              <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <FilterSelect
+                    label="School"
+                    value={schoolFilter}
+                    onChange={handleSchoolChange}
+                    options={schools}
+                    placeholder="All Schools"
+                  />
+                  <FilterSelect
+                    label="Department"
+                    value={departmentFilter}
+                    onChange={handleDepartmentChange}
+                    options={filteredDepartments.map((d) => d.name)}
+                    placeholder="All Departments"
+                  />
+                  <FilterSelect
+                    label="Residential Hostel"
+                    value={hostelFilter}
+                    onChange={updateRoleFilter(setHostelFilter)}
+                    options={hostels.map((h) => h.name)}
+                    placeholder="All Residential Hostels"
+                  />
+                  <FilterSelect
+                    label="Campus Location"
+                    value={campusFilter}
+                    onChange={updateRoleFilter(setCampusFilter)}
+                    options={campuses.map((c) => c.name)}
+                    placeholder="All Campuses"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -744,8 +1226,13 @@ export const UserAccessPanel = () => {
                       <td className="px-4 py-3.5">
                         <div className="text-[11px] text-slate-700 space-y-0.5">
                           {u.department && (
-                            <p className="font-semibold text-slate-800 truncate max-w-[160px]">
+                            <p className="font-semibold text-slate-800 truncate max-w-[160px]" title={u.department}>
                               {u.department}
+                            </p>
+                          )}
+                          {u.school && (
+                            <p className="text-[10px] text-slate-400 truncate max-w-[160px]" title={u.school}>
+                              {u.school}
                             </p>
                           )}
                           {u.hostel_name && (
@@ -753,7 +1240,7 @@ export const UserAccessPanel = () => {
                               Hostel: {u.hostel_name}
                             </p>
                           )}
-                          {!u.department && !u.hostel_name && (
+                          {!u.department && !u.hostel_name && !u.school && (
                             <span className="text-slate-400">—</span>
                           )}
                         </div>

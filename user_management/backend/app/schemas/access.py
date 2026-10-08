@@ -165,6 +165,7 @@ class AccessUserSummary(BaseModel):
     roll_number: Optional[str] = None
     employee_id: Optional[str] = None
     department: Optional[str] = None
+    school: Optional[str] = None
     course: Optional[str] = None
     semester: Optional[str] = None
     hostel_name: Optional[str] = None

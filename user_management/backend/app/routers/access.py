@@ -244,6 +244,7 @@ async def search_access_users(
     search: Optional[str] = Query(None, description="Search by name, email, ID, phone"),
     user_type: Optional[str] = Query(None),
     role: Optional[str] = Query(None),
+    school: Optional[str] = Query(None),
     department: Optional[str] = Query(None),
     course: Optional[str] = Query(None),
     semester: Optional[str] = Query(None),
@@ -265,7 +266,7 @@ async def search_access_users(
     """Server-side paginated user search for the access management panel."""
     result = await access_service.search_access_users(
         conn, search=search, user_type=user_type, role=role,
-        department=department, course=course, semester=semester,
+        school=school, department=department, course=course, semester=semester,
         hostel=hostel, designation=designation, job_type=job_type,
         work_area=work_area, shift=shift, visit_purpose=visit_purpose,
         host_person=host_person, campus=campus, status=status,

@@ -50,16 +50,11 @@ export const DEPARTMENT_COURSES = {
 
   "Department of Environmental Science": [
     "B.Sc Environmental Science",
-    "B.Sc. Environmental Science",
-    "M.Sc Environmental Science",
-    "M.Sc. Environmental Science",
   ],
 
   // ── School of Education, Humanities and Social Sciences ──
   "Department of Education": [
     "B.Ed. (Bachelor of Education)",
-    "M.Ed Education Studies",
-    "Ph. D. Education",
   ],
 
   "Department of English": [
@@ -97,7 +92,6 @@ export const DEPARTMENT_COURSES = {
   "Department of History and Indian Culture": [
     "B.A. History (Honors)",
     "B.A. Indian Culture & Heritage",
-    "M.A. Ancient History",
     "M. A. History and Indian Culture",
     "Ph. D. History",
   ],
@@ -126,7 +120,6 @@ export const DEPARTMENT_COURSES = {
   ],
 
   "Department of Yogic Sciences and Human Consciousness": [
-    "B.Sc Yogic Science",
     "B.Sc. Yogic Science (Honors)",
     "Certificate In Yoga And Alternative Therapy",
     "M.A. Human Consciousness & Yogic Science",
@@ -134,8 +127,7 @@ export const DEPARTMENT_COURSES = {
     "M.Sc. Human Consciousness & Yogic Science",
     "M.Sc. Yoga Therapy",
     "P. G. Diploma Human Consciousness, Yoga & Alternative Therapy",
-    "Ph. D. Human Consciousness & Yogic Science",
-    "Ph. D. Oriental Studies",
+
   ],
 
   "Department of Complementary and Alternative Medicine": [

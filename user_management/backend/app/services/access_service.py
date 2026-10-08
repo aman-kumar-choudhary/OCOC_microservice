@@ -276,6 +276,7 @@ class AccessService:
         search: Optional[str] = None,
         user_type: Optional[str] = None,
         role: Optional[str] = None,
+        school: Optional[str] = None,
         department: Optional[str] = None,
         course: Optional[str] = None,
         semester: Optional[str] = None,
@@ -309,18 +310,31 @@ class AccessService:
             clauses.append(f"u.status = ${idx}")
             args.append(status.strip().lower())
             idx += 1
+        if school and school.strip():
+            clauses.append(f"d.school = ${idx}")
+            args.append(school.strip())
+            idx += 1
         if department and department.strip():
             clauses.append(f"d.name = ${idx}")
             args.append(department.strip())
             idx += 1
         if course and course.strip():
-            clauses.append(f"sp.course = ${idx}")
+            clauses.append(f"(sp.course = ${idx} OR sp.course ILIKE ${idx})")
             args.append(course.strip())
             idx += 1
         if semester and semester.strip():
-            clauses.append(f"sp.semester = ${idx}")
-            args.append(semester.strip())
-            idx += 1
+            sem_clean = semester.strip()
+            sem_num = "".join(c for c in sem_clean if c.isdigit())
+            if sem_num:
+                clauses.append(
+                    f"(sp.semester = ${idx} OR sp.semester ILIKE ${idx + 1} OR sp.semester = ${idx + 2})"
+                )
+                args.extend([sem_clean, f"%Semester {sem_num}%", sem_num])
+                idx += 3
+            else:
+                clauses.append(f"sp.semester ILIKE ${idx}")
+                args.append(f"%{sem_clean}%")
+                idx += 1
         if hostel and hostel.strip():
             clauses.append(f"h.name = ${idx}")
             args.append(hostel.strip())
@@ -396,6 +410,7 @@ class AccessService:
                 sp.roll_number,
                 COALESCE(fp.employee_id,wp.employee_id) AS employee_id,
                 d.name AS department,
+                d.school AS school,
                 sp.course, sp.semester,
                 h.name AS hostel_name,
                 COALESCE(sp.photo_reference,fp.photo_reference,wp.photo_reference,vp.photo_reference) AS photo_reference,
@@ -419,6 +434,7 @@ class AccessService:
                 status=r["status"], phone=r["phone"],
                 full_name=r["full_name"], roll_number=r["roll_number"],
                 employee_id=r["employee_id"], department=r["department"],
+                school=r["school"],
                 course=r["course"], semester=r["semester"],
                 hostel_name=r["hostel_name"], photo_reference=r["photo_reference"],
                 roles=r["roles"] or [],

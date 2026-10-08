@@ -682,6 +682,14 @@ export const UserAccessDetail = ({ userId, onClose, onUserUpdated }) => {
                       </p>
                     </div>
 
+                    {detail?.school && (
+                      <p className="text-xs text-slate-500">
+                        School:{" "}
+                        <span className="font-semibold text-slate-700">
+                          {detail.school}
+                        </span>
+                      </p>
+                    )}
                     {detail?.department && (
                       <p className="text-xs text-slate-500">
                         Department:{" "}
