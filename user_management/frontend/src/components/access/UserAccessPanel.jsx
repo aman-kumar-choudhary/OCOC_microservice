@@ -27,6 +27,57 @@ import {
 import accessService from "@/services/accessService";
 import userService from "@/services/userService";
 import UserAccessDetail from "./UserAccessDetail";
+
+const roleFilterClass = "w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white";
+
+const roleOptionsByUserType = {
+  student: [{ value: "STUDENT", label: "Student" }],
+  faculty: [{ value: "FACULTY", label: "Faculty" }],
+  worker: [
+    { value: "SECURITY_GUARD", label: "Security Guard" },
+    { value: "GUARD", label: "Guard" },
+    { value: "WARDEN", label: "Warden" },
+    { value: "STAFF", label: "Staff" },
+    { value: "WORKER", label: "Worker" },
+  ],
+  visitor: [{ value: "VISITOR", label: "Visitor" }],
+};
+
+const allRoleOptions = [
+  { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "ADMIN", label: "Admin" },
+  { value: "SECURITY_ADMIN", label: "Security Admin" },
+  ...roleOptionsByUserType.worker,
+  ...roleOptionsByUserType.faculty,
+  ...roleOptionsByUserType.student,
+  ...roleOptionsByUserType.visitor,
+];
+
+const FilterInput = ({ label, value, onChange, placeholder }) => (
+  <div>
+    <label className="text-[11px] font-bold text-slate-600 block mb-1">{label}</label>
+    <input
+      type="text"
+      value={value}
+      placeholder={placeholder}
+      onChange={(event) => onChange(event.target.value)}
+      className={roleFilterClass}
+    />
+  </div>
+);
+
+const FilterSelect = ({ label, value, onChange, options, optionLabel = (option) => option }) => (
+  <div>
+    <label className="text-[11px] font-bold text-slate-600 block mb-1">{label}</label>
+    <select value={value} onChange={(event) => onChange(event.target.value)} className={roleFilterClass}>
+      <option value="">All {label}s</option>
+      {options.map((option) => (
+        <option key={option} value={option}>{optionLabel(option)}</option>
+      ))}
+    </select>
+  </div>
+);
+
 export const UserAccessPanel = () => {
   // ── Search & Filter State ──
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,6 +93,12 @@ export const UserAccessPanel = () => {
   const [courseFilter, setCourseFilter] = useState("");
   const [semesterFilter, setSemesterFilter] = useState("");
   const [hostelFilter, setHostelFilter] = useState("");
+  const [designationFilter, setDesignationFilter] = useState("");
+  const [jobTypeFilter, setJobTypeFilter] = useState("");
+  const [workAreaFilter, setWorkAreaFilter] = useState("");
+  const [shiftFilter, setShiftFilter] = useState("");
+  const [visitPurposeFilter, setVisitPurposeFilter] = useState("");
+  const [hostPersonFilter, setHostPersonFilter] = useState("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // ── Pagination State ──
@@ -113,6 +170,12 @@ export const UserAccessPanel = () => {
       if (courseFilter.trim()) params.course = courseFilter.trim();
       if (semesterFilter) params.semester = semesterFilter;
       if (hostelFilter) params.hostel = hostelFilter;
+      if (designationFilter.trim()) params.designation = designationFilter.trim();
+      if (jobTypeFilter.trim()) params.job_type = jobTypeFilter.trim();
+      if (workAreaFilter.trim()) params.work_area = workAreaFilter.trim();
+      if (shiftFilter.trim()) params.shift = shiftFilter.trim();
+      if (visitPurposeFilter.trim()) params.visit_purpose = visitPurposeFilter.trim();
+      if (hostPersonFilter.trim()) params.host_person = hostPersonFilter.trim();
 
       const res = await accessService.searchAccessUsers(params);
       setUsers(res.users || []);
@@ -141,6 +204,12 @@ export const UserAccessPanel = () => {
     courseFilter,
     semesterFilter,
     hostelFilter,
+    designationFilter,
+    jobTypeFilter,
+    workAreaFilter,
+    shiftFilter,
+    visitPurposeFilter,
+    hostPersonFilter,
   ]);
 
   useEffect(() => {
@@ -160,6 +229,37 @@ export const UserAccessPanel = () => {
     setCourseFilter("");
     setSemesterFilter("");
     setHostelFilter("");
+    setDesignationFilter("");
+    setJobTypeFilter("");
+    setWorkAreaFilter("");
+    setShiftFilter("");
+    setVisitPurposeFilter("");
+    setHostPersonFilter("");
+    setPage(1);
+  };
+
+  // Profile fields belong to a single person type.  Clear them when the type
+  // changes so a hidden filter can never affect the next role's results.
+  const handleUserTypeChange = (nextType) => {
+    setUserType(nextType);
+    // A role valid for the previous user type must never remain selected.
+    setRoleFilter("");
+    setShowAdvancedFilters(Boolean(nextType));
+    setDepartmentFilter("");
+    setCourseFilter("");
+    setSemesterFilter("");
+    setHostelFilter("");
+    setDesignationFilter("");
+    setJobTypeFilter("");
+    setWorkAreaFilter("");
+    setShiftFilter("");
+    setVisitPurposeFilter("");
+    setHostPersonFilter("");
+    setPage(1);
+  };
+
+  const updateRoleFilter = (setter) => (value) => {
+    setter(value);
     setPage(1);
   };
 
@@ -173,6 +273,12 @@ export const UserAccessPanel = () => {
     courseFilter,
     semesterFilter,
     hostelFilter,
+    designationFilter,
+    jobTypeFilter,
+    workAreaFilter,
+    shiftFilter,
+    visitPurposeFilter,
+    hostPersonFilter,
   ].filter(Boolean).length;
 
   const quickTypes = [
@@ -188,6 +294,12 @@ export const UserAccessPanel = () => {
     worker: "workers",
     visitor: "visitors",
   };
+  const availableRoleOptions = userType
+    ? roleOptionsByUserType[userType] || []
+    : allRoleOptions;
+  const rolePlaceholder = userType
+    ? `All ${typeLabel[userType]?.replace(/^./, (letter) => letter.toUpperCase()) || ""} Roles`
+    : "All Roles";
 
   // Helper for access badge
   const renderAccessStatus = (u) => {
@@ -240,10 +352,7 @@ export const UserAccessPanel = () => {
             <button
               key={type.id || "all"}
               type="button"
-              onClick={() => {
-                setUserType(type.id);
-                setPage(1);
-              }}
+              onClick={() => handleUserTypeChange(type.id)}
               className={`rounded-full px-3 py-1.5 text-xs font-bold border transition ${
                 userType === type.id
                   ? "bg-[#0a2342] text-white border-[#0a2342]"
@@ -331,16 +440,12 @@ export const UserAccessPanel = () => {
             </label>
             <select
               value={userType}
-              onChange={(e) => {
-                setUserType(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => handleUserTypeChange(e.target.value)}
               className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-amber-500"
             >
               <option value="">All Types</option>
               <option value="student">Student</option>
               <option value="faculty">Faculty</option>
-              <option value="staff">Staff</option>
               <option value="worker">Worker</option>
               <option value="visitor">Visitor</option>
             </select>
@@ -359,17 +464,10 @@ export const UserAccessPanel = () => {
               }}
               className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-amber-500"
             >
-              <option value="">All Roles</option>
-              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-              <option value="ADMIN">ADMIN</option>
-              <option value="SECURITY_ADMIN">SECURITY_ADMIN</option>
-              <option value="SECURITY_GUARD">SECURITY_GUARD</option>
-              <option value="WARDEN">WARDEN</option>
-              <option value="FACULTY">FACULTY</option>
-              <option value="STUDENT">STUDENT</option>
-              <option value="STAFF">STAFF</option>
-              <option value="WORKER">WORKER</option>
-              <option value="VISITOR">VISITOR</option>
+              <option value="">{rolePlaceholder}</option>
+              {availableRoleOptions.map((role) => (
+                <option key={role.value} value={role.value}>{role.label}</option>
+              ))}
             </select>
           </div>
 
@@ -394,140 +492,47 @@ export const UserAccessPanel = () => {
             </select>
           </div>
 
-          {/* Department */}
-          <div
-            className={
-              userType && !["student", "faculty", "worker"].includes(userType)
-                ? "hidden"
-                : ""
-            }
-          >
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1 block">
-              {userType === "faculty" ? "Faculty Department" : "Department"}
-            </label>
-            <select
-              value={departmentFilter}
-              onChange={(e) => {
-                setDepartmentFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-amber-500"
-            >
-              <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Campus / Location */}
-          <div>
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1 block">
-              Campus
-            </label>
-            <select
-              value={campusFilter}
-              onChange={(e) => {
-                setCampusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-amber-500"
-            >
-              <option value="">All Campuses</option>
-              {campuses.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Existing Access */}
-          <div>
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1 block">
-              Existing Access
-            </label>
-            <select
-              value={accessFilter}
-              onChange={(e) => {
-                setAccessFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-amber-500"
-            >
-              <option value="">All Access</option>
-              <option value="no_access">No Direct Grants</option>
-              <option value="partial">Has Direct Grants</option>
-              <option value="full">Full / Campus Admin</option>
-            </select>
-          </div>
+          
         </div>
 
-        {/* Collapsible Advanced Academic / Hostel Filters */}
-        {showAdvancedFilters && (userType === "student" || userType === "") && (
-          <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in bg-slate-50/60 p-3.5 rounded-xl">
-            {/* Course */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                Course / Program
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. B.Tech Computer Science"
-                value={courseFilter}
-                onChange={(e) => {
-                  setCourseFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white"
-              />
-            </div>
+        {/* Each profile type has its own fields. Selecting a type opens this section. */}
+        {showAdvancedFilters && userType && (
+          <div className="pt-3 border-t border-slate-100 animate-fade-in bg-slate-50/60 p-3.5 rounded-xl">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-3">
+              {userType} filters
+            </p>
 
-            {/* Semester */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                Semester / Year
-              </label>
-              <select
-                value={semesterFilter}
-                onChange={(e) => {
-                  setSemesterFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white"
-              >
-                <option value="">All Semesters</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                  <option key={s} value={s}>
-                    Semester {s} (Year {Math.ceil(s / 2)})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {userType === "student" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <FilterSelect label="Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
+                <FilterInput label="Course / Program" value={courseFilter} onChange={updateRoleFilter(setCourseFilter)} placeholder="e.g. B.Tech Computer Science" />
+                <FilterSelect label="Semester / Year" value={semesterFilter} onChange={updateRoleFilter(setSemesterFilter)} options={[1, 2, 3, 4, 5, 6, 7, 8].map(String)} optionLabel={(s) => `Semester ${s} (Year ${Math.ceil(Number(s) / 2)})`} />
+                <FilterSelect label="Residential Hostel" value={hostelFilter} onChange={updateRoleFilter(setHostelFilter)} options={hostels.map((h) => h.name)} />
+              </div>
+            )}
 
-            {/* Hostel */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                Residential Hostel
-              </label>
-              <select
-                value={hostelFilter}
-                onChange={(e) => {
-                  setHostelFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full text-xs py-2 px-2.5 rounded-lg border border-slate-200 bg-white"
-              >
-                <option value="">All Hostels</option>
-                {hostels.map((h) => (
-                  <option key={h.id} value={h.name}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {userType === "faculty" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FilterSelect label="Faculty Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
+                <FilterInput label="Designation" value={designationFilter} onChange={updateRoleFilter(setDesignationFilter)} placeholder="e.g. Professor" />
+              </div>
+            )}
+
+            {userType === "worker" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <FilterSelect label="Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
+                <FilterInput label="Job Type" value={jobTypeFilter} onChange={updateRoleFilter(setJobTypeFilter)} placeholder="e.g. Maintenance" />
+                <FilterInput label="Work Area" value={workAreaFilter} onChange={updateRoleFilter(setWorkAreaFilter)} placeholder="e.g. Library" />
+                <FilterInput label="Shift" value={shiftFilter} onChange={updateRoleFilter(setShiftFilter)} placeholder="e.g. Morning" />
+              </div>
+            )}
+
+            {userType === "visitor" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FilterInput label="Visit Purpose" value={visitPurposeFilter} onChange={updateRoleFilter(setVisitPurposeFilter)} placeholder="e.g. Admission enquiry" />
+                <FilterInput label="Host Person" value={hostPersonFilter} onChange={updateRoleFilter(setHostPersonFilter)} placeholder="Search by host name" />
+              </div>
+            )}
           </div>
         )}
       </div>

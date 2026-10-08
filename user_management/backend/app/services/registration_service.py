@@ -354,8 +354,8 @@ class RegistrationService:
                 INSERT INTO visitor_profiles (
                     user_id, full_name, gov_id_type, gov_id_number, visit_purpose,
                     host_person, host_contact, visit_start, visit_duration_days,
-                    valid_until, allowed_location_ids, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+                    valid_until, allowed_location_ids, accompanying_count, accompanying_details, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
                 ON CONFLICT (user_id) DO UPDATE SET
                     full_name = EXCLUDED.full_name,
                     gov_id_type = COALESCE(EXCLUDED.gov_id_type, visitor_profiles.gov_id_type),
@@ -367,10 +367,13 @@ class RegistrationService:
                     visit_duration_days = COALESCE(EXCLUDED.visit_duration_days, visitor_profiles.visit_duration_days),
                     valid_until = COALESCE(EXCLUDED.valid_until, visitor_profiles.valid_until),
                     allowed_location_ids = COALESCE(EXCLUDED.allowed_location_ids, visitor_profiles.allowed_location_ids),
+                    accompanying_count = EXCLUDED.accompanying_count,
+                    accompanying_details = EXCLUDED.accompanying_details,
                     updated_at = now()
                 """,
                 user_id, req.full_name, req.gov_id_type, req.gov_id_number, req.visit_purpose,
                 req.host_person, req.host_contact, v_start, duration, valid_until_dt, allowed_uuids,
+                max(0, req.accompanying_count or 0), (req.accompanying_details or "").strip(),
             )
 
             # Grant temporary access to allowed locations

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   SignIn,
   SignOut,
+  Sliders,
   Users,
   Warning,
   WarningCircle
@@ -24,6 +25,7 @@ import MovementHistoryTable from "../components/hostel/MovementHistoryTable";
 import EmergencyMode from "../components/hostel/EmergencyMode";
 import HostelStudentsList from "../components/hostel/HostelStudentsList";
 import WardenDirectoryTable from "../components/hostel/WardenDirectoryTable";
+import HostelAccessPolicyControls from "../components/hostel/HostelAccessPolicyControls";
 
 const HostelDashboard = () => {
   const { user, roles, fullName } = useAuth();
@@ -104,6 +106,7 @@ const HostelDashboard = () => {
     { id: "live", name: "Live Status", icon: ChartLineUp },
     { id: "permissions", name: "Leave & Permissions", icon: Clock },
     { id: "history", name: "Movement History", icon: SignOut },
+    { id: "gate-policy", name: "Gate & Curfew Policy", icon: Sliders },
     { id: "emergency", name: "Emergency Headcount", icon: Lifebuoy },
   ];
 
@@ -219,6 +222,7 @@ const HostelDashboard = () => {
         {activeTab === "history" && (
           <MovementHistoryTable hostelId={selectedHostel} />
         )}
+        {activeTab === "gate-policy" && <HostelAccessPolicyControls />}
         {activeTab === "emergency" && (
           <EmergencyMode hostelId={selectedHostel} />
         )}

@@ -250,7 +250,11 @@ export const Onboarding = () => {
           gov_id_type: p.gov_id_type,
           gov_id_number: p.gov_id_number,
           visit_purpose: p.visit_purpose,
+          host_person: p.host_person,
           host_contact: p.host_contact,
+          visit_duration_days: p.visit_duration_days,
+          accompanying_count: Number(p.accompanying_count) || 0,
+          accompanying_details: p.accompanying_details || "",
         });
       }
 

@@ -306,19 +306,6 @@ export const SecurityAdminDashboard = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab("conditions")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === "conditions"
-              ? "bg-white text-[#0a2342] shadow-xs font-black border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-          }`}
-        >
-          <Sliders size={16} weight={activeTab === "conditions" ? "fill" : "bold"} className="text-emerald-600" />
-          <span>Campus Security Conditions &amp; Curfew</span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveTab("incidents")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
             activeTab === "incidents"

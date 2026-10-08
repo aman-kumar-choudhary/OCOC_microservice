@@ -30,53 +30,29 @@ import {
 import EditUserModal from "@/components/EditUserModal";
 import UserStatusModal from "@/components/UserStatusModal";
 import Pagination from "@/components/common/Pagination";
-const courses = [
-  "B.Sc. IT",
-  "BCA",
-  "M.Sc. Data Science",
-  "MCA",
-  "BBA Tourism",
-  "MBA Tourism",
-  "B.A. Mass Comm",
-  "M.A. Mass Comm",
-  "B.Sc. Animation",
-  "M.Sc. Animation",
-  "BBA Rural Management",
-  "MBA Rural Management",
-  "B.Sc. Environmental Science",
-  "M.Sc. Environmental Science",
-  "B.Ed.",
-  "M.Ed.",
-  "B.A. Psychology",
-  "M.A. Clinical Psychology",
-  "B.A. English (Honors)",
-  "M.A. English",
-  "B.A. Sanskrit (Honors)",
-  "M.A. Sanskrit",
-  "B.A. Hindi (Honors)",
-  "M.A. History and Indian Culture",
-  "B.A. History (Honors)",
-  "B.A. Music (Vocal) (Honors)",
-  "M.A. Music (Vocal)",
-  "B.A. Music Instrumental Mridang/Tabla (Honors)",
-  "M.A. Music (Tabla, Pakhaawaj)",
-  "M.A. Hindu Studies",
-  "M.A. Philosophy",
-  "B.Sc. Yogic Science (Honors)",
-  "M.Sc. Yoga Therapy",
-  "M.A. Human Consciousness & Yogic Science",
-  "M.Sc. Human Consciousness & Yogic Science",
-  "P. G. Diploma Human Consciousness, Yoga & Alternative Therapy",
-  "Certificate In Yoga And Alternative Therapy",
-];
+import {
+  getCoursesForDepartment,
+  getCoursesForSchool,
+  getAllCourses,
+  SCHOOL_DEPARTMENTS,
+} from "@/utils/academicCatalog";
+
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8"];
 
 /* ─── Reusable mini-components ─────────────────────────────────────── */
 
-const Sel = ({ value, onChange, children, id, className = "" }) => (
+const Sel = ({
+  value,
+  onChange,
+  children,
+  id,
+  className = "",
+  disabled = false,
+}) => (
   <select
     id={id}
     value={value}
+    disabled={disabled}
     onChange={onChange}
     className={`h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-slate-800 transition appearance-auto ${className}`}
   >
@@ -110,6 +86,7 @@ export const UsersView = () => {
 
   const [dbDepartments, setDbDepartments] = useState([]);
   const [dbHostels, setDbHostels] = useState([]);
+  const [dbCourses, setDbCourses] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [viewTarget, setViewTarget] = useState(null);
@@ -131,10 +108,12 @@ export const UsersView = () => {
   });
 
   /* ── Derived data ── */
-  const schools = useMemo(
-    () => [...new Set(dbDepartments.map((d) => d.school).filter(Boolean))],
-    [dbDepartments],
-  );
+  const schools = useMemo(() => {
+    const fromDb = dbDepartments.map((d) => d.school).filter(Boolean);
+    const fromCatalog = Object.keys(SCHOOL_DEPARTMENTS);
+    return [...new Set([...fromDb, ...fromCatalog])].sort();
+  }, [dbDepartments]);
+
   const filteredDepartments = useMemo(
     () =>
       dbDepartments.filter(
@@ -142,6 +121,23 @@ export const UsersView = () => {
       ),
     [dbDepartments, filters.school],
   );
+
+  const availableCourses = useMemo(() => {
+    // If a specific department is selected: show only courses for that department
+    if (filters.department) {
+      const deptObj = dbDepartments.find(
+        (d) => d.name === filters.department || d.id === filters.department,
+      );
+      const deptName = deptObj?.name || filters.department;
+      return getCoursesForDepartment(deptName, dbCourses);
+    }
+    // If a school is selected (and department is "All Departments"): show only courses for that school
+    if (filters.school) {
+      return getCoursesForSchool(filters.school, dbDepartments, dbCourses);
+    }
+    // If neither is selected: keep course filter fully working by showing all courses
+    return getAllCourses(dbCourses);
+  }, [filters.school, filters.department, dbDepartments, dbCourses]);
 
   const hostelMap = useMemo(() => {
     const m = {};
@@ -171,7 +167,7 @@ export const UsersView = () => {
         console.error(e);
         setApiError(
           e.response?.data?.error?.message ||
-            "Failed to load users. Please try again.",
+          "Failed to load users. Please try again.",
         );
       } finally {
         setIsLoading(false);
@@ -186,8 +182,23 @@ export const UsersView = () => {
   useEffect(() => {
     userService.getDepartments().then(setDbDepartments).catch(console.error);
     userService.getHostels().then(setDbHostels).catch(console.error);
+    userService
+      .getCourses()
+      .then((data) => setDbCourses(data || []))
+      .catch(console.error);
     fetchUsers(1);
   }, []);
+
+  // Clear course filter if it's no longer valid for selected school/department
+  useEffect(() => {
+    if (
+      filters.course &&
+      availableCourses.length > 0 &&
+      !availableCourses.includes(filters.course)
+    ) {
+      setFilters((prev) => ({ ...prev, course: "" }));
+    }
+  }, [availableCourses, filters.course]);
 
   // Debounce search (skip initial mount)
   useEffect(() => {
@@ -224,6 +235,32 @@ export const UsersView = () => {
   const handleFilterChange = (updates) => {
     setFilters((prev) => ({ ...prev, ...updates }));
     setPage(1);
+  };
+
+  const handleSchoolFilterChange = (schoolVal) => {
+    handleFilterChange({
+      school: schoolVal,
+      department: "",
+      course: "",
+    });
+  };
+
+  const handleDepartmentFilterChange = (deptVal) => {
+    if (!deptVal) {
+      handleFilterChange({
+        department: "",
+        course: "",
+      });
+      return;
+    }
+    const deptObj = dbDepartments.find(
+      (d) => d.name === deptVal || d.id === deptVal,
+    );
+    handleFilterChange({
+      department: deptObj ? deptObj.name : deptVal,
+      school: deptObj?.school || filters.school,
+      course: "",
+    });
   };
 
   const clearFilters = () => {
@@ -355,7 +392,7 @@ export const UsersView = () => {
     } catch (e) {
       setImportError(
         e.response?.data?.error?.message ||
-          "Failed to import CSV. Please check the file and try again.",
+        "Failed to import CSV. Please check the file and try again.",
       );
     } finally {
       setImportLoading(false);
@@ -529,13 +566,7 @@ export const UsersView = () => {
             <Sel
               id="school-filter"
               value={filters.school}
-              onChange={(e) =>
-                handleFilterChange({
-                  school: e.target.value,
-                  department: "",
-                  course: "",
-                })
-              }
+              onChange={(e) => handleSchoolFilterChange(e.target.value)}
               className="w-full"
             >
               <option value="">All Schools</option>
@@ -547,27 +578,27 @@ export const UsersView = () => {
             </Sel>
 
             <Sel
+              id="department-filter"
               value={filters.department}
-              onChange={(e) =>
-                handleFilterChange({ department: e.target.value })
-              }
+              onChange={(e) => handleDepartmentFilterChange(e.target.value)}
               className="w-full"
             >
               <option value="">All Departments</option>
               {filteredDepartments.map((d) => (
-                <option key={d.id} value={d.id}>
+                <option key={d.id} value={d.name}>
                   {d.name}
                 </option>
               ))}
             </Sel>
 
             <Sel
+              id="course-filter"
               value={filters.course}
               onChange={(e) => handleFilterChange({ course: e.target.value })}
               className="w-full"
             >
               <option value="">All Courses</option>
-              {courses.map((c) => (
+              {availableCourses.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -1072,7 +1103,7 @@ export const UsersView = () => {
                       </div>
                       <div>
                         <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
-                          Course
+                          Program
                         </p>
                         <p className="text-sm">
                           {viewTarget.profile?.course || "—"}
@@ -1121,7 +1152,7 @@ export const UsersView = () => {
                           <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700">
                             <House size={13} className="text-slate-500" />
                             {viewTarget.profile?.hostel_id &&
-                            hostelMap[viewTarget.profile.hostel_id]
+                              hostelMap[viewTarget.profile.hostel_id]
                               ? hostelMap[viewTarget.profile.hostel_id]
                               : "Hostel Resident"}
                           </span>
@@ -1136,27 +1167,27 @@ export const UsersView = () => {
 
                   {(viewTarget.user_type === "faculty" ||
                     viewTarget.user_type === "worker") && (
-                    <>
-                      <div className="col-span-2">
-                        <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
-                          Designation
-                        </p>
-                        <p className="text-sm">
-                          {viewTarget.profile?.designation || "—"}
-                        </p>
-                      </div>
-                      {viewTarget.user_type === "faculty" && (
+                      <>
                         <div className="col-span-2">
                           <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
-                            Department
+                            Designation
                           </p>
                           <p className="text-sm">
-                            {viewTarget.profile?.department || "—"}
+                            {viewTarget.profile?.designation || "—"}
                           </p>
                         </div>
-                      )}
-                    </>
-                  )}
+                        {viewTarget.user_type === "faculty" && (
+                          <div className="col-span-2">
+                            <p className="text-[11px] font-bold text-[var(--text-muted)] mb-1">
+                              Department
+                            </p>
+                            <p className="text-sm">
+                              {viewTarget.profile?.department || "—"}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
 
                   {viewTarget.user_type === "visitor" && (
                     <>
@@ -1176,6 +1207,21 @@ export const UsersView = () => {
                           {viewTarget.profile?.host_contact || "—"}
                         </p>
                       </div>
+                      {Number(viewTarget.profile?.accompanying_count || 0) > 0 && (
+                        <div className="col-span-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                          <p className="text-[11px] font-bold text-amber-800 mb-0.5">
+                            Accompanying Persons / साथ आए लोग
+                          </p>
+                          <p className="text-sm font-semibold text-slate-800">
+                            +{viewTarget.profile.accompanying_count} persons (Total {Number(viewTarget.profile.accompanying_count) + 1} Entry)
+                          </p>
+                          {viewTarget.profile.accompanying_details && (
+                            <p className="text-xs text-slate-600 mt-1">
+                              Details: {viewTarget.profile.accompanying_details}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

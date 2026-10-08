@@ -460,11 +460,10 @@ export const Register = () => {
                       key={preset.id}
                       type="button"
                       onClick={() => handleSelectPreset(preset.id)}
-                      className={`flex items-center gap-2 p-2 rounded-lg border text-left text-xs font-semibold transition ${
-                        isActive
-                          ? "border-[#d99e00] bg-gradient-to-r from-[#f5bd19]/20 to-[#f5bd19]/10 text-[#0a2342] font-bold shadow-xs"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
+                      className={`flex items-center gap-2 p-2 rounded-lg border text-left text-xs font-semibold transition ${isActive
+                        ? "border-[#d99e00] bg-gradient-to-r from-[#f5bd19]/20 to-[#f5bd19]/10 text-[#0a2342] font-bold shadow-xs"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
                     >
                       <Icon
                         size={16}
@@ -504,11 +503,10 @@ export const Register = () => {
                           key={key}
                           type="button"
                           onClick={() => toggleRole(key)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition border ${
-                            checked
-                              ? "bg-[#0a2342] text-amber-400 border-[#0a2342]"
-                              : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
-                          }`}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition border ${checked
+                            ? "bg-[#0a2342] text-amber-400 border-[#0a2342]"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                            }`}
                         >
                           {checked ? (
                             <CheckSquare size={13} />
@@ -567,7 +565,7 @@ export const Register = () => {
                         type="email"
                         required
                         className="form-input pl-9 text-xs"
-                        placeholder="user@ococ.edu"
+                        placeholder="[EMAIL_ADDRESS]"
                         disabled={isLoading}
                       />
                     </div>
@@ -699,7 +697,7 @@ export const Register = () => {
                         type="text"
                         required
                         className="form-input text-xs"
-                        placeholder="e.g. B.Tech Computer Science"
+                        placeholder="Program Name"
                         disabled={isLoading}
                       />
                     </div>
@@ -748,7 +746,7 @@ export const Register = () => {
                         type="text"
                         required
                         className="form-input text-xs"
-                        placeholder="2024-2028"
+                        placeholder="Year"
                         disabled={isLoading}
                       />
                     </div>
@@ -1199,7 +1197,7 @@ export const Register = () => {
                           type="text"
                           required
                           className="form-input pl-9 text-xs font-mono"
-                          placeholder="e.g. 5678 1234 9012"
+                          placeholder="number"
                           disabled={isLoading}
                         />
                       </div>
@@ -1222,7 +1220,7 @@ export const Register = () => {
                           type="text"
                           required
                           className="form-input pl-9 text-xs"
-                          placeholder="e.g. Dr. Rajesh Verma"
+                          placeholder="Name"
                           disabled={isLoading}
                         />
                       </div>
@@ -1305,11 +1303,10 @@ export const Register = () => {
                             key={loc.id}
                             type="button"
                             onClick={() => toggleLocationSelection(loc.id)}
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold border transition ${
-                              isChecked
-                                ? "bg-orange-500 text-white border-orange-600 shadow-2xs"
-                                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                            }`}
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold border transition ${isChecked
+                              ? "bg-orange-500 text-white border-orange-600 shadow-2xs"
+                              : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                              }`}
                           >
                             {isChecked ? "✓ " : "+ "}
                             {loc.name}

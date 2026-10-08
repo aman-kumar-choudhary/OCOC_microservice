@@ -195,7 +195,7 @@ def main():
         "SECURITY_ADMIN",
         "VIEWER",
         "STUDENT",
-        "FACULTY",
+        "FACULTY    ",
         "SECURITY_GUARD",
         "STAFF",
         "WORKER",

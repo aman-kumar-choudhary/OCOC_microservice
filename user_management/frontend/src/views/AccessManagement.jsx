@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ChartLineUp,
   Clock,
@@ -17,6 +17,7 @@ import userService from "@/services/userService";
 import { roleService } from "@/services/miscService";
 import UserAccessPanel from "@/components/access/UserAccessPanel";
 import Pagination from "@/components/common/Pagination";
+import DownwardSelect from "@/components/common/DownwardSelect";
 
 export const AccessManagement = () => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export const AccessManagement = () => {
   const [roles, setRoles] = useState([]);
 
   const [users, setUsers] = useState([]);
+  const [userPickerOptions, setUserPickerOptions] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [selectedAccessUser, setSelectedAccessUser] = useState("");
   const [selectedRoles, setSelectedRoles] = useState([]);
@@ -101,7 +103,7 @@ export const AccessManagement = () => {
         accessService.getRules(),
         accessService.getTemporaryGrants(),
         accessService.getEvents({ limit: 20, only_denied: true }),
-        userService.list({ limit: 1000 }),
+        userService.list({ limit: 50 }),
         accessService.getRuleStats(),
         accessService.getDevices(),
         accessService.getGroups(),
@@ -124,6 +126,30 @@ export const AccessManagement = () => {
       setLoading(false);
     }
   };
+
+  const searchUsersForPicker = useCallback(async (search) => {
+    if (!search) {
+      setUserPickerOptions([]);
+      return;
+    }
+
+    try {
+      const result = await accessService.searchAccessUsers({
+        search,
+        page: 1,
+        page_size: 25,
+      });
+      setUserPickerOptions(
+        (result.users || []).map((user) => ({
+          value: user.id,
+          label: `${user.full_name || user.email} — ${user.email}`,
+        })),
+      );
+    } catch (error) {
+      console.error("Could not search users for access selection", error);
+      setUserPickerOptions([]);
+    }
+  }, []);
 
   const loadUserAccess = async (userId) => {
     setSelectedAccessUser(userId);
@@ -258,6 +284,14 @@ export const AccessManagement = () => {
   const getLocationName = (id) =>
     locations.find((l) => l.id === id)?.name || "All Campus";
   const getUserName = (id) => users.find((u) => u.id === id)?.email || id;
+
+  const locationOptions = useMemo(
+    () => locations.map((location) => ({
+      value: location.id,
+      label: location.name,
+    })),
+    [locations],
+  );
 
   const paginatedRules = useMemo(() => {
     const start = (rulePage - 1) * rulePageSize;
@@ -477,88 +511,74 @@ export const AccessManagement = () => {
               <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
                 Subject Type
               </label>
-              <select
+              <DownwardSelect
                 value={ruleForm.subject_type}
-                onChange={(e) => {
-                  const subject_type = e.target.value;
+                onChange={(subject_type) => {
                   setRuleForm({
                     ...ruleForm,
                     subject_type,
                     subject_id: subject_type === "role" ? "student" : "",
                   });
                 }}
-                className="h-10 w-full rounded-lg border px-3 text-sm"
-              >
-                <option value="role">Role</option>
-                <option value="group">Group</option>
-                <option value="user">Specific User</option>
-                <option value="all">Everyone</option>
-              </select>
+                className="h-10"
+                ariaLabel="Subject type"
+                options={[
+                  { value: "role", label: "Role" },
+                  { value: "group", label: "Group" },
+                  { value: "user", label: "Specific User" },
+                  { value: "all", label: "Everyone" },
+                ]}
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
                 Subject Target
               </label>
               {ruleForm.subject_type === "role" ? (
-                <select
-                  required
+                <DownwardSelect
                   value={ruleForm.subject_id}
-                  onChange={(e) =>
-                    setRuleForm({ ...ruleForm, subject_id: e.target.value })
-                  }
-                  className="h-10 w-full rounded-lg border px-3 text-sm"
-                >
-                  <option value="">Select role</option>
-                  {["student", "faculty", "worker", "visitor"].map((role) => (
-                    <option key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </option>
-                  ))}
-                  {roles
-                    .filter(
-                      (role) =>
-                        !["student", "faculty", "worker", "visitor"].includes(
-                          role.name.toLowerCase(),
-                        ),
-                    )
-                    .map((role) => (
-                      <option key={role.id} value={role.name}>
-                        {role.name}
-                      </option>
-                    ))}
-                </select>
+                  onChange={(subject_id) => setRuleForm({ ...ruleForm, subject_id })}
+                  className="h-10"
+                  placeholder="Select role"
+                  ariaLabel="Subject role"
+                  required
+                  options={[
+                    { value: "", label: "Select role" },
+                    ...["student", "faculty", "worker", "visitor"].map((role) => ({
+                      value: role,
+                      label: role.charAt(0).toUpperCase() + role.slice(1),
+                    })),
+                    ...roles
+                      .filter((role) => !["student", "faculty", "worker", "visitor"].includes(role.name.toLowerCase()))
+                      .map((role) => ({ value: role.name, label: role.name })),
+                  ]}
+                />
               ) : ruleForm.subject_type === "group" ? (
-                <select
-                  required
+                <DownwardSelect
                   value={ruleForm.subject_id}
-                  onChange={(e) =>
-                    setRuleForm({ ...ruleForm, subject_id: e.target.value })
-                  }
-                  className="h-10 w-full rounded-lg border px-3 text-sm"
-                >
-                  <option value="">Select group</option>
-                  {groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(subject_id) => setRuleForm({ ...ruleForm, subject_id })}
+                  className="h-10"
+                  placeholder="Select group"
+                  ariaLabel="Subject group"
+                  required
+                  options={[
+                    { value: "", label: "Select group" },
+                    ...groups.map((group) => ({ value: group.id, label: group.name })),
+                  ]}
+                />
               ) : ruleForm.subject_type === "user" ? (
-                <select
-                  required
+                <DownwardSelect
                   value={ruleForm.subject_id}
-                  onChange={(e) =>
-                    setRuleForm({ ...ruleForm, subject_id: e.target.value })
-                  }
-                  className="h-10 w-full rounded-lg border px-3 text-sm"
-                >
-                  <option value="">Select user</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.profile?.full_name || user.email} — {user.email}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(subject_id) => setRuleForm({ ...ruleForm, subject_id })}
+                  className="h-10"
+                  placeholder="Select user"
+                  ariaLabel="Subject user"
+                  required
+                  options={userPickerOptions}
+                  searchable
+                  searchPlaceholder="Search by name, email, ID, or phone..."
+                  onSearch={searchUsersForPicker}
+                />
               ) : (
                 <input
                   value="Everyone"
@@ -573,40 +593,34 @@ export const AccessManagement = () => {
             <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
               Location / Zone
             </label>
-            <select
+            <DownwardSelect
               value={ruleForm.location_id}
-              onChange={(e) =>
-                setRuleForm({ ...ruleForm, location_id: e.target.value })
-              }
-              className="h-10 w-full rounded-lg border px-3 text-sm"
-            >
-              <option value="">All Locations (Global)</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} ({l.type})
-                </option>
-              ))}
-            </select>
+              onChange={(location_id) => setRuleForm({ ...ruleForm, location_id })}
+              className="h-10"
+              placeholder="All Locations (Global)"
+              ariaLabel="Location or zone"
+              options={[{ value: "", label: "All Locations (Global)" }, ...locationOptions]}
+            />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
               Reader (optional)
             </label>
-            <select
+            <DownwardSelect
               value={ruleForm.device_id}
-              onChange={(e) =>
-                setRuleForm({ ...ruleForm, device_id: e.target.value })
-              }
-              className="h-10 w-full rounded-lg border px-3 text-sm"
-            >
-              <option value="">Any reader in this zone</option>
-              {devices.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.mac_address} — {d.location_name || "Unassigned"} ({d.type})
-                </option>
-              ))}
-            </select>
+              onChange={(device_id) => setRuleForm({ ...ruleForm, device_id })}
+              className="h-10"
+              placeholder="Any reader in this zone"
+              ariaLabel="Reader"
+              options={[
+                { value: "", label: "Any reader in this zone" },
+                ...devices.map((device) => ({
+                  value: device.id,
+                  label: `${device.mac_address} — ${device.location_name || "Unassigned"} (${device.type})`,
+                })),
+              ]}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -704,16 +718,16 @@ export const AccessManagement = () => {
             <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
               Effect
             </label>
-            <select
+            <DownwardSelect
               value={ruleForm.effect}
-              onChange={(e) =>
-                setRuleForm({ ...ruleForm, effect: e.target.value })
-              }
-              className="h-10 w-full rounded-lg border px-3 text-sm font-bold"
-            >
-              <option value="ALLOW">ALLOW Access</option>
-              <option value="DENY">DENY Access</option>
-            </select>
+              onChange={(effect) => setRuleForm({ ...ruleForm, effect })}
+              className="h-10"
+              ariaLabel="Access effect"
+              options={[
+                { value: "ALLOW", label: "ALLOW Access" },
+                { value: "DENY", label: "DENY Access" },
+              ]}
+            />
           </div>
 
           <div className="pt-4 flex justify-end">
@@ -739,42 +753,33 @@ export const AccessManagement = () => {
                 <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
                   User
                 </label>
-                <select
-                  required
+                <DownwardSelect
                   value={grantForm.user_id}
-                  onChange={(e) =>
-                    setGrantForm({ ...grantForm, user_id: e.target.value })
-                  }
-                  className="h-9 w-full rounded-lg border px-3 text-sm"
-                >
-                  <option value="">Select User...</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.email}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(user_id) => setGrantForm({ ...grantForm, user_id })}
+                  className="h-9"
+                  placeholder="Select User..."
+                  ariaLabel="User"
+                  required
+                  options={userPickerOptions}
+                  searchable
+                  searchPlaceholder="Search by name, email, ID, or phone..."
+                  onSearch={searchUsersForPicker}
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">
                   Zone / Location
                 </label>
-                <select
-                  required
+                <DownwardSelect
                   value={grantForm.location_id}
-                  onChange={(e) =>
-                    setGrantForm({ ...grantForm, location_id: e.target.value })
-                  }
-                  className="h-9 w-full rounded-lg border px-3 text-sm"
-                >
-                  <option value="">Select Location...</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(location_id) => setGrantForm({ ...grantForm, location_id })}
+                  className="h-9"
+                  placeholder="Select Location..."
+                  ariaLabel="Zone or location"
+                  required
+                  options={[{ value: "", label: "Select Location..." }, ...locationOptions]}
+                />
               </div>
 
               <div>

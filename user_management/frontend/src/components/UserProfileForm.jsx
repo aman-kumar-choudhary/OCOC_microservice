@@ -963,7 +963,7 @@ export const UserProfileForm = ({
                 value={profile.host_contact || ""}
                 onChange={(e) => updateField("host_contact", e.target.value)}
                 className="form-input"
-                placeholder="e.g. rajesh.faculty@ococ.edu"
+                placeholder="phone number"
               />
             </div>
 
@@ -985,6 +985,65 @@ export const UserProfileForm = ({
               </select>
             </div>
 
+            <div className="form-group">
+              <label className="form-label">No. of People</label>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                placeholder="0"
+                value={profile.accompanying_count === 0 ? "" : (profile.accompanying_count ?? "")}
+                onChange={(e) => {
+                  const num = Math.max(0, Math.min(20, parseInt(e.target.value, 10) || 0));
+                  const currentList = profile.accompanying_details ? profile.accompanying_details.split(/,\s*/) : [];
+                  let nextList;
+                  if (num > currentList.length) {
+                    nextList = [...currentList, ...Array(num - currentList.length).fill("")];
+                  } else {
+                    nextList = currentList.slice(0, num);
+                  }
+                  updateField("accompanying_count", num);
+                  updateField("accompanying_details", nextList.join(", "));
+                }}
+                className="form-input"
+              />
+            </div>
+
+            {(Number(profile.accompanying_count) || 0) === 0 && (
+              <div className="form-group">
+                <label className="form-label text-slate-400">Person Name(s)</label>
+                <input
+                  type="text"
+                  disabled
+                  placeholder="Solo visitor (Enter No. of People to add names)"
+                  className="form-input bg-slate-50 text-slate-400 cursor-not-allowed"
+                />
+              </div>
+            )}
+
+            {Array.from({ length: Number(profile.accompanying_count) || 0 }).map((_, idx) => {
+              const namesList = profile.accompanying_details ? profile.accompanying_details.split(/,\s*/) : [];
+              const currentName = namesList[idx] || "";
+              return (
+                <div key={idx} className="form-group">
+                  <label className="form-label">Person {idx + 1} Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={`Enter Person ${idx + 1} Full Name`}
+                    value={currentName}
+                    onChange={(e) => {
+                      const updated = [...namesList];
+                      while (updated.length <= idx) updated.push("");
+                      updated[idx] = e.target.value;
+                      updateField("accompanying_details", updated.join(", "));
+                    }}
+                    className="form-input"
+                  />
+                </div>
+              );
+            })}
+
             <div className="form-group sm:col-span-2 xl:col-span-3">
               <label className="form-label">Allowed Campus Locations</label>
               <div className="flex flex-wrap gap-2 p-2.5 rounded-lg border border-[var(--border-light)] bg-white max-h-28 overflow-y-auto">
@@ -1001,11 +1060,10 @@ export const UserProfileForm = ({
                           : [...locIds, loc.id];
                         updateField("allowed_location_ids", updated);
                       }}
-                      className={`px-2.5 py-1 rounded text-xs font-bold border transition ${
-                        isChecked
+                      className={`px-2.5 py-1 rounded text-xs font-bold border transition ${isChecked
                           ? "bg-orange-500 text-white border-orange-600"
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       {isChecked ? "✓ " : "+ "}
                       {loc.name}

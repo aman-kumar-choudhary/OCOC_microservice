@@ -334,6 +334,8 @@ class GuardVisitorRegisterRequest(BaseModel):
     assigned_card_uid: Optional[str] = None
     event_name: Optional[str] = None
     notes: Optional[str] = None
+    accompanying_count: Optional[int] = Field(default=0, ge=0, le=100)
+    accompanying_details: Optional[str] = Field(default=None, max_length=1000)
 
 
 class AssignGuardDutyRequest(BaseModel):

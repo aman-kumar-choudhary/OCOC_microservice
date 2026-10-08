@@ -408,11 +408,10 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
           <button
             type="button"
             onClick={() => setActiveTab("profile")}
-            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
-              activeTab === "profile"
-                ? "border-[#0a2342] text-[#0a2342] font-black"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${activeTab === "profile"
+              ? "border-[#0a2342] text-[#0a2342] font-black"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
           >
             <UserCircle size={16} weight={activeTab === "profile" ? "fill" : "bold"} />
             <span>Profile &amp; Demographics</span>
@@ -421,11 +420,10 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
           <button
             type="button"
             onClick={() => setActiveTab("photo")}
-            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
-              activeTab === "photo"
-                ? "border-[#0a2342] text-[#0a2342] font-black"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${activeTab === "photo"
+              ? "border-[#0a2342] text-[#0a2342] font-black"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
           >
             <Camera size={16} weight={activeTab === "photo" ? "fill" : "bold"} />
             <span>Passport Photo</span>
@@ -434,11 +432,10 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
           <button
             type="button"
             onClick={() => setActiveTab("face")}
-            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
-              activeTab === "face"
-                ? "border-[#0a2342] text-[#0a2342] font-black"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${activeTab === "face"
+              ? "border-[#0a2342] text-[#0a2342] font-black"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
           >
             <Scan size={16} weight={activeTab === "face" ? "fill" : "bold"} />
             <span>Face Biometrics (5 Poses)</span>
@@ -447,11 +444,10 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
           <button
             type="button"
             onClick={() => setActiveTab("rfid")}
-            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
-              activeTab === "rfid"
-                ? "border-[#0a2342] text-[#0a2342] font-black"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${activeTab === "rfid"
+              ? "border-[#0a2342] text-[#0a2342] font-black"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
           >
             <CreditCard size={16} weight={activeTab === "rfid" ? "fill" : "bold"} />
             <span>RFID Credential</span>
@@ -481,7 +477,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                       value={formData.profile.full_name}
                       onChange={(e) => updateProfileField("full_name", e.target.value)}
                       className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                      placeholder="e.g. Aman Kumar"
+                      placeholder="Name"
                     />
                   </div>
 
@@ -512,7 +508,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.phone}
                         onChange={(e) => updateField("phone", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 pl-10 pr-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. +91 9876543210"
+                        placeholder="e.g. +91"
                       />
                     </div>
                   </div>
@@ -528,7 +524,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.emergency_contact || ""}
                         onChange={(e) => updateProfileField("emergency_contact", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 pl-10 pr-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. +91 9876500000"
+                        placeholder="e.g. +91"
                       />
                     </div>
                   </div>
@@ -559,7 +555,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                           value={formData.profile.roll_number || ""}
                           onChange={(e) => updateProfileField("roll_number", e.target.value)}
                           className="w-full h-10 rounded-xl border border-slate-200 pl-10 pr-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                          placeholder="e.g. 22BCA042"
+                          placeholder="id"
                         />
                       </div>
                     </div>
@@ -591,7 +587,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.course || ""}
                         onChange={(e) => updateProfileField("course", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. BCA"
+                        placeholder="program name"
                       />
                     </div>
 
@@ -633,7 +629,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.employee_id || ""}
                         onChange={(e) => updateProfileField("employee_id", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. FAC-2024-01"
+                        placeholder="id"
                       />
                     </div>
 
@@ -646,7 +642,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.designation || ""}
                         onChange={(e) => updateProfileField("designation", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. Assistant Professor"
+                        placeholder="text"
                       />
                     </div>
 
@@ -681,7 +677,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.employee_id || ""}
                         onChange={(e) => updateProfileField("employee_id", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. WRK-2024-01"
+                        placeholder=""
                       />
                     </div>
                     <div>
@@ -746,7 +742,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.host_person || ""}
                         onChange={(e) => updateProfileField("host_person", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. Dr. Sharma"
+                        placeholder="Name"
                       />
                     </div>
                     <div>
@@ -758,9 +754,73 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                         value={formData.profile.host_contact || ""}
                         onChange={(e) => updateProfileField("host_contact", e.target.value)}
                         className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                        placeholder="e.g. +91 9876543210"
+                        placeholder="phone number"
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        No. of People
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        placeholder="0"
+                        value={formData.profile.accompanying_count === 0 ? "" : (formData.profile.accompanying_count ?? "")}
+                        onChange={(e) => {
+                          const num = Math.max(0, Math.min(20, parseInt(e.target.value, 10) || 0));
+                          const currentList = formData.profile.accompanying_details ? formData.profile.accompanying_details.split(/,\s*/) : [];
+                          let nextList;
+                          if (num > currentList.length) {
+                            nextList = [...currentList, ...Array(num - currentList.length).fill("")];
+                          } else {
+                            nextList = currentList.slice(0, num);
+                          }
+                          updateProfileField("accompanying_count", num);
+                          updateProfileField("accompanying_details", nextList.join(", "));
+                        }}
+                        className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                      />
+                    </div>
+
+                    {(Number(formData.profile.accompanying_count) || 0) === 0 && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1">
+                          Person Name(s)
+                        </label>
+                        <input
+                          type="text"
+                          disabled
+                          placeholder="Solo visitor (Enter No. of People to add names)"
+                          className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-400 bg-slate-50 cursor-not-allowed"
+                        />
+                      </div>
+                    )}
+
+                    {Array.from({ length: Number(formData.profile.accompanying_count) || 0 }).map((_, idx) => {
+                      const namesList = formData.profile.accompanying_details ? formData.profile.accompanying_details.split(/,\s*/) : [];
+                      const currentName = namesList[idx] || "";
+                      return (
+                        <div key={idx}>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Person {idx + 1} Name *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder={`Enter Person ${idx + 1} Full Name`}
+                            value={currentName}
+                            onChange={(e) => {
+                              const updated = [...namesList];
+                              while (updated.length <= idx) updated.push("");
+                              updated[idx] = e.target.value;
+                              updateProfileField("accompanying_details", updated.join(", "));
+                            }}
+                            className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -817,7 +877,7 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                       value={formData.profile.guardian_contact || ""}
                       onChange={(e) => updateProfileField("guardian_contact", e.target.value)}
                       className="w-full h-10 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#f5bd19] transition"
-                      placeholder="e.g. +91 9876543210"
+                      placeholder="phone number "
                     />
                   </div>
                 </div>
@@ -927,13 +987,12 @@ export const EditUserModal = ({ user, onClose, onSaved }) => {
                     key={pose.key}
                     type="button"
                     onClick={() => setCurrentPoseIdx(idx)}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all w-24 ${
-                      idx === currentPoseIdx
-                        ? "border-[#f5bd19] bg-[#f5bd19]/10 shadow-xs scale-105"
-                        : pose.file
-                          ? "border-emerald-500/60 bg-emerald-50/70"
-                          : "border-slate-200 bg-slate-50"
-                    }`}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all w-24 ${idx === currentPoseIdx
+                      ? "border-[#f5bd19] bg-[#f5bd19]/10 shadow-xs scale-105"
+                      : pose.file
+                        ? "border-emerald-500/60 bg-emerald-50/70"
+                        : "border-slate-200 bg-slate-50"
+                      }`}
                   >
                     <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center text-xs font-bold bg-white">
                       {pose.preview ? (

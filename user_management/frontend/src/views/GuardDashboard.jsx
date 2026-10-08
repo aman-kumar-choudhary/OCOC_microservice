@@ -64,6 +64,9 @@ export const GuardDashboard = () => {
     notes: "",
     valid_from: "",
     valid_until: "",
+    accompanying_count: 0,
+    accompanying_details: "",
+    accompanying_persons: [],
   });
   const [issuedPassReceipt, setIssuedPassReceipt] = useState(null);
   const [submittingVisitor, setSubmittingVisitor] = useState(false);
@@ -224,6 +227,50 @@ export const GuardDashboard = () => {
     }
   };
 
+  // Accompanying persons handlers
+  const handleAccompanyingCountChange = (val) => {
+    const num = Math.max(0, Math.min(20, parseInt(val, 10) || 0));
+    setVisitorForm((prev) => {
+      const currentList = prev.accompanying_persons || [];
+      let nextList;
+      if (num > currentList.length) {
+        nextList = [...currentList, ...Array(num - currentList.length).fill("")];
+      } else {
+        nextList = currentList.slice(0, num);
+      }
+      return {
+        ...prev,
+        accompanying_count: num,
+        accompanying_persons: nextList,
+        accompanying_details: nextList.filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const handlePersonNameChange = (index, name) => {
+    setVisitorForm((prev) => {
+      const updated = [...(prev.accompanying_persons || [])];
+      updated[index] = name;
+      return {
+        ...prev,
+        accompanying_persons: updated,
+        accompanying_details: updated.filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const handleRemovePerson = (index) => {
+    setVisitorForm((prev) => {
+      const updated = (prev.accompanying_persons || []).filter((_, i) => i !== index);
+      return {
+        ...prev,
+        accompanying_count: updated.length,
+        accompanying_persons: updated,
+        accompanying_details: updated.filter(Boolean).join(", "),
+      };
+    });
+  };
+
   // Visitor Onboarding Submit
   const handleRegisterVisitor = async (e) => {
     e.preventDefault();
@@ -231,10 +278,25 @@ export const GuardDashboard = () => {
       alert("Please provide visitor name and contact number.");
       return;
     }
+
+    const accCount = Number(visitorForm.accompanying_count) || 0;
+    if (accCount > 0) {
+      const persons = visitorForm.accompanying_persons || [];
+      for (let i = 0; i < accCount; i++) {
+        if (!persons[i] || !persons[i].trim()) {
+          alert(`Please enter Person ${i + 1} name.`);
+          return;
+        }
+      }
+    }
+
     setSubmittingVisitor(true);
     try {
+      const details = (visitorForm.accompanying_persons || []).filter(Boolean).join(", ");
       const payload = {
         ...visitorForm,
+        accompanying_count: accCount,
+        accompanying_details: details,
         pass_type: visitorPassType,
       };
       if (visitorPassType === "TEMPORARY_DAY") {
@@ -260,6 +322,9 @@ export const GuardDashboard = () => {
         notes: "",
         valid_from: "",
         valid_until: "",
+        accompanying_count: 0,
+        accompanying_details: "",
+        accompanying_persons: [],
       });
       fetchVisitors();
       setActionMessage({
@@ -398,13 +463,12 @@ export const GuardDashboard = () => {
       {/* Notification Toast */}
       {actionMessage && (
         <div
-          className={`px-4 py-2.5 rounded-lg border text-xs font-medium flex items-center justify-between transition-all ${
-            actionMessage.type === "error"
-              ? "bg-rose-50 text-rose-800 border-rose-200"
-              : actionMessage.type === "loading"
-                ? "bg-slate-50 text-slate-800 border-slate-200"
-                : "bg-emerald-50 text-emerald-800 border-emerald-200"
-          }`}
+          className={`px-4 py-2.5 rounded-lg border text-xs font-medium flex items-center justify-between transition-all ${actionMessage.type === "error"
+            ? "bg-rose-50 text-rose-800 border-rose-200"
+            : actionMessage.type === "loading"
+              ? "bg-slate-50 text-slate-800 border-slate-200"
+              : "bg-emerald-50 text-emerald-800 border-emerald-200"
+            }`}
         >
           <span>{actionMessage.text}</span>
           <button
@@ -455,11 +519,10 @@ export const GuardDashboard = () => {
               {overdueCount}
             </div>
           </div>
-          <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${
-            overdueCount > 0
-              ? "bg-rose-50 border-rose-200 text-rose-600"
-              : "bg-slate-50 border-slate-100 text-slate-400"
-          }`}>
+          <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${overdueCount > 0
+            ? "bg-rose-50 border-rose-200 text-rose-600"
+            : "bg-slate-50 border-slate-100 text-slate-400"
+            }`}>
             <Warning size={18} />
           </div>
         </div>
@@ -484,11 +547,10 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("students")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-            activeTab === "students"
-              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === "students"
+            ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+            : "text-slate-600 hover:text-slate-900"
+            }`}
         >
           <Door size={15} />
           <span>Student Gate Passes</span>
@@ -500,11 +562,10 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("visitors")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-            activeTab === "visitors"
-              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === "visitors"
+            ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+            : "text-slate-600 hover:text-slate-900"
+            }`}
         >
           <IdentificationBadge size={15} />
           <span>Visitor Onboarding &amp; Day Passes</span>
@@ -516,11 +577,10 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("freco")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-            activeTab === "freco"
-              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === "freco"
+            ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+            : "text-slate-600 hover:text-slate-900"
+            }`}
         >
           <Camera size={15} />
           <span>Turnstile Camera &amp; Live Events</span>
@@ -534,11 +594,10 @@ export const GuardDashboard = () => {
         <button
           type="button"
           onClick={() => setActiveTab("alerts")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-            activeTab === "alerts"
-              ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === "alerts"
+            ? "bg-white text-slate-900 shadow-xs font-semibold border border-slate-200/60"
+            : "text-slate-600 hover:text-slate-900"
+            }`}
         >
           <Warning size={15} />
           <span>Security Alarms</span>
@@ -655,11 +714,10 @@ export const GuardDashboard = () => {
                         {/* Current Location */}
                         <td className="px-4 py-2.5">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${
-                              isOutside
-                                ? "bg-amber-50 text-amber-800 border-amber-200"
-                                : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            }`}
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${isOutside
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              }`}
                           >
                             {isOutside ? <SignOut size={12} /> : <SignIn size={12} />}
                             {s.current_status?.replace("_", " ") || "INSIDE"}
@@ -810,6 +868,16 @@ export const GuardDashboard = () => {
                         <td className="px-4 py-2.5">
                           <p className="font-semibold text-slate-900">{v.full_name}</p>
                           <p className="text-[11px] text-slate-500 font-mono">{v.phone}</p>
+                          {Number(v.accompanying_count || 0) > 0 && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                                title={v.accompanying_details ? `With: ${v.accompanying_details}` : `+${v.accompanying_count} accompanying`}
+                              >
+                                <Users size={11} /> +{v.accompanying_count} sath ({v.total_persons || Number(v.accompanying_count) + 1} total)
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-2.5">
                           <span className="font-medium text-slate-800">{v.visit_purpose}</span>
@@ -833,11 +901,10 @@ export const GuardDashboard = () => {
                         </td>
                         <td className="px-4 py-2.5">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                              v.is_inside
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                : "bg-slate-50 text-slate-600 border-slate-200"
-                            }`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${v.is_inside
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-slate-50 text-slate-600 border-slate-200"
+                              }`}
                           >
                             {v.is_inside ? "INSIDE CAMPUS" : "CHECKED OUT"}
                           </span>
@@ -878,11 +945,10 @@ export const GuardDashboard = () => {
               <button
                 type="button"
                 onClick={isStreaming ? stopStream : startStream}
-                className={`text-xs font-semibold px-2.5 py-1 rounded transition ${
-                  isStreaming
-                    ? "bg-rose-600 hover:bg-rose-500 text-white"
-                    : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
-                }`}
+                className={`text-xs font-semibold px-2.5 py-1 rounded transition ${isStreaming
+                  ? "bg-rose-600 hover:bg-rose-500 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                  }`}
               >
                 {isStreaming ? "Stop Feed" : "Start Camera"}
               </button>
@@ -937,11 +1003,10 @@ export const GuardDashboard = () => {
                       </td>
                       <td className="px-3.5 py-2">
                         <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border ${
-                            ev.action === "ENTRY"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                          }`}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border ${ev.action === "ENTRY"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
                         >
                           {ev.action}
                         </span>
@@ -949,9 +1014,8 @@ export const GuardDashboard = () => {
                       <td className="px-3.5 py-2 text-slate-600">{ev.location_name || "Main Gate"}</td>
                       <td className="px-3.5 py-2 font-semibold">
                         <span
-                          className={`inline-flex items-center gap-1 ${
-                            ev.status === "GRANTED" ? "text-emerald-700" : "text-rose-700"
-                          }`}
+                          className={`inline-flex items-center gap-1 ${ev.status === "GRANTED" ? "text-emerald-700" : "text-rose-700"
+                            }`}
                         >
                           {ev.status === "GRANTED" ? <CheckCircle size={13} /> : <XCircle size={13} />}
                           {ev.status}
@@ -1011,7 +1075,7 @@ export const GuardDashboard = () => {
       {/* ══════════════════════════════════════════════════════════════════ */}
       {visitorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1038,22 +1102,20 @@ export const GuardDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setVisitorPassType("TEMPORARY_DAY")}
-                  className={`py-1.5 px-3 rounded-md transition ${
-                    visitorPassType === "TEMPORARY_DAY"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`py-1.5 px-3 rounded-md transition ${visitorPassType === "TEMPORARY_DAY"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   Day Pass (05:00 AM – 05:00 PM)
                 </button>
                 <button
                   type="button"
                   onClick={() => setVisitorPassType("SPECIAL_FUNCTION")}
-                  className={`py-1.5 px-3 rounded-md transition ${
-                    visitorPassType === "SPECIAL_FUNCTION"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`py-1.5 px-3 rounded-md transition ${visitorPassType === "SPECIAL_FUNCTION"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   Special Event / ID Card
                 </button>
@@ -1070,7 +1132,7 @@ export const GuardDashboard = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Ramesh Kumar"
+                    placeholder="name"
                     value={visitorForm.full_name}
                     onChange={(e) => setVisitorForm({ ...visitorForm, full_name: e.target.value })}
                     className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
@@ -1084,7 +1146,7 @@ export const GuardDashboard = () => {
                   <input
                     type="tel"
                     required
-                    placeholder="+91 98765 43210"
+                    placeholder="+91"
                     value={visitorForm.phone}
                     onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
                     className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
@@ -1112,7 +1174,7 @@ export const GuardDashboard = () => {
                   <input
                     type="text"
                     required
-                    placeholder="Registrar / Dean Office"
+                    placeholder="text"
                     value={visitorForm.host_person}
                     onChange={(e) => setVisitorForm({ ...visitorForm, host_person: e.target.value })}
                     className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
@@ -1138,16 +1200,71 @@ export const GuardDashboard = () => {
 
                 <div>
                   <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-                    ID Number (Last 4 or Full)
+                    ID Number
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 5432"
                     value={visitorForm.gov_id_number}
                     onChange={(e) => setVisitorForm({ ...visitorForm, gov_id_number: e.target.value })}
                     className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden"
                   />
                 </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                    No. of People
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    placeholder="0"
+                    value={visitorForm.accompanying_count === 0 ? "" : visitorForm.accompanying_count}
+                    onChange={(e) => handleAccompanyingCountChange(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
+                  />
+                </div>
+
+                {/* If count is 0, show a clean placeholder in column 2 */}
+                {(Number(visitorForm.accompanying_count) || 0) === 0 && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+                      Person Name(s)
+                    </label>
+                    <input
+                      type="text"
+                      disabled
+                      placeholder="Solo visitor (Enter No. of People to add names)"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                )}
+
+                {/* If count >= 1, dynamically render input for each person */}
+                {(visitorForm.accompanying_persons || []).map((name, idx) => (
+                  <div key={idx}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-600">
+                        Person {idx + 1} Name *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePerson(idx)}
+                        className="text-[10px] text-red-500 hover:text-red-700 font-medium"
+                        title="Remove person"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder={`Enter Person ${idx + 1} Full Name`}
+                      value={name}
+                      onChange={(e) => handlePersonNameChange(idx, e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-hidden focus:border-slate-800"
+                    />
+                  </div>
+                ))}
               </div>
 
               {visitorPassType === "SPECIAL_FUNCTION" && (
@@ -1263,6 +1380,25 @@ export const GuardDashboard = () => {
                   <span className="text-slate-400">Host:</span>
                   <span className="text-slate-800">{issuedPassReceipt.host_person}</span>
                 </div>
+                <div className="flex justify-between py-0.5">
+                  <span className="text-slate-400">Total Admitted:</span>
+                  <span className="font-bold text-slate-900">
+                    {issuedPassReceipt.total_persons || (Number(issuedPassReceipt.accompanying_count || 0) + 1)} Person(s)
+                    {Number(issuedPassReceipt.accompanying_count || 0) > 0 && (
+                      <span className="text-amber-700 font-medium text-[11px] ml-1">
+                        (1 + {issuedPassReceipt.accompanying_count} sath)
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {issuedPassReceipt.accompanying_details && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400">Accompanying Info:</span>
+                    <span className="text-slate-700 text-right max-w-[180px] truncate" title={issuedPassReceipt.accompanying_details}>
+                      {issuedPassReceipt.accompanying_details}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-400">Validity:</span>
                   <span className="font-medium text-emerald-700 font-mono text-[11px]">

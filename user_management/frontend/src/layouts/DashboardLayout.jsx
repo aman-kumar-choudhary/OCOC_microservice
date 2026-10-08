@@ -68,7 +68,7 @@ export const DashboardLayout = ({ children }) => {
     { name: "Onboard Person", path: "/onboarding", icon: UserPlus },
     { name: "Device Registry", path: "/devices", icon: HardDrives },
     { name: "Analytics", path: "/analytics", icon: ChartBar },
-    { name: "Audit Logs", path: "/audit", icon: FileText },
+
   ];
 
   const filteredNavItems = navItems.filter((item) =>
@@ -177,9 +177,8 @@ export const DashboardLayout = ({ children }) => {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-gradient-to-b from-[#06182e] via-[#0a2342] to-[#071d38] text-white shadow-2xl transition-transform duration-200 ${
-            isNavigationOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-gradient-to-b from-[#06182e] via-[#0a2342] to-[#071d38] text-white shadow-2xl transition-transform duration-200 ${isNavigationOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <div className="flex h-24 items-center justify-between border-b border-white/10 px-5 bg-black/10">
             <Link
@@ -224,10 +223,9 @@ export const DashboardLayout = ({ children }) => {
                   to={item.path}
                   onClick={closeNavigationAfterSelection}
                   className={({ isActive }) =>
-                    `group flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-bold transition-all duration-150 ${
-                      isActive
-                        ? "!bg-gradient-to-r !from-[#f5bd19] !to-[#ebb110] !text-[#0a2342] shadow-[0_4px_14px_rgba(245,189,25,0.3)] font-black"
-                        : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
+                    `group flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-bold transition-all duration-150 ${isActive
+                      ? "!bg-gradient-to-r !from-[#f5bd19] !to-[#ebb110] !text-[#0a2342] shadow-[0_4px_14px_rgba(245,189,25,0.3)] font-black"
+                      : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
                     }`
                   }
                 >
@@ -269,9 +267,8 @@ export const DashboardLayout = ({ children }) => {
 
         {/* Main Content Area */}
         <main
-          className={`min-w-0 flex-1 flex flex-col justify-between transition-[margin] duration-200 ${
-            isNavigationOpen ? "lg:ml-[17.5rem]" : "lg:ml-0"
-          }`}
+          className={`min-w-0 flex-1 flex flex-col justify-between transition-[margin] duration-200 ${isNavigationOpen ? "lg:ml-[17.5rem]" : "lg:ml-0"
+            }`}
         >
           <div>
             {/* Sticky Header */}
@@ -287,11 +284,7 @@ export const DashboardLayout = ({ children }) => {
                   <List size={22} weight="bold" />
                 </button>
                 <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f5bd19]/15 text-[#7b5600] text-[11px] font-black uppercase tracking-wider">
-                      <Shield size={13} weight="fill" className="text-[#d99e00]" /> OCOC Platform
-                    </span>
-                  </div>
+
                   <h2 className="font-display text-base font-extrabold text-[var(--text-main)] sm:text-lg tracking-tight">
                     Campus Identity &amp; Access Control
                   </h2>
@@ -403,9 +396,8 @@ export const DashboardLayout = ({ children }) => {
                     <CaretDown
                       size={14}
                       weight="bold"
-                      className={`hidden text-muted sm:block transition-transform duration-200 ${
-                        isProfileMenuOpen ? "rotate-180" : ""
-                      }`}
+                      className={`hidden text-muted sm:block transition-transform duration-200 ${isProfileMenuOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
 

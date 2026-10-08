@@ -22,7 +22,64 @@ from app.schemas.user import (
 )
 from app.services.audit_service import audit_service
 
-logger = logging.getLogger(__name__)
+CATALOG_DEPARTMENT_COURSES: Dict[str, List[str]] = {
+    "Department of Computer Sciences": [
+        "B.Sc. IT",
+        "Bachelor of Computer Application (Honors)",
+        "Master of Computer Application (Data Science",
+    ],
+    "Department of Tourism Management": [
+        "BBA Tourism Management", "MBA Tourism Management", "BBA Tourism", "MBA Tourism",
+        "B.B.A Tourism & Travel Management (Honors)", "M.B.A. Tourism & Travel Management", "Ph. D. Tourism Management",
+    ],
+    "Department of Journalism & Mass Communication": [
+        "B.A. Journalism & Mass Communication", "M.A. Journalism", "B.A. Mass Comm", "M.A. Mass Comm",
+        "B.A. Journalism and Mass Communication (Honors)", "M. A. Journalism and Mass Communication", "Ph. D. Journalism and Mass Communication",
+    ],
+    "Department of Animation and Visual Effects": [
+        "BCA", "B.Des Animation and Visual Effects", "Diploma in 3D Modeling", "B.Sc. Animation", "M.Sc. Animation",
+        "B.Voc. (Bachelor of Vocation) in 3D Animation and VFX (Honors)",
+    ],
+    "Department of Rural Management": [
+        "Diploma in Rural Development", "M.B.A. Rural Management", "Bachelor of Rural Studies (Honors)", "BBA Rural Management", "MBA Rural Management",
+    ],
+    "Department of Environmental Science": [
+        "B.Sc Environmental Science", "M.Sc Environmental Science", "B.Sc. Environmental Science", "M.Sc. Environmental Science",
+    ],
+    "Department of Education": [
+        "B.Ed", "M.Ed Education Studies", "B.Ed.", "B.Ed. (Bachelor of Education)", "M.Ed.", "Ph. D. Education",
+    ],
+    "Department of English": [
+        "B.A. English Honours", "M.A. English Literature", "B.A. English (Honors)", "M.A. English",
+    ],
+    "Department of Psychology": [
+        "B.A. Psychology", "M.A. Clinical Psychology", "B.A. Psychology (Honors)", "M.A. Counselling Psychology", "M.Sc. Counselling Psychology", "Ph. D. Psychology",
+    ],
+    "Department of Sanskrit and Vedic Studies": [
+        "B.A. Sanskrit Studies", "M.A. Vedic Philosophy", "B.A. Sanskrit (Honors)", "M.A. Sanskrit", "Ph.D. Sanskrit",
+    ],
+    "Department of Hindi": [
+        "B.A. Hindi", "M.A. Hindi Literature", "B.A. Hindi (Honors)", "M.A. Hindi", "Ph.D. Hindi",
+    ],
+    "Department of History and Indian Culture": [
+        "B.A. Indian Culture & Heritage", "M.A. Ancient History", "B.A. History (Honors)", "M. A. History and Indian Culture", "Ph. D. History",
+    ],
+    "Department of Indian Classical Music": [
+        "B.A. Indian Classical Music (Vocal)", "M.A. Classical Instruments", "B.A. Music (Vocal) (Honors)", "M.A. Music (Vocal)",
+        "B.A. Music Instrumental Mridang/Tabla (Honors)", "M.A. Music (Tabla, Pakhaawaj)", "Ph. D. Indian Classical Music",
+    ],
+    "Department of Oriental Studies, Religious Studies & Philosophy": [
+        "Diploma in Comparative Religion", "M.A. Philosophy & Religious Studies", "M.A. Hindu Studies", "M.A. Philosophy",
+    ],
+    "Department of Yogic Sciences and Human Consciousness": [
+        "B.Sc Yogic Science", "M.Sc Yogic Science & Human Consciousness", "B.Sc. Yogic Science (Honors)", "M.Sc. Yoga Therapy",
+        "M.A. Human Consciousness & Yogic Science", "M.Sc. Human Consciousness & Yogic Science", "P. G. Diploma Human Consciousness, Yoga & Alternative Therapy",
+        "Certificate In Yoga And Alternative Therapy", "Ph. D. Human Consciousness & Yogic Science", "Ph. D. Oriental Studies",
+    ],
+    "Department of Complementary and Alternative Medicine": [
+        "M.A. in Indigenous and Traditional Therapies", "M.Sc. in Indigenous and Traditional Therapies",
+    ],
+}
 
 
 class UserService:
@@ -64,17 +121,33 @@ class UserService:
             args.append(school.strip())
             idx += 1
         if department and department.strip():
-            clauses.append(f"d.name = ${idx}")
-            args.append(department.strip())
-            idx += 1
+            dept_val = department.strip()
+            try:
+                dept_uuid = uuid.UUID(dept_val)
+                clauses.append(f"(d.id = ${idx} OR d.name = ${idx + 1})")
+                args.extend([dept_uuid, dept_val])
+                idx += 2
+            except ValueError:
+                clauses.append(f"d.name = ${idx}")
+                args.append(dept_val)
+                idx += 1
         if course and course.strip():
-            clauses.append(f"sp.course = ${idx}")
+            clauses.append(f"(sp.course = ${idx} OR sp.course ILIKE ${idx})")
             args.append(course.strip())
             idx += 1
         if semester and semester.strip():
-            clauses.append(f"sp.semester = ${idx}")
-            args.append(semester.strip())
-            idx += 1
+            sem_clean = semester.strip()
+            sem_num = "".join(c for c in sem_clean if c.isdigit())
+            if sem_num:
+                clauses.append(
+                    f"(sp.semester = ${idx} OR sp.semester ILIKE ${idx + 1} OR sp.semester = ${idx + 2})"
+                )
+                args.extend([sem_clean, f"%Semester {sem_num}%", sem_num])
+                idx += 3
+            else:
+                clauses.append(f"sp.semester = ${idx}")
+                args.append(sem_clean)
+                idx += 1
         if hostel_id and hostel_id.strip():
             try:
                 h_uuid = uuid.UUID(hostel_id.strip())
@@ -158,6 +231,7 @@ class UserService:
                 COALESCE(sp.gov_id_number, vp.gov_id_number) AS gov_id_number,
                 vp.visit_purpose, vp.host_person, vp.host_contact,
                 vp.visit_start, vp.visit_duration_days,
+                vp.accompanying_count, vp.accompanying_details,
                 COALESCE(sp.updated_at, fp.updated_at, wdp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
                  WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
@@ -211,6 +285,7 @@ class UserService:
                 COALESCE(sp.gov_id_number, vp.gov_id_number) AS gov_id_number,
                 vp.visit_purpose, vp.host_person, vp.host_contact,
                 vp.visit_start, vp.visit_duration_days,
+                vp.accompanying_count, vp.accompanying_details,
                 COALESCE(sp.updated_at, fp.updated_at, wdp.updated_at, wp.updated_at, vp.updated_at) as p_updated_at,
                 (SELECT rc.uid FROM rfid_cards rc JOIN user_rfid_cards urc ON urc.rfid_card_id=rc.id
                  WHERE urc.user_id=u.id AND urc.is_primary=true AND urc.unassigned_at IS NULL AND rc.status='active' LIMIT 1) AS active_rfid,
@@ -488,8 +563,8 @@ class UserService:
                     INSERT INTO visitor_profiles (
                         user_id, full_name, gov_id_type, gov_id_number, visit_purpose,
                         host_person, host_contact, visit_duration_days, photo_reference,
-                        valid_until, allowed_location_ids, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+                        valid_until, allowed_location_ids, accompanying_count, accompanying_details, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
                     ON CONFLICT (user_id) DO UPDATE SET
                         full_name = EXCLUDED.full_name,
                         gov_id_type = COALESCE(EXCLUDED.gov_id_type, visitor_profiles.gov_id_type),
@@ -501,6 +576,8 @@ class UserService:
                         photo_reference = COALESCE(EXCLUDED.photo_reference, visitor_profiles.photo_reference),
                         valid_until = COALESCE(EXCLUDED.valid_until, visitor_profiles.valid_until),
                         allowed_location_ids = COALESCE(EXCLUDED.allowed_location_ids, visitor_profiles.allowed_location_ids),
+                        accompanying_count = EXCLUDED.accompanying_count,
+                        accompanying_details = EXCLUDED.accompanying_details,
                         updated_at = now()
                     """,
                     user_id,
@@ -514,6 +591,8 @@ class UserService:
                     req.profile.photo_reference,
                     v_valid_until,
                     allowed_uuids if allowed_uuids else None,
+                    max(0, req.profile.accompanying_count or 0),
+                    (req.profile.accompanying_details or "").strip(),
                 )
 
                 for a_uuid in allowed_uuids:
@@ -735,6 +814,8 @@ class UserService:
                             host_contact = COALESCE($7, host_contact),
                             visit_duration_days = COALESCE($8, visit_duration_days),
                             photo_reference = COALESCE($9, photo_reference),
+                            accompanying_count = COALESCE($10, accompanying_count),
+                            accompanying_details = COALESCE($11, accompanying_details),
                             updated_at = now()
                         WHERE user_id = $1
                         """,
@@ -747,6 +828,8 @@ class UserService:
                         p.host_contact,
                         p.visit_duration_days,
                         p.photo_reference,
+                        p.accompanying_count,
+                        p.accompanying_details,
                     )
 
                 has_warden_role = user_type == "warden" or any(
@@ -1016,6 +1099,68 @@ class UserService:
         await redis_client.set(cache_key, result, ex=3600)
         return result
 
+    async def list_courses(
+        self,
+        conn: asyncpg.Connection,
+        school: Optional[str] = None,
+        department: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        depts = await self.list_departments(conn)
+        target_depts = depts
+        if school and school.strip():
+            target_depts = [d for d in target_depts if d.school == school.strip()]
+        if department and department.strip():
+            dept_val = department.strip()
+            target_depts = [d for d in target_depts if d.id == dept_val or d.name == dept_val]
+
+        target_dept_ids = [uuid.UUID(d.id) for d in target_depts]
+
+        db_course_rows = []
+        if target_dept_ids:
+            db_course_rows = await conn.fetch("""
+                SELECT DISTINCT
+                    d.school,
+                    d.id as department_id,
+                    d.name as department_name,
+                    sp.course
+                FROM student_profiles sp
+                JOIN departments d ON d.id = sp.department_id
+                WHERE d.id = ANY($1::uuid[])
+                  AND sp.course IS NOT NULL
+                  AND sp.course != ''
+                ORDER BY d.school, d.name, sp.course
+            """, target_dept_ids)
+
+        course_set = set()
+        results: List[Dict[str, Any]] = []
+
+        for r in db_course_rows:
+            key = (r["school"], r["department_name"], r["course"])
+            if key not in course_set:
+                course_set.add(key)
+                results.append({
+                    "school": r["school"],
+                    "department_id": str(r["department_id"]),
+                    "department_name": r["department_name"],
+                    "course": r["course"],
+                })
+
+        for d in target_depts:
+            cat_courses = CATALOG_DEPARTMENT_COURSES.get(d.name, [])
+            for c in cat_courses:
+                key = (d.school, d.name, c)
+                if key not in course_set:
+                    course_set.add(key)
+                    results.append({
+                        "school": d.school,
+                        "department_id": d.id,
+                        "department_name": d.name,
+                        "course": c,
+                    })
+
+        results.sort(key=lambda x: (x.get("school") or "", x.get("department_name") or "", x.get("course") or ""))
+        return results
+
     async def get_stats(self, conn: asyncpg.Connection) -> Stats:
         cache_key = "dashboard:user_stats"
         cached = await redis_client.get(cache_key)
@@ -1086,6 +1231,8 @@ class UserService:
             shift=r["shift"] if "shift" in r else None,
             assigned_location_id=str(r["assigned_location_id"]) if "assigned_location_id" in r and r["assigned_location_id"] else None,
             host_person=r["host_person"] if "host_person" in r else None,
+            accompanying_count=r["accompanying_count"] if "accompanying_count" in r and r["accompanying_count"] is not None else 0,
+            accompanying_details=r["accompanying_details"] if "accompanying_details" in r and r["accompanying_details"] is not None else "",
             updated_at=r["p_updated_at"].isoformat() if r["p_updated_at"] else None,
         )
 

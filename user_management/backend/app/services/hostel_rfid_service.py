@@ -106,7 +106,7 @@ class HostelRFIDService:
         # Determine if gate is currently "Closed" (meaning no normal exit allowed)
         gate_closed = False
         if gate_rule:
-            current_time = now.time()
+            current_time = now.astimezone(datetime.timezone(datetime.timedelta(hours=5, minutes=30))).time()
             if gate_rule['closing_time'] < gate_rule['opening_time']:
                 # Crosses midnight (e.g. 20:00 to 06:00)
                 if current_time >= gate_rule['closing_time'] or current_time < gate_rule['opening_time']:
@@ -114,6 +114,23 @@ class HostelRFIDService:
             else:
                 if current_time >= gate_rule['closing_time'] and current_time < gate_rule['opening_time']:
                     gate_closed = True
+
+        # The Warden-managed policy adds a campus-wide curfew window. It is
+        # evaluated in IST and works for both same-day and midnight-spanning
+        # schedules (for example 22:00–05:00).
+        policy = await conn.fetchrow("""
+            SELECT curfew_enabled, curfew_start, curfew_end
+            FROM hostel_access_policy WHERE id = TRUE
+        """)
+        if policy and policy["curfew_enabled"]:
+            current_time = now.astimezone(datetime.timezone(datetime.timedelta(hours=5, minutes=30))).time()
+            start, end = policy["curfew_start"], policy["curfew_end"]
+            is_curfew_window = (
+                start <= current_time < end
+                if start < end
+                else current_time >= start or current_time < end
+            )
+            gate_closed = gate_closed or is_curfew_window
 
         # 5. Access Decision Logic
         access_granted = False

@@ -260,6 +260,8 @@ async def get_current_user_profile(
             "visit_start": vp_d.get("visit_start").isoformat() if vp_d.get("visit_start") else None,
             "visit_duration_days": vp_d.get("visit_duration_days"),
             "valid_until": vp_d.get("valid_until").isoformat() if vp_d.get("valid_until") else None,
+            "accompanying_count": vp_d.get("accompanying_count") or 0,
+            "accompanying_details": vp_d.get("accompanying_details") or "",
         }
 
     dash = role_service.get_dashboard_info(combined_roles)
@@ -290,6 +292,8 @@ async def get_current_user_profile(
         "assigned_location": wp_d.get("location_name") if wp else None,
         "visitor_purpose": vp_d.get("visit_purpose") if vp else user["visitor_purpose"],
         "host_person": vp_d.get("host_person") if vp else None,
+        "accompanying_count": vp_d.get("accompanying_count") if vp else 0,
+        "accompanying_details": vp_d.get("accompanying_details") if vp else "",
         "roles": combined_roles,
         "role_profiles": role_profiles,
         "locations": locations,

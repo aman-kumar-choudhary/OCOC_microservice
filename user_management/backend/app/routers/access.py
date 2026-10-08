@@ -248,6 +248,12 @@ async def search_access_users(
     course: Optional[str] = Query(None),
     semester: Optional[str] = Query(None),
     hostel: Optional[str] = Query(None),
+    designation: Optional[str] = Query(None),
+    job_type: Optional[str] = Query(None),
+    work_area: Optional[str] = Query(None),
+    shift: Optional[str] = Query(None),
+    visit_purpose: Optional[str] = Query(None),
+    host_person: Optional[str] = Query(None),
     campus: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     access_filter: Optional[str] = Query(None, description="no_access | partial | full"),
@@ -260,7 +266,9 @@ async def search_access_users(
     result = await access_service.search_access_users(
         conn, search=search, user_type=user_type, role=role,
         department=department, course=course, semester=semester,
-        hostel=hostel, campus=campus, status=status,
+        hostel=hostel, designation=designation, job_type=job_type,
+        work_area=work_area, shift=shift, visit_purpose=visit_purpose,
+        host_person=host_person, campus=campus, status=status,
         access_filter=access_filter, page=page, page_size=page_size,
     )
     return {"success": True, "data": result}
@@ -531,9 +539,18 @@ async def guard_register_visitor(
 
     # Calculate validity
     if req.pass_type == "TEMPORARY_DAY":
-        # Today 05:00 AM to 05:00 PM IST
+        policy = await conn.fetchrow("""
+            SELECT visitor_cutoff_enabled, visitor_cutoff
+            FROM hostel_access_policy WHERE id = TRUE
+        """)
+        # Day passes begin at 05:00 AM and end at the Warden-configured
+        # departure cut-off (05:00 PM by default).
+        visitor_cutoff = policy["visitor_cutoff"] if policy and policy["visitor_cutoff_enabled"] else datetime.time(17, 0)
         v_start_ist = now_ist.replace(hour=5, minute=0, second=0, microsecond=0)
-        v_end_ist = now_ist.replace(hour=17, minute=0, second=0, microsecond=0)
+        v_end_ist = now_ist.replace(
+            hour=visitor_cutoff.hour, minute=visitor_cutoff.minute,
+            second=0, microsecond=0,
+        )
         valid_from = v_start_ist.astimezone(datetime.timezone.utc)
         valid_until = v_end_ist.astimezone(datetime.timezone.utc)
     else:
@@ -570,12 +587,16 @@ async def guard_register_visitor(
 
     # Insert or update visitor profile
     days = max(1, int((valid_until - valid_from).total_seconds() / 86400))
+    acc_count = max(0, req.accompanying_count or 0)
+    acc_details = (req.accompanying_details or "").strip()
+    total_persons = acc_count + 1
+
     await conn.execute("""
         INSERT INTO visitor_profiles (
             user_id, full_name, gov_id_type, gov_id_number, visit_purpose,
             host_person, host_contact, visit_start, visit_duration_days,
-            valid_until, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+            valid_until, accompanying_count, accompanying_details, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
         ON CONFLICT (user_id) DO UPDATE SET
             full_name = EXCLUDED.full_name,
             gov_id_type = COALESCE(EXCLUDED.gov_id_type, visitor_profiles.gov_id_type),
@@ -586,9 +607,11 @@ async def guard_register_visitor(
             visit_start = EXCLUDED.visit_start,
             visit_duration_days = EXCLUDED.visit_duration_days,
             valid_until = EXCLUDED.valid_until,
+            accompanying_count = EXCLUDED.accompanying_count,
+            accompanying_details = EXCLUDED.accompanying_details,
             updated_at = now()
     """, user_id, req.full_name, req.gov_id_type, req.gov_id_number, req.visit_purpose,
-       req.host_person, req.host_contact, valid_from, days, valid_until)
+       req.host_person, req.host_contact, valid_from, days, valid_until, acc_count, acc_details)
 
     # Handle Assigned RFID / ID Card UID if provided
     card_assigned = False
@@ -611,12 +634,13 @@ async def guard_register_visitor(
         card_assigned = True
 
     # Log visitor ENTRY event
+    entry_desc = f"Visitor Onboarded ({req.pass_type}) - Total {total_persons} person{'s' if total_persons > 1 else ''}"
     await conn.fetchval("""
         INSERT INTO access_events (
             user_id, action, status, reason, event_time
         ) VALUES ($1, 'ENTRY', 'GRANTED', $2, $3)
         RETURNING id
-    """, user_id, f"Visitor Onboarded ({req.pass_type})", now)
+    """, user_id, entry_desc, now)
 
     # Broadcast visitor arrival
     try:
@@ -630,7 +654,7 @@ async def guard_register_visitor(
                 "action": "ENTRY",
                 "location_name": "Main Visitor Checkpoint",
                 "status": "GRANTED",
-                "reason": f"Visitor Pass Issued: {req.visit_purpose}",
+                "reason": f"Visitor Pass Issued: {req.visit_purpose} ({total_persons} pers.)",
                 "event_time": now.isoformat(),
             }
         })
@@ -659,6 +683,9 @@ async def guard_register_visitor(
             "assigned_card_uid": card_uid_clean,
             "card_assigned": card_assigned,
             "event_name": req.event_name or req.visit_purpose,
+            "accompanying_count": acc_count,
+            "accompanying_details": acc_details,
+            "total_persons": total_persons,
             "status": "ACTIVE_ON_CAMPUS",
             "issued_by": claims.preferred_username or claims.email or "Campus Guard Console",
             "issued_at_ist": now_ist.strftime("%d-%m-%Y, %I:%M %p IST"),
@@ -688,6 +715,8 @@ async def guard_list_visitors(
             vp.host_contact,
             vp.visit_start as valid_from,
             vp.valid_until,
+            COALESCE(vp.accompanying_count, 0) as accompanying_count,
+            COALESCE(vp.accompanying_details, '') as accompanying_details,
             rc.uid as card_uid,
             u.created_at,
             COALESCE(
@@ -721,6 +750,8 @@ async def guard_list_visitors(
 
         is_expired = bool(v_until and now > v_until)
         is_inside = r["last_action"] == "ENTRY"
+        acc_cnt = int(r["accompanying_count"] or 0)
+        acc_det = str(r["accompanying_details"] or "")
 
         result.append({
             "visitor_id": str(r["visitor_id"]),
@@ -740,6 +771,9 @@ async def guard_list_visitors(
             "last_action": r["last_action"],
             "is_inside": is_inside,
             "is_expired": is_expired,
+            "accompanying_count": acc_cnt,
+            "accompanying_details": acc_det,
+            "total_persons": acc_cnt + 1,
             "status": "CHECKED_OUT" if not is_inside else ("EXPIRED" if is_expired else "INSIDE_CAMPUS"),
         })
 
@@ -948,4 +982,3 @@ async def execute_security_command(
         "data": event_payload,
         "message": f"Security command {cmd} successfully executed and broadcasted to campus gates."
     }
-

@@ -1,6 +1,16 @@
 import api from "./api";
 
 export const hostelService = {
+  getAccessPolicy: async () => {
+    const response = await api.get("/hostel/access-policy");
+    return response.data.data;
+  },
+
+  updateAccessPolicy: async (policy) => {
+    const response = await api.put("/hostel/access-policy", policy);
+    return response.data.data;
+  },
+
   getDashboardStats: async (hostelId) => {
     const params = hostelId ? { hostel_id: hostelId } : {};
     const response = await api.get("/hostel/dashboard", { params });

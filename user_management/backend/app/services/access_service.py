@@ -29,12 +29,12 @@ class AccessService:
     """The single access-decision path for RFID and manual evaluations."""
 
     async def get_locations(self, conn: asyncpg.Connection) -> List[Location]:
-        cached = await redis_client.get("access:locations")
+        cached = await redis_client.get("access:locations:active-v1")
         if cached is not None and isinstance(cached, list):
             return [Location(**r) for r in cached]
-        rows = await conn.fetch("SELECT * FROM locations ORDER BY type, name")
+        rows = await conn.fetch("SELECT * FROM locations WHERE status = 'active' ORDER BY type, name")
         res = [Location(**dict(row)) for row in rows]
-        await redis_client.set("access:locations", [r.model_dump() for r in res], ex=3600)
+        await redis_client.set("access:locations:active-v1", [r.model_dump() for r in res], ex=3600)
         return res
 
     async def get_devices(self, conn: asyncpg.Connection) -> list[dict]:
@@ -280,6 +280,12 @@ class AccessService:
         course: Optional[str] = None,
         semester: Optional[str] = None,
         hostel: Optional[str] = None,
+        designation: Optional[str] = None,
+        job_type: Optional[str] = None,
+        work_area: Optional[str] = None,
+        shift: Optional[str] = None,
+        visit_purpose: Optional[str] = None,
+        host_person: Optional[str] = None,
         campus: Optional[str] = None,
         status: Optional[str] = None,
         access_filter: Optional[str] = None,  # no_access | partial | full
@@ -318,6 +324,30 @@ class AccessService:
         if hostel and hostel.strip():
             clauses.append(f"h.name = ${idx}")
             args.append(hostel.strip())
+            idx += 1
+        if designation and designation.strip():
+            clauses.append(f"COALESCE(fp.designation, wp.designation) = ${idx}")
+            args.append(designation.strip())
+            idx += 1
+        if job_type and job_type.strip():
+            clauses.append(f"wp.job_type = ${idx}")
+            args.append(job_type.strip())
+            idx += 1
+        if work_area and work_area.strip():
+            clauses.append(f"wp.work_area = ${idx}")
+            args.append(work_area.strip())
+            idx += 1
+        if shift and shift.strip():
+            clauses.append(f"wp.shift = ${idx}")
+            args.append(shift.strip())
+            idx += 1
+        if visit_purpose and visit_purpose.strip():
+            clauses.append(f"vp.visit_purpose = ${idx}")
+            args.append(visit_purpose.strip())
+            idx += 1
+        if host_person and host_person.strip():
+            clauses.append(f"vp.host_person ILIKE ${idx}")
+            args.append(f"%{host_person.strip()}%")
             idx += 1
         if role and role.strip():
             clauses.append(f"EXISTS (SELECT 1 FROM user_roles ur2 JOIN roles r2 ON r2.id=ur2.role_id WHERE ur2.user_id=u.id AND r2.name=${idx})")

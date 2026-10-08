@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, status
+from typing import Optional
+from fastapi import APIRouter, Depends, Query, status
 import asyncpg
 import uuid
 from app.core.database import get_db
@@ -21,6 +22,21 @@ async def list_departments(conn: asyncpg.Connection = Depends(get_db)):
     except Exception as e:
         logger.error("List departments failed: %s", e)
         return error_response("DEPARTMENTS_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/api/v1/courses")
+@router.get("/api/v1/reference/courses")
+async def list_reference_courses(
+    school: Optional[str] = Query(None),
+    department: Optional[str] = Query(None),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    try:
+        courses = await user_service.list_courses(conn, school=school, department=department)
+        return success_response(data=courses)
+    except Exception as e:
+        logger.error("List reference courses failed: %s", e)
+        return error_response("COURSES_FAILED", str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.get("/api/v1/reference/hostels")

@@ -64,6 +64,11 @@ export default {
     return data.data;
   },
 
+  async getCourses(params) {
+    const { data } = await api.get("/courses", { params });
+    return data.data;
+  },
+
   async getHostels() {
     try {
       const { data } = await api.get("/hostels");

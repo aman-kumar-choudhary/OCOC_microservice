@@ -1,6 +1,8 @@
+import datetime
 import uuid
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 import asyncpg
 from app.core.database import get_db
 from app.core.security import Claims, require_role, require_permission, resolve_warden_hostel_scope
@@ -14,6 +16,70 @@ from app.services.hostel_service import hostel_service
 from app.services.hostel_rfid_service import hostel_rfid_service
 
 router = APIRouter(prefix="/api/v1/hostel", tags=["hostel"])
+
+
+class HostelAccessPolicyRequest(BaseModel):
+    curfew_enabled: bool
+    curfew_start: datetime.time
+    curfew_end: datetime.time
+    visitor_cutoff_enabled: bool
+    visitor_cutoff: datetime.time
+
+
+@router.get("/access-policy", response_model=Dict[str, Any])
+async def get_access_policy(
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN")),
+):
+    """Return the campus gate timings managed from Hostel Management."""
+    row = await conn.fetchrow("""
+        SELECT curfew_enabled, curfew_start, curfew_end,
+               visitor_cutoff_enabled, visitor_cutoff, updated_at
+        FROM hostel_access_policy WHERE id = TRUE
+    """)
+    if not row:
+        return success_response(data={
+            "curfew_enabled": True, "curfew_start": "22:00",
+            "curfew_end": "05:00", "visitor_cutoff_enabled": True,
+            "visitor_cutoff": "17:00", "updated_at": None,
+        })
+    data = dict(row)
+    for field in ("curfew_start", "curfew_end", "visitor_cutoff"):
+        data[field] = data[field].strftime("%H:%M")
+    data["updated_at"] = data["updated_at"].isoformat() if data["updated_at"] else None
+    return success_response(data=data)
+
+
+@router.put("/access-policy", response_model=Dict[str, Any])
+async def update_access_policy(
+    req: HostelAccessPolicyRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    claims: Claims = Depends(require_role("SUPER_ADMIN", "WARDEN")),
+):
+    """Allow wardens to configure curfew and visitor cut-off times."""
+    actor_id = await conn.fetchval("SELECT id FROM users WHERE keycloak_user_id = $1", claims.sub)
+    row = await conn.fetchrow("""
+        INSERT INTO hostel_access_policy (
+            id, curfew_enabled, curfew_start, curfew_end,
+            visitor_cutoff_enabled, visitor_cutoff, updated_by, updated_at
+        ) VALUES (TRUE, $1, $2, $3, $4, $5, $6, now())
+        ON CONFLICT (id) DO UPDATE SET
+            curfew_enabled = EXCLUDED.curfew_enabled,
+            curfew_start = EXCLUDED.curfew_start,
+            curfew_end = EXCLUDED.curfew_end,
+            visitor_cutoff_enabled = EXCLUDED.visitor_cutoff_enabled,
+            visitor_cutoff = EXCLUDED.visitor_cutoff,
+            updated_by = EXCLUDED.updated_by,
+            updated_at = now()
+        RETURNING curfew_enabled, curfew_start, curfew_end,
+                  visitor_cutoff_enabled, visitor_cutoff, updated_at
+    """, req.curfew_enabled, req.curfew_start, req.curfew_end,
+        req.visitor_cutoff_enabled, req.visitor_cutoff, actor_id)
+    data = dict(row)
+    for field in ("curfew_start", "curfew_end", "visitor_cutoff"):
+        data[field] = data[field].strftime("%H:%M")
+    data["updated_at"] = data["updated_at"].isoformat()
+    return success_response(data=data, message="Hostel gate access policy updated")
 @router.get("/assigned-hostels", response_model=Dict[str, Any])
 async def get_assigned_hostels(
     conn: asyncpg.Connection = Depends(get_db),

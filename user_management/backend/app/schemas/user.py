@@ -39,6 +39,8 @@ class ProfileRequest(BaseModel):
     valid_until: Optional[str] = None
     allowed_location_ids: Optional[List[str]] = None
     allowed_locations: Optional[str] = None
+    accompanying_count: Optional[int] = 0
+    accompanying_details: Optional[str] = None
 
 
 class Profile(ProfileRequest):
