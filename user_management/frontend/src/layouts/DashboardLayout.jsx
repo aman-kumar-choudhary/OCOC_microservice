@@ -14,7 +14,6 @@ import {
   ShieldWarning,
   UserPlus,
   Users,
-  X,
   UserFocus,
   CaretDown,
   Envelope,
@@ -34,7 +33,11 @@ import {
 export const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const { user, roles, email, fullName, hasRole, logout } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Keep the navigation open on larger screens by default, but let the same
+  // menu control collapse or restore it at every viewport size.
+  const [isNavigationOpen, setIsNavigationOpen] = useState(
+    () => typeof window !== "undefined" && window.innerWidth >= 1024,
+  );
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSecurityMenuOpen, setIsSecurityMenuOpen] = useState(false);
   const [legalModalOpen, setLegalModalOpen] = useState(false);
@@ -71,6 +74,10 @@ export const DashboardLayout = ({ children }) => {
   const filteredNavItems = navItems.filter((item) =>
     isAuthorizedForRoute(item.path, roles),
   );
+
+  const closeNavigationAfterSelection = () => {
+    if (window.innerWidth < 1024) setIsNavigationOpen(false);
+  };
 
   const handleLogout = async () => {
     setIsProfileMenuOpen(false);
@@ -161,17 +168,17 @@ export const DashboardLayout = ({ children }) => {
     <div className="min-h-screen bg-[var(--bg-main)] lg:flex flex-col">
       <div className="flex-1 lg:flex">
         {/* Mobile backdrop */}
-        {isMobileMenuOpen && (
+        {isNavigationOpen && (
           <div
             className="fixed inset-0 z-40 bg-[#0a2342]/50 backdrop-blur-sm lg:hidden"
-            onClick={() => setIsMobileMenuOpen(false)}
+            onClick={() => setIsNavigationOpen(false)}
           />
         )}
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-gradient-to-b from-[#06182e] via-[#0a2342] to-[#071d38] text-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
-            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          className={`fixed inset-y-0 left-0 z-50 flex w-[17.5rem] flex-col bg-gradient-to-b from-[#06182e] via-[#0a2342] to-[#071d38] text-white shadow-2xl transition-transform duration-200 ${
+            isNavigationOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           <div className="flex h-24 items-center justify-between border-b border-white/10 px-5 bg-black/10">
@@ -179,7 +186,7 @@ export const DashboardLayout = ({ children }) => {
               to={roleDashboardPath(roles)}
               className="flex items-center gap-3 text-white no-underline group"
               aria-label="DSVV dashboard"
-              onClick={() => setIsMobileMenuOpen(false)}
+              onClick={closeNavigationAfterSelection}
             >
               <img
                 src={dsvvLogo}
@@ -195,13 +202,6 @@ export const DashboardLayout = ({ children }) => {
                 </span>
               </div>
             </Link>
-            <button
-              className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition lg:hidden icon-touch"
-              aria-label="Close navigation"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <X size={20} weight="bold" />
-            </button>
           </div>
 
           <div className="px-5 pt-5 pb-1 flex items-center justify-between text-[11px] font-black uppercase tracking-[0.16em] text-slate-400/80">
@@ -212,6 +212,7 @@ export const DashboardLayout = ({ children }) => {
           </div>
 
           <nav
+            id="primary-navigation"
             className="flex-1 space-y-1 px-3 py-3 overflow-y-auto"
             aria-label="Primary navigation"
           >
@@ -221,7 +222,7 @@ export const DashboardLayout = ({ children }) => {
                 <NavLink
                   key={item.path}
                   to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeNavigationAfterSelection}
                   className={({ isActive }) =>
                     `group flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-bold transition-all duration-150 ${
                       isActive
@@ -267,15 +268,21 @@ export const DashboardLayout = ({ children }) => {
         </aside>
 
         {/* Main Content Area */}
-        <main className="min-w-0 flex-1 flex flex-col justify-between">
+        <main
+          className={`min-w-0 flex-1 flex flex-col justify-between transition-[margin] duration-200 ${
+            isNavigationOpen ? "lg:ml-[17.5rem]" : "lg:ml-0"
+          }`}
+        >
           <div>
             {/* Sticky Header */}
-            <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-md lg:px-8 shadow-[0_1px_3px_rgba(10,35,66,0.03)]">
+            <header className="sticky top-0 z-30 flex h-24 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-md lg:px-8 shadow-[0_1px_3px_rgba(10,35,66,0.03)]">
               <div className="flex items-center gap-3.5">
                 <button
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-white text-[#0a2342] shadow-xs hover:bg-slate-50 transition lg:hidden icon-touch"
-                  aria-label="Open navigation"
-                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-white text-[#0a2342] shadow-xs hover:bg-slate-50 transition icon-touch"
+                  aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"}
+                  aria-expanded={isNavigationOpen}
+                  aria-controls="primary-navigation"
+                  onClick={() => setIsNavigationOpen((isOpen) => !isOpen)}
                 >
                   <List size={22} weight="bold" />
                 </button>
