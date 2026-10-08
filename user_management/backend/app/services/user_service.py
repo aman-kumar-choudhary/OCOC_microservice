@@ -44,7 +44,7 @@ class UserService:
         limit: int = 20,
     ) -> UserListResult:
         page = max(1, page)
-        limit = min(max(1, limit), 200)
+        limit = min(max(1, limit), 2000)
         offset = (page - 1) * limit
 
         clauses = []

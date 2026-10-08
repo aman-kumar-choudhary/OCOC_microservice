@@ -1,10 +1,10 @@
-# pyrefly: ignore [missing-import]
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import List, Dict, Any
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from typing import List, Dict, Any, Optional
 import logging
 import json
 import asyncio
 import jwt
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ws", tags=["websockets"])
@@ -30,7 +30,7 @@ class ConnectionManager:
         text_data = json.dumps(message)
         failed_connections = []
         
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_text(text_data)
             except Exception as e:
@@ -56,7 +56,7 @@ manager = ConnectionManager()
 
 AUTHORIZED_STREAM_ROLES = {
     "SUPER_ADMIN", "ADMIN", "SECURITY_ADMIN", "GUARD", "SECURITY_GUARD",
-    "WARDEN", "CHIEF_WARDEN", "VIEWER"
+    "WARDEN", "CHIEF_WARDEN", "VIEWER", "STUDENT", "FACULTY", "WORKER", "STAFF"
 }
 
 @router.websocket("/stream")
@@ -66,57 +66,36 @@ async def websocket_endpoint(websocket: WebSocket):
     - Access Events (ENTRY/EXIT logs)
     - Alerts (Curfew violations, Leave violations)
     - Face Recognition Logs (if pushed by devices)
-    Requires authenticated bearer token with security or monitoring role.
+    Requires authenticated bearer token with campus member role.
     """
     token = websocket.query_params.get("token")
     if not token:
         logger.warning("Rejecting unauthenticated WebSocket connection without token")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        except Exception:
+            pass
         return
 
     roles: List[str] = []
+    claims = None
     try:
-        from app.core.security import fetch_jwks
-        from app.config import settings
-        jwks = await fetch_jwks()
-        payload = None
-        if jwks and "keys" in jwks:
-            try:
-                unverified_header = jwt.get_unverified_header(token)
-                kid = unverified_header.get("kid")
-                key_data = next((k for k in jwks["keys"] if k.get("kid") == kid), None)
-                if key_data:
-                    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
-                    payload = jwt.decode(
-                        token,
-                        public_key,
-                        algorithms=["RS256"],
-                        options={"verify_aud": False},
-                    )
-            except Exception as e:
-                logger.debug("JWKS validation failed for WS token: %s", e)
-
-        if (
-            payload is None
-            and getattr(settings, "ALLOW_UNVERIFIED_JWT_DEV", False)
-            and settings.ENVIRONMENT.lower() in {"development", "dev", "test"}
-        ):
-            try:
-                payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False})
-            except Exception:
-                pass
-
-        if payload:
-            realm_access = payload.get("realm_access", {})
-            roles = realm_access.get("roles", []) if isinstance(realm_access, dict) else []
+        from app.core.security import decode_token_claims
+        claims = await decode_token_claims(token)
+        if claims:
+            roles = claims.roles
     except Exception as e:
         logger.warning("WebSocket token decoding error: %s", e)
 
-    # Check that at least one authorized role is present
+    # Check that at least one authorized role is present or token has valid subject
     user_roles_upper = {r.upper() for r in roles}
-    if not user_roles_upper.intersection(AUTHORIZED_STREAM_ROLES):
+    is_authorized = bool(user_roles_upper.intersection(AUTHORIZED_STREAM_ROLES)) or (claims is not None and bool(claims.sub))
+    if not is_authorized:
         logger.warning("Rejecting WebSocket connection: user roles %s not authorized for live stream", roles)
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        except Exception:
+            pass
         return
 
     await manager.connect(websocket, roles)

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
-from app.core.security import Claims, get_current_claims, require_permission, resolve_warden_hostel_scope, ADMIN_ROLES
+from app.core.security import Claims, get_current_claims, require_permission, resolve_warden_hostel_scope, ADMIN_ROLES, ensure_local_user
 
 router = APIRouter(prefix="/api/v1/leave", tags=["leave_management"])
 STAGE_PERMISSIONS = {"leave.approve.warden", "leave.approve.chancellor", "leave.approve.medical"}
@@ -59,14 +59,7 @@ class DelegationInput(BaseModel):
 
 
 async def local_user(conn: asyncpg.Connection, claims: Claims) -> uuid.UUID:
-    value = await conn.fetchval(
-        "SELECT id FROM users WHERE keycloak_user_id=$1 OR (email IS NOT NULL AND LOWER(email)=LOWER($2)) ORDER BY CASE WHEN keycloak_user_id=$1 THEN 0 ELSE 1 END LIMIT 1",
-        str(claims.sub),
-        str(claims.email or claims.preferred_username or ""),
-    )
-    if not value:
-        raise HTTPException(403, "No local user is linked to this account")
-    return value
+    return await ensure_local_user(conn, claims)
 
 
 def response(data: Any = None, message: str = "") -> dict[str, Any]:
@@ -201,11 +194,21 @@ async def list_requests(
     conditions = []
     params = []
 
+    # Normalize query params
+    h_id = hostel_id if isinstance(hostel_id, str) else None
+    s_filter = status_filter if isinstance(status_filter, str) else None
+    lt_filter = leave_type_filter if isinstance(leave_type_filter, str) else None
+    d_from = date_from if isinstance(date_from, datetime) else None
+    d_to = date_to if isinstance(date_to, datetime) else None
+    s_term = search if isinstance(search, str) else None
+    p_limit = limit if isinstance(limit, int) else 50
+    p_offset = offset if isinstance(offset, int) else 0
+
     # 1. Role-based scoping
     if claims.has_any_role("SUPER_ADMIN", "ADMIN") or claims.has_any_role("GUARD", "SECURITY_GUARD", "SECURITY_ADMIN", "VIEWER"):
-        if hostel_id and hostel_id.strip():
+        if h_id and h_id.strip():
             try:
-                h_uuid = uuid.UUID(hostel_id.strip())
+                h_uuid = uuid.UUID(h_id.strip())
                 conditions.append(f"sp.hostel_id = ${len(params)+1}")
                 params.append(h_uuid)
             except Exception:
@@ -213,7 +216,7 @@ async def list_requests(
     elif claims.has_any_role("WARDEN"):
         warden_hostels = await resolve_warden_hostel_scope(conn, claims)
         if not warden_hostels:
-            return {"success": True, "data": [], "pagination": {"limit": limit, "offset": offset, "total": 0}}
+            return {"success": True, "data": [], "pagination": {"limit": p_limit, "offset": p_offset, "total": 0}}
         conditions.append(f"sp.hostel_id = ANY(${len(params)+1}::uuid[])")
         params.append(warden_hostels)
     elif any(can_approve(claims, permission) for permission in STAGE_PERMISSIONS):
@@ -228,24 +231,24 @@ async def list_requests(
         params.append(actor)
 
     # 2. Dynamic criteria filters
-    if status_filter and status_filter.strip():
+    if s_filter and s_filter.strip():
         conditions.append(f"r.status = ${len(params)+1}")
-        params.append(status_filter.strip())
+        params.append(s_filter.strip())
 
-    if leave_type_filter and leave_type_filter.strip():
+    if lt_filter and lt_filter.strip():
         conditions.append(f"(t.code = ${len(params)+1} OR t.id::text = ${len(params)+1} OR t.name ILIKE ${len(params)+1})")
-        params.append(leave_type_filter.strip())
+        params.append(lt_filter.strip())
 
-    if date_from:
+    if d_from:
         conditions.append(f"r.end_at >= ${len(params)+1}")
-        params.append(date_from)
+        params.append(d_from)
 
-    if date_to:
+    if d_to:
         conditions.append(f"r.start_at <= ${len(params)+1}")
-        params.append(date_to)
+        params.append(d_to)
 
-    if search and search.strip():
-        search_pattern = f"%{search.strip()}%"
+    if s_term and s_term.strip():
+        search_pattern = f"%{s_term.strip()}%"
         conditions.append(
             f"(COALESCE(sp.full_name, u.email) ILIKE ${len(params)+1} "
             f"OR u.email ILIKE ${len(params)+1} "
@@ -258,8 +261,8 @@ async def list_requests(
 
     total = await conn.fetchval(f"SELECT COUNT(*) {base_from} {where_clause}", *params)
 
-    p_limit = len(params) + 1
-    p_offset = len(params) + 2
+    limit_idx = len(params) + 1
+    offset_idx = len(params) + 2
     query = f"""
         SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
                COALESCE(sp.full_name, u.email) AS student_name,
@@ -268,13 +271,13 @@ async def list_requests(
         {base_from}
         {where_clause}
         ORDER BY r.created_at DESC
-        LIMIT ${p_limit} OFFSET ${p_offset}
+        LIMIT ${limit_idx} OFFSET ${offset_idx}
     """
-    rows = await conn.fetch(query, *params, limit, offset)
+    rows = await conn.fetch(query, *params, p_limit, p_offset)
     return {
         "success": True,
         "data": [dict(r) for r in rows],
-        "pagination": {"limit": limit, "offset": offset, "total": total or 0},
+        "pagination": {"limit": p_limit, "offset": p_offset, "total": total or 0},
     }
 
 
@@ -355,7 +358,7 @@ async def pending_approvals(conn=Depends(get_db), claims: Claims = Depends(get_c
     actor = await local_user(conn, claims)
     permissions = [permission for permission in STAGE_PERMISSIONS if can_approve(claims, permission)]
     if not permissions:
-        raise HTTPException(403, "No leave approval permission")
+        return response([])
     base_query = """
         SELECT r.*, t.name AS leave_type, t.code AS leave_type_code,
                COALESCE(p.full_name, u.email) AS student_name,

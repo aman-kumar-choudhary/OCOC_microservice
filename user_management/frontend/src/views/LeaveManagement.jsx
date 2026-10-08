@@ -323,7 +323,7 @@ export default function LeaveManagement() {
 
   const refresh = async () => {
     try {
-      const [t, r, b, p] = await Promise.all([
+      const [tRes, rRes, bRes, pRes] = await Promise.allSettled([
         api.get("/leave/types"),
         api.get("/leave/requests"),
         api.get("/leave/balances/me"),
@@ -331,10 +331,15 @@ export default function LeaveManagement() {
           ? api.get("/leave/approvals/pending")
           : Promise.resolve({ data: { data: [] } }),
       ]);
-      setTypes(t.data.data || []);
-      setRequests(r.data.data || []);
-      setBalances(b.data.data || []);
-      setPending(p.data.data || []);
+      if (tRes.status === "fulfilled") setTypes(tRes.value?.data?.data || []);
+      if (rRes.status === "fulfilled") setRequests(rRes.value?.data?.data || []);
+      if (bRes.status === "fulfilled") setBalances(bRes.value?.data?.data || []);
+      if (pRes.status === "fulfilled") setPending(pRes.value?.data?.data || []);
+
+      const rejections = [tRes, rRes, bRes, pRes].filter((res) => res.status === "rejected");
+      if (rejections.length === 4) {
+        setError(rejections[0].reason?.response?.data?.error?.message || "Unable to load leave data");
+      }
     } catch (e) {
       setError(e.response?.data?.error?.message || "Unable to load leave data");
     }

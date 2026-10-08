@@ -15,7 +15,7 @@ from app.schemas.access import (
 )
 from app.services.access_service import access_service
 from app.services.hostel_service import hostel_service
-from app.core.security import Claims, get_current_claims, require_permission, require_role, ADMIN_ROLES, resolve_user_location_scope
+from app.core.security import Claims, get_current_claims, require_permission, require_role, ADMIN_ROLES, resolve_user_location_scope, ensure_local_user
 from app.core.database import get_db
 from app.services.role_service import role_service
 from app.services.audit_service import audit_service
@@ -302,29 +302,12 @@ async def get_location_tree(
 
 
 async def _resolve_actor_user_id(conn: asyncpg.Connection, claims: Claims) -> Optional[uuid.UUID]:
-    if not claims:
+    if not claims or not claims.sub:
         return None
-    if claims.sub:
-        internal_id = await conn.fetchval(
-            "SELECT id FROM users WHERE keycloak_user_id = $1", str(claims.sub)
-        )
-        if internal_id:
-            return internal_id
-        try:
-            candidate = uuid.UUID(str(claims.sub))
-            exists = await conn.fetchval("SELECT id FROM users WHERE id = $1", candidate)
-            if exists:
-                return candidate
-        except (ValueError, AttributeError):
-            pass
-    if claims.email or claims.preferred_username:
-        internal_id = await conn.fetchval(
-            "SELECT id FROM users WHERE email IS NOT NULL AND LOWER(email) = LOWER($1)",
-            str(claims.email or claims.preferred_username or ""),
-        )
-        if internal_id:
-            return internal_id
-    return None
+    try:
+        return await ensure_local_user(conn, claims)
+    except Exception:
+        return None
 
 
 @router.post("/grants", response_model=Dict[str, Any])
@@ -724,10 +707,19 @@ async def guard_list_visitors(
     result = []
     now = datetime.datetime.now(datetime.timezone.utc)
     for r in rows:
+        v_from = r["valid_from"]
+        if v_from and v_from.tzinfo is None:
+            v_from = v_from.replace(tzinfo=datetime.timezone.utc)
+
         v_until = r["valid_until"]
         if v_until and v_until.tzinfo is None:
             v_until = v_until.replace(tzinfo=datetime.timezone.utc)
-        is_expired = v_until and now > v_until
+
+        c_at = r["created_at"]
+        if c_at and c_at.tzinfo is None:
+            c_at = c_at.replace(tzinfo=datetime.timezone.utc)
+
+        is_expired = bool(v_until and now > v_until)
         is_inside = r["last_action"] == "ENTRY"
 
         result.append({
@@ -741,10 +733,10 @@ async def guard_list_visitors(
             "host_person": r["host_person"],
             "host_contact": r["host_contact"] or "—",
             "card_uid": r["card_uid"],
-            "valid_from": r["valid_from"].isoformat() if r["valid_from"] else None,
-            "valid_until": r["valid_until"].isoformat() if r["valid_until"] else None,
-            "valid_until_ist": r["valid_until"].astimezone(ist_tz).strftime("%d-%m-%Y, %I:%M %p") if r["valid_until"] else "—",
-            "created_at_ist": r["created_at"].astimezone(ist_tz).strftime("%d-%m-%Y, %I:%M %p") if r["created_at"] else "—",
+            "valid_from": v_from.isoformat() if v_from else None,
+            "valid_until": v_until.isoformat() if v_until else None,
+            "valid_until_ist": v_until.astimezone(ist_tz).strftime("%d-%m-%Y, %I:%M %p") if v_until else "—",
+            "created_at_ist": c_at.astimezone(ist_tz).strftime("%d-%m-%Y, %I:%M %p") if c_at else "—",
             "last_action": r["last_action"],
             "is_inside": is_inside,
             "is_expired": is_expired,

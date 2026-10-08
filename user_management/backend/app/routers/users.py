@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import PlainTextResponse
 import asyncpg
 from app.core.database import get_db
-from app.core.security import Claims, require_permission, get_current_claims, resolve_warden_hostel_scope, ADMIN_ROLES
+from app.core.security import Claims, require_permission, get_current_claims, resolve_warden_hostel_scope, ADMIN_ROLES, ensure_local_user
 from app.schemas.common import error_response, success_response
 from app.schemas.role import AssignRoleRequest
 from app.schemas.user import CreateUserRequest, ProfileRequest, UpdateUserRequest, BulkTransferRequest, UpdateStatusRequest
@@ -32,6 +32,10 @@ async def get_current_user_profile(
     cached = await redis_client.get(cache_key)
     if cached is not None and isinstance(cached, dict):
         return success_response(data=cached)
+
+    # Ensure local record exists and is mapped to claims.sub
+    resolved_user_id = await ensure_local_user(conn, claims)
+
     user = await conn.fetchrow(
         """
         SELECT u.id, u.email, u.phone, u.user_type, u.status, u.keycloak_user_id,
@@ -49,11 +53,10 @@ async def get_current_user_profile(
         LEFT JOIN visitor_profiles vp ON vp.user_id = u.id
         LEFT JOIN departments d ON d.id = COALESCE(sp.department_id, fp.department_id)
         LEFT JOIN hostels h ON h.id = sp.hostel_id
-        WHERE u.keycloak_user_id = $1 OR LOWER(u.email) = LOWER($2)
+        WHERE u.id = $1
         LIMIT 1
         """,
-        claims.sub,
-        claims.email or claims.preferred_username,
+        resolved_user_id,
     )
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
