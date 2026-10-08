@@ -954,7 +954,7 @@ export const Register = () => {
                           type="text"
                           required
                           className="form-input pl-9 text-xs"
-                          placeholder="e.g. Block A - Senior Wing"
+                          placeholder="e.g. Block A "
                           disabled={isLoading}
                         />
                       </div>

@@ -940,7 +940,7 @@ export const UserProfileForm = ({
                 value={profile.host_person || ""}
                 onChange={(e) => updateField("host_person", e.target.value)}
                 className="form-input"
-                placeholder="e.g. Dr. Rajesh Verma"
+                placeholder="Name"
               />
             </div>
 
@@ -1061,8 +1061,8 @@ export const UserProfileForm = ({
                         updateField("allowed_location_ids", updated);
                       }}
                       className={`px-2.5 py-1 rounded text-xs font-bold border transition ${isChecked
-                          ? "bg-orange-500 text-white border-orange-600"
-                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        ? "bg-orange-500 text-white border-orange-600"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                         }`}
                     >
                       {isChecked ? "✓ " : "+ "}

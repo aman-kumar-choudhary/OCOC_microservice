@@ -58,7 +58,7 @@ async def seed():
         """)
         await conn.execute("""
             INSERT INTO student_profiles (user_id, full_name, roll_number, department_id, course, semester, hostel_id)
-            VALUES ($1, 'Arjun Sharma', 'DSVV2026-CS-042', $2, 'B.Tech Computer Science', 'Semester 4', $3)
+            VALUES ($1, 'Arjun Sharma', 'DSVV2026-CS-042', $2, 'Bachelor of Technology', '4th Year', $3)
             ON CONFLICT (user_id) DO UPDATE SET full_name = EXCLUDED.full_name
         """, s_user["id"], dept_cs, hostel_shivalik)
 

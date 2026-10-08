@@ -184,8 +184,8 @@ export const UserAccessPanel = () => {
     } catch (err) {
       setError(
         err.response?.data?.error?.message ||
-          err.message ||
-          "Failed to search users.",
+        err.message ||
+        "Failed to search users.",
       );
       setUsers([]);
     } finally {
@@ -353,11 +353,10 @@ export const UserAccessPanel = () => {
               key={type.id || "all"}
               type="button"
               onClick={() => handleUserTypeChange(type.id)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold border transition ${
-                userType === type.id
-                  ? "bg-[#0a2342] text-white border-[#0a2342]"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-amber-400"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold border transition ${userType === type.id
+                ? "bg-[#0a2342] text-white border-[#0a2342]"
+                : "bg-white text-slate-600 border-slate-200 hover:border-amber-400"
+                }`}
             >
               {type.label}
             </button>
@@ -399,11 +398,10 @@ export const UserAccessPanel = () => {
 
             <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className={`btn text-xs font-bold ${
-                showAdvancedFilters || activeFilterCount > 0
-                  ? "bg-amber-50 border-amber-300 text-amber-900"
-                  : "btn-outline"
-              }`}
+              className={`btn text-xs font-bold ${showAdvancedFilters || activeFilterCount > 0
+                ? "bg-amber-50 border-amber-300 text-amber-900"
+                : "btn-outline"
+                }`}
             >
               <SlidersHorizontal size={14} />
               <span>Filters</span>
@@ -492,7 +490,7 @@ export const UserAccessPanel = () => {
             </select>
           </div>
 
-          
+
         </div>
 
         {/* Each profile type has its own fields. Selecting a type opens this section. */}
@@ -505,7 +503,7 @@ export const UserAccessPanel = () => {
             {userType === "student" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <FilterSelect label="Department" value={departmentFilter} onChange={updateRoleFilter(setDepartmentFilter)} options={departments.map((d) => d.name)} />
-                <FilterInput label="Course / Program" value={courseFilter} onChange={updateRoleFilter(setCourseFilter)} placeholder="e.g. B.Tech Computer Science" />
+                <FilterInput label="Program" value={courseFilter} onChange={updateRoleFilter(setCourseFilter)} placeholder="e.g. Program Name" />
                 <FilterSelect label="Semester / Year" value={semesterFilter} onChange={updateRoleFilter(setSemesterFilter)} options={[1, 2, 3, 4, 5, 6, 7, 8].map(String)} optionLabel={(s) => `Semester ${s} (Year ${Math.ceil(Number(s) / 2)})`} />
                 <FilterSelect label="Residential Hostel" value={hostelFilter} onChange={updateRoleFilter(setHostelFilter)} options={hostels.map((h) => h.name)} />
               </div>
@@ -658,11 +656,10 @@ export const UserAccessPanel = () => {
                     <tr
                       key={u.id}
                       onClick={() => setSelectedUserId(u.id)}
-                      className={`cursor-pointer transition ${
-                        isSelected
-                          ? "bg-amber-50/60 ring-1 ring-inset ring-amber-400"
-                          : "hover:bg-slate-50/80"
-                      }`}
+                      className={`cursor-pointer transition ${isSelected
+                        ? "bg-amber-50/60 ring-1 ring-inset ring-amber-400"
+                        : "hover:bg-slate-50/80"
+                        }`}
                     >
                       {/* Identity: Avatar + Name + Email */}
                       <td className="px-5 py-3.5">
@@ -711,13 +708,12 @@ export const UserAccessPanel = () => {
                             {u.user_type || "user"}
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
-                              u.status === "active"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : u.status === "suspended"
-                                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                                  : "bg-rose-50 text-rose-700 border-rose-200"
-                            }`}
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${u.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : u.status === "suspended"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                              }`}
                           >
                             {u.status || "active"}
                           </span>
@@ -788,11 +784,10 @@ export const UserAccessPanel = () => {
                             e.stopPropagation();
                             setSelectedUserId(u.id);
                           }}
-                          className={`btn text-xs py-1.5 px-3 ${
-                            isSelected
-                              ? "btn-primary"
-                              : "btn-outline text-slate-700 hover:text-slate-900"
-                          }`}
+                          className={`btn text-xs py-1.5 px-3 ${isSelected
+                            ? "btn-primary"
+                            : "btn-outline text-slate-700 hover:text-slate-900"
+                            }`}
                         >
                           <Shield size={13} />
                           <span>Manage Access</span>

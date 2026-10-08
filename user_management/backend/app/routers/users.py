@@ -430,7 +430,7 @@ async def export_users(
 
 @router.get("/import/template")
 async def import_template(claims: Claims = Depends(require_permission("user:import"))):
-    template = "user_type,email,full_name,phone,roll_number,employee_id,department,course,semester,designation\nstudent,student@example.com,John Doe,+919876543210,CS2024001,,Department of Computer Sciences,B.Tech,1,\n"
+    template = "user_type,email,full_name,phone,roll_number,employee_id,department,course,semester,designation\nstudent,student@example.com,John Doe,+919876543210,CS2024001,,Department of Computer Sciences,1,\n"
     return Response(
         content=template,
         media_type="text/csv",
