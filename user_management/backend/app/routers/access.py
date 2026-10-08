@@ -492,10 +492,10 @@ async def guard_record_movement(
     # Log in access_events for live turnstile stream
     event_id = await conn.fetchval("""
         INSERT INTO access_events (
-            user_id, action, status, reason, event_time, user_identifier
-        ) VALUES ($1, $2, 'GRANTED', $3, $4, $5)
+            user_id, action, status, reason, event_time
+        ) VALUES ($1, $2, 'GRANTED', $3, $4)
         RETURNING id
-    """, req.student_id, action_label, f"Manual Guard Check: {reason_str}", now, student["roll_number"] or student["full_name"])
+    """, req.student_id, action_label, f"Manual Guard Check: {reason_str}", now)
 
     # Broadcast WebSocket update
     event_payload = {
@@ -630,10 +630,10 @@ async def guard_register_visitor(
     # Log visitor ENTRY event
     await conn.fetchval("""
         INSERT INTO access_events (
-            user_id, action, status, reason, event_time, user_identifier
-        ) VALUES ($1, 'ENTRY', 'GRANTED', $2, $3, $4)
+            user_id, action, status, reason, event_time
+        ) VALUES ($1, 'ENTRY', 'GRANTED', $2, $3)
         RETURNING id
-    """, user_id, f"Visitor Onboarded ({req.pass_type})", now, req.full_name)
+    """, user_id, f"Visitor Onboarded ({req.pass_type})", now)
 
     # Broadcast visitor arrival
     try:
@@ -771,9 +771,9 @@ async def guard_checkout_visitor(
 
     await conn.execute("""
         INSERT INTO access_events (
-            user_id, action, status, reason, event_time, user_identifier
-        ) VALUES ($1, 'EXIT', 'GRANTED', 'Visitor Departed Campus Gate', $2, $3)
-    """, visitor_id, now, visitor["full_name"])
+            user_id, action, status, reason, event_time
+        ) VALUES ($1, 'EXIT', 'GRANTED', 'Visitor Departed Campus Gate', $2)
+    """, visitor_id, now)
 
     try:
         await manager.broadcast({
@@ -956,5 +956,4 @@ async def execute_security_command(
         "data": event_payload,
         "message": f"Security command {cmd} successfully executed and broadcasted to campus gates."
     }
-
 
